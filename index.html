@@ -5,19 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>IMI. 華語PDF教材坊</title>
   
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"></script>
   
   <script type="importmap">
     {
       "imports": {
-        "react": "https://esm.sh/react@18.2.0",
-        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-        "lucide-react": "https://esm.sh/lucide-react@0.292.0?deps=react@18.2.0"
+        "react": "[https://esm.sh/react@18.2.0](https://esm.sh/react@18.2.0)",
+        "react-dom/client": "[https://esm.sh/react-dom@18.2.0/client](https://esm.sh/react-dom@18.2.0/client)",
+        "lucide-react": "[https://esm.sh/lucide-react@0.292.0?deps=react@18.2.0](https://esm.sh/lucide-react@0.292.0?deps=react@18.2.0)"
       }
     }
   </script>
   
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="[https://unpkg.com/@babel/standalone/babel.min.js](https://unpkg.com/@babel/standalone/babel.min.js)"></script>
 </head>
 <body class="bg-[#FFF6E9]">
   
@@ -186,25 +186,31 @@
           const result = await fetchWithBackoff(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
           if (result && result.isError) { setError(`${result.message}`); setIsAnalyzing(false); return; }
           
-          // ======== 修復「映射問題」的程式碼開始 ========
-          // 1. 安全提取：確保有收到文字
+          // ======== 終極修復「映射問題」的程式碼開始 ========
           let responseText = result.candidates?.[0]?.content?.parts?.[0]?.text;
           if (!responseText) {
             throw new Error("AI 沒有回傳有效的內容");
           }
           
-          // 2. 清理標記：把干擾解析的 ```json 等標記去掉
-          responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+          // 1. 清理標記：把干擾解析的 ```json 等標記去掉
+          responseText = responseText.replace(/```json\n?/gi, '').replace(/```\n?/g, '').trim();
+          
+          // 2. 🌟 終極殺手鐧：暴力裁切！只保留大括號 { } 裡面的內容，把 AI 的客套話全部過濾掉
+          const jsonStart = responseText.indexOf('{');
+          const jsonEnd = responseText.lastIndexOf('}');
+          if (jsonStart !== -1 && jsonEnd !== -1) {
+            responseText = responseText.substring(jsonStart, jsonEnd + 1);
+          }
           
           // 3. 安全解析
           let parsedResponse;
           try {
             parsedResponse = JSON.parse(responseText);
           } catch (parseErr) {
-            console.error("JSON 解析失敗", responseText);
+            console.error("JSON 解析失敗，原始字串為：", responseText);
             throw new Error("分析映射時發生狀況。");
           }
-          // ======== 修復「映射問題」的程式碼結束 ========
+          // ======== 終極修復「映射問題」的程式碼結束 ========
           
           const generateStrId = (prefix, i) => `${prefix}-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 5)}`;
           const generateNumId = (i) => Date.now() + Math.floor(Math.random() * 1000000) + i;
@@ -331,7 +337,13 @@
             return;
           }
 
-          responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+          // ======== 終極修復預覽生成「映射問題」 ========
+          responseText = responseText.replace(/```json\n?/gi, '').replace(/```\n?/g, '').trim();
+          const pJsonStart = responseText.indexOf('{');
+          const pJsonEnd = responseText.lastIndexOf('}');
+          if (pJsonStart !== -1 && pJsonEnd !== -1) {
+            responseText = responseText.substring(pJsonStart, pJsonEnd + 1);
+          }
 
           let responseData = {};
           try {
@@ -487,7 +499,7 @@
             
             <div className="mt-20 text-center print:hidden">
               <p className="text-slate-400/80 font-bold tracking-widest text-sm">
-                @ Made by InkHeart Mandarin Immersion ( <a href="[https://imiteacherevelyn.wixsite.com/mandarin-hub](https://imiteacherevelyn.wixsite.com/mandarin-hub)" target="_blank" rel="noopener noreferrer" className="hover:text-[#FF9B82] underline underline-offset-2 transition-colors">IMI網站</a> )<br />
+                @ Made by InkHeart Mandarin Immersion ( <a href="https://imiteacherevelyn.wixsite.com/mandarin-hub" target="_blank" rel="noopener noreferrer" className="hover:text-[#FF9B82] underline underline-offset-2 transition-colors">IMI網站</a> )<br />
                 Teacher Evelyn 曾老師
               </p>
             </div>
@@ -924,7 +936,7 @@
       };
       return (
         <div className="space-y-10">
-          <div className="flex justify-between items-center"><h3 className="text-3xl font-black text-slate-700">語法診 রুমে編輯</h3><button onClick={() => setData({ ...data, grammarRules: [...(data.grammarRules || []), { id: Date.now(), theme: '', mistake: '', correction: '', explanation: '' }] })} className="px-6 py-3 bg-[#FFF2F4] text-[#A6273B] border-2 border-[#FF7F8F] rounded-2xl font-black text-lg flex items-center gap-2 shadow-[0_4px_0_0_#DB5B6D] hover:translate-y-[2px] hover:shadow-[0_2px_0_0_#DB5B6D] active:translate-y-[4px] active:shadow-none transition-all"><Plus size={22} strokeWidth={3}/> 新增診斷</button></div>
+          <div className="flex justify-between items-center"><h3 className="text-3xl font-black text-slate-700">語法診斷室編輯</h3><button onClick={() => setData({ ...data, grammarRules: [...(data.grammarRules || []), { id: Date.now(), theme: '', mistake: '', correction: '', explanation: '' }] })} className="px-6 py-3 bg-[#FFF2F4] text-[#A6273B] border-2 border-[#FF7F8F] rounded-2xl font-black text-lg flex items-center gap-2 shadow-[0_4px_0_0_#DB5B6D] hover:translate-y-[2px] hover:shadow-[0_2px_0_0_#DB5B6D] active:translate-y-[4px] active:shadow-none transition-all"><Plus size={22} strokeWidth={3}/> 新增診斷</button></div>
           <div className="space-y-8">{(data.grammarRules || []).map((r) => (
             <div key={r.id} className="bg-white border-2 border-orange-50 shadow-[0_8px_0_0_#F0E5D8] rounded-[40px] p-10 relative">
               <button onClick={() => setData({ ...data, grammarRules: data.grammarRules.filter(gr => gr.id !== r.id) })} className="absolute top-8 right-8 text-slate-300 hover:text-rose-500 bg-orange-50/50 p-2 rounded-full hover:bg-rose-50"><Trash2 size={22} strokeWidth={2.5}/></button>
@@ -1294,7 +1306,7 @@
               <meta charset="UTF-8">
               <meta name="viewport" content="width=device-width, initial-scale=1.0">
               <title>${settings.className || '講義'} - ${settings.date}</title>
-              <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"><\/script>
+              <script src="https://cdn.tailwindcss.com"><\/script>
               <style>${customStyles}</style>
           </head>
           <body>
@@ -1637,7 +1649,7 @@
               <div className="absolute right-0 top-[58px] bottom-[58px] w-[2px] bg-[#A89CC7]" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}></div>
               <div className="absolute right-[12px] top-[58px] bottom-[58px] w-[2px] bg-[#A89CC7]" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}></div>
 
-              <svg className="absolute top-0 left-0 w-[60px] h-[60px]" viewBox="0 0 60 60" fill="none" stroke="#A89CC7" strokeWidth="2" xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)">
+              <svg className="absolute top-0 left-0 w-[60px] h-[60px]" viewBox="0 0 60 60" fill="none" stroke="#A89CC7" strokeWidth="2" xmlns="http://www.w3.org/2000/svg">
                 <path d="M 1 60 L 1 1 L 60 1" />
                 <path d="M 13 60 L 13 25 L 25 25 L 25 13 L 60 13" />
                 <rect x="22" y="22" width="6" height="6" />
@@ -1649,7 +1661,7 @@
                 <line x1="1" y1="44" x2="13" y2="44" />
                 <line x1="1" y1="52" x2="13" y2="52" />
               </svg>
-              <svg className="absolute top-0 right-0 w-[60px] h-[60px]" style={{ transform: 'scaleX(-1)' }} viewBox="0 0 60 60" fill="none" stroke="#A89CC7" strokeWidth="2" xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)">
+              <svg className="absolute top-0 right-0 w-[60px] h-[60px]" style={{ transform: 'scaleX(-1)' }} viewBox="0 0 60 60" fill="none" stroke="#A89CC7" strokeWidth="2" xmlns="http://www.w3.org/2000/svg">
                 <path d="M 1 60 L 1 1 L 60 1" />
                 <path d="M 13 60 L 13 25 L 25 25 L 25 13 L 60 13" />
                 <rect x="22" y="22" width="6" height="6" />
@@ -1661,7 +1673,7 @@
                 <line x1="1" y1="44" x2="13" y2="44" />
                 <line x1="1" y1="52" x2="13" y2="52" />
               </svg>
-              <svg className="absolute bottom-0 left-0 w-[60px] h-[60px]" style={{ transform: 'scaleY(-1)' }} viewBox="0 0 60 60" fill="none" stroke="#A89CC7" strokeWidth="2" xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)">
+              <svg className="absolute bottom-0 left-0 w-[60px] h-[60px]" style={{ transform: 'scaleY(-1)' }} viewBox="0 0 60 60" fill="none" stroke="#A89CC7" strokeWidth="2" xmlns="http://www.w3.org/2000/svg">
                 <path d="M 1 60 L 1 1 L 60 1" />
                 <path d="M 13 60 L 13 25 L 25 25 L 25 13 L 60 13" />
                 <rect x="22" y="22" width="6" height="6" />
@@ -1673,7 +1685,7 @@
                 <line x1="1" y1="44" x2="13" y2="44" />
                 <line x1="1" y1="52" x2="13" y2="52" />
               </svg>
-              <svg className="absolute bottom-0 right-0 w-[60px] h-[60px]" style={{ transform: 'scale(-1, -1)' }} viewBox="0 0 60 60" fill="none" stroke="#A89CC7" strokeWidth="2" xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)">
+              <svg className="absolute bottom-0 right-0 w-[60px] h-[60px]" style={{ transform: 'scale(-1, -1)' }} viewBox="0 0 60 60" fill="none" stroke="#A89CC7" strokeWidth="2" xmlns="http://www.w3.org/2000/svg">
                 <path d="M 1 60 L 1 1 L 60 1" />
                 <path d="M 13 60 L 13 25 L 25 25 L 25 13 L 60 13" />
                 <rect x="22" y="22" width="6" height="6" />
