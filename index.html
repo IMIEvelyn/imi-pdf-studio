@@ -1,0 +1,2304 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IMI. 華語PDF教材坊</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "lucide-react": "https://esm.sh/lucide-react@0.292.0?deps=react@18.2.0"
+      }
+    }
+  </script>
+  
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-[#FFF6E9]">
+  
+  <div id="root"></div>
+
+  <script type="text/babel" data-type="module">
+    import React, { useState, useEffect, useRef } from 'react';
+    import { createRoot } from 'react-dom/client';
+    import { 
+      Wand2, BookOpen, MessageCircle, FileWarning, Settings, 
+      Download, Plus, Trash2, Edit3, ChevronRight, CheckCircle2,
+      Coffee, AlertCircle, Type, X, Upload, FileImage, FileText, File, Save, Image as ImageIcon, Sparkles
+    } from 'lucide-react';
+
+    const EditPhoneticContext = React.createContext(null);
+
+    const filterPhoneticTokens = (str) => {
+      if (!str) return [];
+      const cleanedStr = str.replace(/[，。！？；：「」『』、\(\)（）"'.,~—《》〈〉…?!:;\-]/g, ' ');
+      return cleanedStr.trim().split(/(?:\s+|　+)/).filter(Boolean);
+    };
+
+    const fetchWithBackoff = async (url, options, retries = 5, delay = 1000) => {
+      try {
+        const res = await fetch(url, options);
+        if (!res.ok) {
+          if (res.status === 401 || res.status === 403 || res.status === 404) {
+            return { isError: true, type: 'Auth', status: res.status, message: `環境 API 認證限制 (${res.status})` };
+          }
+          throw new Error(`API Error: ${res.status}`);
+        }
+        return await res.json();
+      } catch (err) {
+        if (err.isError) return err; 
+        if (retries <= 0) throw err;
+        await new Promise(r => setTimeout(r, delay));
+        return fetchWithBackoff(url, options, retries - 1, delay * 2);
+      }
+    };
+
+    const DEFAULT_SETTINGS = {
+      themeTitle: '',
+      className: '',
+      teacherName: 'Evelyn',
+      date: new Date().toISOString().split('T')[0],
+      textLevel: 'TBCL 2', 
+      logoUrl: null,
+      phoneticType: 'zhuyin_pinyin',
+      phoneticScope: 'core_only',
+      translationLanguage: '韓文 (한국어)', 
+      translateTargets: {
+        coreText: true,
+        vocab: true,
+        dialogue: false,
+        grammar: true,
+        coreGrammar: true 
+      }
+    };
+
+    function App() {
+      const [currentStep, setCurrentStep] = useState(1);
+      const [isAnalyzing, setIsAnalyzing] = useState(false);
+      const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+      const [error, setError] = useState(null);
+      const [customApiKey, setCustomApiKey] = useState('');
+      
+      const [rawInput, setRawInput] = useState('');
+      const [selectedFiles, setSelectedFiles] = useState([]);
+      
+      const [parsedData, setParsedData] = useState({
+        textLevel: '',
+        coreTextChunks: [],
+        vocabList: [],
+        dialogues: [],
+        coreGrammar: [],
+        grammarRules: []
+      });
+      
+      const [exportSettings, setExportSettings] = useState(DEFAULT_SETTINGS);
+      const [finalPreviewData, setFinalPreviewData] = useState(null);
+
+      const autoLinkChunks = (chunks, vocabList, coreGrammar, grammarRules) => {
+        return chunks.map(chunk => {
+          const text = (chunk.text || '').replace(/ /g, '');
+          const isPunc = /^[，。！？；：「」『』、\(\)（）\s"'.\n]+$/.test(text);
+          if (isPunc) return { ...chunk, type: 'punctuation' };
+          
+          const vocabMatch = (vocabList || []).find(v => v.word === text);
+          const grammarMatch = (coreGrammar || []).find(g => g.title === text);
+          const ruleMatch = (grammarRules || []).find(r => r.theme === text);
+          
+          if (grammarMatch || ruleMatch) return { ...chunk, type: 'grammar' };
+          if (vocabMatch) return { ...chunk, type: vocabMatch.type || 'vocab' };
+          
+          const validTypes = ['keyword', 'vocab', 'grammar'];
+          return { ...chunk, type: validTypes.includes(chunk.type) ? chunk.type : 'normal' };
+        });
+      };
+
+      const handleAnalyze = async () => {
+        if (!rawInput.trim() && selectedFiles.length === 0) {
+          setError("老師，請輸入專屬GEM生成的教材模組內容喔！");
+          return;
+        }
+        setError(null);
+        setIsAnalyzing(true);
+
+        try {
+          const apiKey = ""; 
+          const activeKey = customApiKey.trim() || apiKey;
+          const modelName = customApiKey.trim() ? "gemini-2.5-flash" : "gemini-2.5-flash-preview-09-2025";
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
+          
+          const systemInstruction = `你是一位專業的資料歸位助手。老師提供的是已經整理好的結構化教材內容，請精準地歸位。
+          
+          【任務核心】
+          1. [等級]：提取等級資訊放入 textLevel。
+          2. [課文]：將內容放入 coreTextChunks。必須進行極致斷詞(1-4字)，字間嚴禁空格。
+          3. [生詞]：提取詞彙與詞性放入 vocabList。不需要說明。
+          4. [對話]：將教材中的情境對話完整搬運至 dialogues 陣列。
+          5. [語法點]：提取標題(title)、說明(description)與例句(examples)放入 coreGrammar。
+          6. [語法診斷室優化]：
+             - 提取偏誤主題 (theme)，例如「家庭/家人」。
+             - 錯誤例句 (mistake) 請在「具體錯掉的詞」外包圍 <u></u> 標籤。
+             - 正確例句 (correction) 為完整正確句。
+             - 語法說明 (explanation) 提供理論解釋。
+          7. [標記]：匹配生詞表的詞 type 為 'vocab'，匹配語法標題的詞 type 為 'grammar'。標點符號必為 'punctuation'。
+          8. 內容保真：嚴禁改寫原始文本。`;
+
+          let combinedText = rawInput;
+          const fileParts = [];
+          for (const file of selectedFiles) {
+            if (file.type === 'text/csv' || file.name.endsWith('.csv') || file.type === 'text/plain' || file.name.endsWith('.txt')) {
+               const text = await file.text();
+               combinedText += `\n\n[FILE: ${file.name}]\n${text}`;
+            } else {
+               const base64Data = await new Promise((resolve, reject) => {
+                 const reader = new FileReader();
+                 reader.onload = () => resolve(reader.result.split(',')[1]);
+                 reader.onerror = error => reject(error);
+                 reader.readAsDataURL(file);
+               });
+               fileParts.push({ inlineData: { mimeType: file.type, data: base64Data } });
+            }
+          }
+
+          const payload = {
+            contents: [{ role: "user", parts: [{ text: combinedText }, ...fileParts] }],
+            systemInstruction: { parts: [{ text: systemInstruction }] },
+            generationConfig: {
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: "OBJECT",
+                properties: {
+                  textLevel: { type: "STRING" },
+                  coreTextChunks: { type: "ARRAY", items: { type: "OBJECT", properties: { id: { type: "STRING" }, text: { type: "STRING" }, type: { type: "STRING" } } } },
+                  vocabList: { type: "ARRAY", items: { type: "OBJECT", properties: { id: { type: "INTEGER" }, word: { type: "STRING" }, pos: { type: "STRING" } } } },
+                  dialogues: { type: "ARRAY", items: { type: "OBJECT", properties: { id: { type: "INTEGER" }, title: { type: "STRING" }, lines: { type: "ARRAY", items: { type: "OBJECT", properties: { id: { type: "INTEGER" }, speaker: { type: "STRING" }, text: { type: "STRING" } } } } } } },
+                  coreGrammar: { type: "ARRAY", items: { type: "OBJECT", properties: { id: { type: "INTEGER" }, title: { type: "STRING" }, description: { type: "STRING" }, examples: { type: "ARRAY", items: { type: "STRING" } } } } },
+                  grammarRules: { type: "ARRAY", items: { type: "OBJECT", properties: { id: { type: "INTEGER" }, theme: { type: "STRING" }, mistake: { type: "STRING" }, correction: { type: "STRING" }, explanation: { type: "STRING" } } } }
+                }
+              }
+            }
+          };
+
+          const result = await fetchWithBackoff(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          if (result && result.isError) { setError(`${result.message}`); setIsAnalyzing(false); return; }
+          
+          // ======== 修復「映射問題」的程式碼開始 ========
+          // 1. 安全提取：確保有收到文字
+          let responseText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (!responseText) {
+            throw new Error("AI 沒有回傳有效的內容");
+          }
+          
+          // 2. 清理標記：把干擾解析的 ```json 等標記去掉
+          responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+          
+          // 3. 安全解析
+          let parsedResponse;
+          try {
+            parsedResponse = JSON.parse(responseText);
+          } catch (parseErr) {
+            console.error("JSON 解析失敗", responseText);
+            throw new Error("分析映射時發生狀況。");
+          }
+          // ======== 修復「映射問題」的程式碼結束 ========
+          
+          const generateStrId = (prefix, i) => `${prefix}-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 5)}`;
+          const generateNumId = (i) => Date.now() + Math.floor(Math.random() * 1000000) + i;
+
+          const fixedChunks = (parsedResponse.coreTextChunks || []).map((c, i) => ({ ...c, id: generateStrId('chunk', i) }));
+          const fixedVocabList = Array.isArray(parsedResponse.vocabList) ? parsedResponse.vocabList.map((v, i) => ({ ...v, id: generateNumId(i) })) : [];
+          const fixedDialogues = Array.isArray(parsedResponse.dialogues) ? parsedResponse.dialogues.map((d, i) => ({
+            ...d,
+            id: generateNumId(i),
+            lines: Array.isArray(d.lines) ? d.lines.map((l, j) => ({ ...l, id: generateNumId(j) })) : []
+          })) : [];
+          const fixedCoreGrammar = Array.isArray(parsedResponse.coreGrammar) ? parsedResponse.coreGrammar.map((g, i) => ({ ...g, id: generateNumId(i) })) : [];
+          const fixedGrammarRules = Array.isArray(parsedResponse.grammarRules) ? parsedResponse.grammarRules.map((r, i) => ({ ...r, id: generateNumId(i) })) : [];
+
+          const linkedChunks = autoLinkChunks(fixedChunks, fixedVocabList, fixedCoreGrammar, fixedGrammarRules);
+          
+          setParsedData({
+            textLevel: parsedResponse.textLevel || '',
+            coreTextChunks: linkedChunks,
+            vocabList: fixedVocabList,
+            dialogues: fixedDialogues,
+            coreGrammar: fixedCoreGrammar,
+            grammarRules: fixedGrammarRules
+          });
+
+          if (parsedResponse.textLevel) {
+            setExportSettings(prev => ({ ...prev, textLevel: parsedResponse.textLevel }));
+          }
+          setCurrentStep(2);
+        } catch (err) { setError("分析映射時發生狀況。請稍後再試一次！"); } finally { setIsAnalyzing(false); }
+      };
+
+      const handleGeneratePreview = async () => {
+        setError(null);
+        setIsGeneratingPreview(true);
+
+        const fallbackToOriginalData = () => {
+          console.warn("API 認證受限或網路不穩定，啟動 無縫降級機制...");
+          setFinalPreviewData({
+            coreTextChunks: (parsedData.coreTextChunks || []).map(c => ({...c, pinyin: '', zhuyin: ''})),
+            coreTextTranslation: '',
+            vocabList: (parsedData.vocabList || []).map(v => ({...v, pinyin: '', zhuyin: '', translation: ''})),
+            dialogues: (parsedData.dialogues || []).map(d => ({
+              ...d,
+              lines: (d.lines || []).map(l => ({...l, pinyin: '', zhuyin: '', translation: ''}))
+            })),
+            coreGrammar: (parsedData.coreGrammar || []).map(g => ({
+              ...g,
+              titlePinyin: '', titleZhuyin: '', descPinyin: '', descZhuyin: '',
+              translation: '',
+              examples: (g.examples || []).map(ex => ({ text: typeof ex === 'string' ? ex : ex.text || '', pinyin: '', zhuyin: '', translation: '' }))
+            })),
+            grammarRules: (parsedData.grammarRules || []).map(r => ({...r, mistakePinyin: '', mistakeZhuyin: '', correctionPinyin: '', correctionZhuyin: '', explanationPinyin: '', explanationZhuyin: '', translation: ''}))
+          });
+          setCurrentStep(4);
+          setIsGeneratingPreview(false);
+        };
+
+        try {
+          const apiKey = ""; 
+          const activeKey = customApiKey.trim() || apiKey;
+          const modelName = customApiKey.trim() ? "gemini-2.5-flash" : "gemini-2.5-flash-preview-09-2025";
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
+          
+          const dataToTranslate = {
+            coreTextChunks: (parsedData.coreTextChunks || []).map(c => ({ ...c, pinyin: c.pinyin || "", zhuyin: c.zhuyin || "" })),
+            coreTextTranslation: parsedData.coreTextTranslation || "",
+            vocabList: (parsedData.vocabList || []).map(v => ({ ...v, pinyin: v.pinyin || "", zhuyin: v.zhuyin || "", translation: v.translation || "", posTranslation: v.posTranslation || "" })),
+            dialogues: (parsedData.dialogues || []).map(d => ({
+                ...d,
+                lines: (d.lines || []).map(l => ({ ...l, pinyin: l.pinyin || "", zhuyin: l.zhuyin || "", translation: l.translation || "" }))
+            })),
+            coreGrammar: (parsedData.coreGrammar || []).map(g => ({
+                ...g,
+                titlePinyin: g.titlePinyin || "", titleZhuyin: g.titleZhuyin || "", descPinyin: g.descPinyin || "", descZhuyin: g.descZhuyin || "", translation: g.translation || "",
+                examples: (g.examples || []).map(ex => {
+                    const exObj = typeof ex === 'string' ? { text: ex } : ex;
+                    return { text: exObj.text, pinyin: exObj.pinyin || "", zhuyin: exObj.zhuyin || "", translation: exObj.translation || "" };
+                })
+            })),
+            grammarRules: (parsedData.grammarRules || []).map(r => ({
+                ...r,
+                mistakePinyin: r.mistakePinyin || "", mistakeZhuyin: r.mistakeZhuyin || "", correctionPinyin: r.correctionPinyin || "", correctionZhuyin: r.correctionZhuyin || "", explanationPinyin: r.explanationPinyin || "", explanationZhuyin: r.explanationZhuyin || "", translation: r.translation || ""
+            }))
+          };
+
+          const systemInstruction = `你是一位專業華語出版助手。請負責將以下 JSON 結構中的內容補齊標音與翻譯。
+          
+          【極度重要任務：強制補齊，禁止留空！】
+          1. pinyin 與 zhuyin：只要有中文的地方，包含 coreTextChunks, vocabList, dialogues, coreGrammar, grammarRules，請務必將對應的 pinyin 與 zhuyin 欄位填滿！
+          ★ 致命警告：所有 Pinyin 與 Zhuyin 必須「每一個漢字空一格」斷開！且請略過 <u> 等 HTML 標籤不需標音。絕不允許連寫！
+          錯誤範例：Yuánxiāo (連寫) / ㄩㄢˊㄒㄧㄠ (連寫)
+          正確範例：Yuán xiāo (單字空一格) / ㄩㄢˊ ㄒㄧㄠ (單字空一格)
+          標點符號不需標音，文字之間必須嚴格單字斷開！
+          2. translation (翻譯)：請依照設定的語言 ${exportSettings.translationLanguage}，為 vocabList, coreGrammar, grammarRules, dialogues, coreTextTranslation 填寫翻譯！「絕對不能漏掉任何模組的翻譯」！
+          ★ 極度重要翻譯守則：
+             - 針對「vocabList (核心生詞)」：請將 pos (詞性) 同步翻譯成目標語言並放入 posTranslation 欄位。
+             - 針對「coreGrammar (核心語法)」：translation 欄位必須「同時包含」title(標題) 與 description(規則說明) 兩者的完整翻譯，嚴禁只偷懶省略！
+             - 針對「grammarRules (語法診斷室)」：請務必將 explanation (語法/詞彙說明) 進行「完整且精確的全文翻譯」並放入 translation 欄位！
+             必須 100% 對照中文原文逐字逐句翻譯，這是給母語非華語成人學習者看的詳細解說。
+          
+          請保持原本的 JSON 結構完整返回。`;
+
+          const payload = {
+            contents: [{ role: "user", parts: [{ text: JSON.stringify(dataToTranslate) }] }],
+            systemInstruction: { parts: [{ text: systemInstruction }] }
+          };
+
+          const result = await fetchWithBackoff(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+          
+          if (result && result.isError) { 
+            if (result.status === 401 || result.status === 403) {
+              fallbackToOriginalData();
+              return;
+            }
+            setError(result.message); 
+            setIsGeneratingPreview(false); 
+            return; 
+          }
+          
+          let responseText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (!responseText) {
+            fallbackToOriginalData();
+            return;
+          }
+
+          responseText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+          let responseData = {};
+          try {
+            responseData = JSON.parse(responseText);
+          } catch (parseError) {
+            console.error("JSON Parse Error:", parseError, "Raw Response:", responseText);
+            try {
+                let fixedText = responseText;
+                const lastBracket = Math.max(fixedText.lastIndexOf('}'), fixedText.lastIndexOf(']'));
+                if(lastBracket !== -1) {
+                    fixedText = fixedText.substring(0, lastBracket + 1);
+                     if(fixedText.endsWith('}')) fixedText += ']}'; 
+                }
+                fallbackToOriginalData();
+                return;
+            } catch (e) {
+                fallbackToOriginalData();
+                return;
+            }
+          }
+
+          const mergedData = {
+            coreTextChunks: (parsedData.coreTextChunks || []).map((c, i) => {
+              const aiC = (responseData.coreTextChunks || []).find(ac => ac.id === c.id) || (responseData.coreTextChunks || [])[i] || {};
+              return { ...c, pinyin: aiC.pinyin || c.pinyin || '', zhuyin: aiC.zhuyin || c.zhuyin || '' };
+            }),
+            coreTextTranslation: responseData.coreTextTranslation || '',
+            vocabList: (parsedData.vocabList || []).map((v, i) => {
+              const aiV = (responseData.vocabList || []).find(av => av.id === v.id) || (responseData.vocabList || [])[i] || {};
+              return { ...v, pinyin: aiV.pinyin || v.pinyin || '', zhuyin: aiV.zhuyin || v.zhuyin || '', translation: aiV.translation || v.translation || '', posTranslation: aiV.posTranslation || v.posTranslation || '' };
+            }),
+            dialogues: (parsedData.dialogues || []).map((d, i) => {
+              const aiD = (responseData.dialogues || []).find(ad => ad.id === d.id) || (responseData.dialogues || [])[i] || {};
+              return {
+                ...d,
+                lines: (d.lines || []).map((l, j) => {
+                  const aiL = (aiD.lines || []).find(al => al.id === l.id) || (aiD.lines || [])[j] || {};
+                  return { ...l, pinyin: aiL.pinyin || l.pinyin || '', zhuyin: aiL.zhuyin || l.zhuyin || '', translation: aiL.translation || l.translation || '' };
+                })
+              };
+            }),
+            coreGrammar: (parsedData.coreGrammar || []).map((g, i) => {
+              const aiG = (responseData.coreGrammar || []).find(ag => ag.id === g.id) || (responseData.coreGrammar || [])[i] || {};
+              return {
+                ...g,
+                titlePinyin: aiG.titlePinyin || g.titlePinyin || '', titleZhuyin: aiG.titleZhuyin || g.titleZhuyin || '',
+                descPinyin: aiG.descPinyin || g.descPinyin || '', descZhuyin: aiG.descZhuyin || g.descZhuyin || '',
+                translation: aiG.translation || g.translation || '',
+                examples: (g.examples || []).map((ex, j) => {
+                  const exText = typeof ex === 'string' ? ex : ex.text;
+                  const aiEx = (aiG.examples || [])[j] || {};
+                  return { text: exText, pinyin: aiEx.pinyin || (ex.pinyin||''), zhuyin: aiEx.zhuyin || (ex.zhuyin||''), translation: aiEx.translation || (ex.translation||'') };
+                })
+              };
+            }),
+            grammarRules: (parsedData.grammarRules || []).map((r, i) => {
+              const aiR = (responseData.grammarRules || []).find(ar => ar.id === r.id) || (responseData.grammarRules || [])[i] || {};
+              return {
+                ...r,
+                mistakePinyin: aiR.mistakePinyin || r.mistakePinyin || '', mistakeZhuyin: aiR.mistakeZhuyin || r.mistakeZhuyin || '',
+                correctionPinyin: aiR.correctionPinyin || r.correctionPinyin || '', correctionZhuyin: aiR.correctionZhuyin || r.correctionZhuyin || '',
+                explanationPinyin: aiR.explanationPinyin || r.explanationPinyin || '', explanationZhuyin: aiR.explanationZhuyin || r.explanationZhuyin || '',
+                translation: aiR.translation || r.translation || ''
+              };
+            })
+          };
+
+          setFinalPreviewData(mergedData);
+          setCurrentStep(4);
+        } catch (err) { 
+          console.error("預覽生成異常，進入安全降級:", err);
+          fallbackToOriginalData();
+        } finally { 
+          setIsGeneratingPreview(false); 
+        }
+      };
+
+      const loadMockData = () => {
+        setParsedData({
+          textLevel: "TBCL 2",
+          coreTextChunks: [{ id: "1", text: "家人", type: "vocab" }, { id: "2", text: "。", type: "punctuation" }],
+          vocabList: [{ id: 1, word: "家人", pos: "名詞" }],
+          dialogues: [],
+          coreGrammar: [],
+          grammarRules: [{ id: 1, theme: "家庭/家人", mistake: "我看到韓國<u>家人</u>來台灣旅行。", correction: "我看到韓國家庭來台灣旅行。", explanation: "單純說明內容。" }]
+        });
+        setExportSettings(prev => ({ ...prev, textLevel: "TBCL 2" }));
+        setCurrentStep(2);
+        setError(null);
+      };
+
+      const renderMistake = (text, isPDF = false) => {
+        if (!text) return null;
+        const parts = text.split(/(<u>.*?<\/u>)/g);
+        return parts.map((part, i) => {
+          if (part.startsWith('<u>') && part.endsWith('</u>')) {
+            const innerText = part.slice(3, -4);
+            if (isPDF) {
+              return <span key={i} className="text-red-600 font-bold line-through decoration-red-600 decoration-[3px]">{innerText}</span>;
+            }
+            return <span key={i} className="text-red-500 font-bold underline decoration-red-500 decoration-4 underline-offset-4">{innerText}</span>;
+          }
+          return <span key={i}>{part}</span>;
+        });
+      };
+
+      return (
+        <div className="min-h-screen bg-[#FFF6E9] font-sans text-slate-800">
+          <header className="bg-white/90 backdrop-blur-xl shadow-[0_4px_32px_rgba(0,0,0,0.04)] sticky top-0 z-10 rounded-b-[32px] mx-4 mb-6 mt-0 border border-white/50 print:hidden">
+            <div className="max-w-6xl mx-auto px-6 py-6 flex flex-col items-center gap-5">
+              <div className="flex items-center gap-5">
+                <div className="relative flex items-center justify-center w-16 h-16 rounded-full bg-white shadow-[0_6px_0_0_#e2e8f0,0_8px_16px_rgba(0,0,0,0.08),inset_0_-4px_6px_rgba(0,0,0,0.05),inset_0_4px_6px_rgba(255,255,255,1)] shrink-0 transition-transform hover:scale-105">
+                  <div className="flex items-center justify-center w-[44px] h-[44px] rounded-full bg-[#0a192f] shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_2px_4px_rgba(255,255,255,0.15)]">
+                    <span className="text-[#FFD700] font-black text-[16px] tracking-tighter" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>IMI</span>
+                  </div>
+                </div>
+                <div>
+                  <h1 className="text-3xl font-black text-slate-700 tracking-wide drop-shadow-sm">IMI. 華語PDF教材坊</h1>
+                  <p className="text-base font-black text-[#FF9B82] tracking-wider mt-1">InkHeart Mandarin Immersion.Teacher Studio</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-3 text-sm font-bold w-full pt-2 border-t border-slate-100/60">
+                <StepIndicator step={1} currentStep={currentStep} label="匯入內容" />
+                <ChevronRight size={18} className="text-slate-300" />
+                <StepIndicator step={2} currentStep={currentStep} label="編輯內容" />
+                <ChevronRight size={18} className="text-slate-300" />
+                <StepIndicator step={3} currentStep={currentStep} label="輸出設定" />
+                <ChevronRight size={18} className="text-slate-300" />
+                <StepIndicator step={4} currentStep={currentStep} label="生成教材" />
+              </div>
+            </div>
+          </header>
+
+          {error && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 overflow-y-auto">
+              <div className="bg-white rounded-[40px] p-10 max-w-md w-full shadow-[0_24px_48px_rgba(0,0,0,0.2),inset_0_4px_8px_rgba(255,255,255,1)] transform transition-all text-center border border-slate-100">
+                <div className="inline-flex justify-center items-center w-24 h-24 rounded-full bg-[#FFF0F3] text-[#FF7F8F] mb-6 shadow-[0_8px_0_0_#FFB6C1,inset_0_-4px_8px_rgba(0,0,0,0.05)]"><Coffee size={48} strokeWidth={2.5} /></div>
+                <h3 className="text-2xl font-black text-slate-800 mb-3 drop-shadow-sm">— 喝茶時間到了 —</h3>
+                <p className="text-base text-slate-600 mb-8 font-medium">{error}</p>
+                <div className="space-y-4">
+                  <button onClick={() => setError(null)} className="w-full py-4 bg-slate-800 text-white rounded-2xl font-black text-lg shadow-[0_6px_0_0_#1e293b,0_10px_20px_rgba(0,0,0,0.1)] hover:translate-y-1 hover:shadow-[0_4px_0_0_#1e293b,0_6px_10px_rgba(0,0,0,0.1)] active:translate-y-[6px] active:shadow-[0_0px_0_0_#1e293b] transition-all">了解，返回修改</button>
+                  <button onClick={loadMockData} className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-lg shadow-[0_6px_0_0_#e2e8f0] hover:translate-y-1 hover:shadow-[0_4px_0_0_#e2e8f0] active:translate-y-[6px] active:shadow-none transition-all">載入模擬資料</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <main className="max-w-6xl mx-auto px-4 py-4 pb-24 print:max-w-none print:px-0 print:py-0 print:pb-0">
+            {currentStep === 1 && <Step1Input rawInput={rawInput} setRawInput={setRawInput} selectedFiles={selectedFiles} setSelectedFiles={setSelectedFiles} handleAnalyze={handleAnalyze} isAnalyzing={isAnalyzing} customApiKey={customApiKey} setCustomApiKey={setCustomApiKey} />}
+            {currentStep === 2 && <Step2Editor data={parsedData} setData={setParsedData} onNext={() => setCurrentStep(3)} onPrev={() => setCurrentStep(1)} renderMistake={renderMistake} autoLink={autoLinkChunks} />}
+            {currentStep === 3 && <Step3Settings settings={exportSettings} setSettings={setExportSettings} onNext={handleGeneratePreview} onPrev={() => setCurrentStep(2)} isGenerating={isGeneratingPreview} />}
+            {currentStep === 4 && finalPreviewData && <Step4Preview data={finalPreviewData} setData={setFinalPreviewData} settings={exportSettings} onPrev={() => setCurrentStep(3)} />}
+            
+            <div className="mt-20 text-center print:hidden">
+              <p className="text-slate-400/80 font-bold tracking-widest text-sm">
+                @ Made by InkHeart Mandarin Immersion ( <a href="[https://imiteacherevelyn.wixsite.com/mandarin-hub](https://imiteacherevelyn.wixsite.com/mandarin-hub)" target="_blank" rel="noopener noreferrer" className="hover:text-[#FF9B82] underline underline-offset-2 transition-colors">IMI網站</a> )<br />
+                Teacher Evelyn 曾老師
+              </p>
+            </div>
+          </main>
+        </div>
+      );
+    }
+
+    function FeatureHighlights() {
+      const features = [
+        {
+          icon: BookOpen,
+          title: '100% 呈現教師教材',
+          desc: '拒絕AI幻覺的超綱詞彙！符合「i+1」及螺旋式教學理論。',
+          color: 'text-[#FFAC59]',
+          bg: 'bg-[#FFF9F2]',
+          border: 'border-[#FFE1C2]'
+        },
+        {
+          icon: Wand2,
+          title: '五大專業教學模組',
+          desc: '核心課文、詞彙、對話與語法，加入「偏誤比較」學習。',
+          color: 'text-[#A084E8]',
+          bg: 'bg-[#F4F0FF]',
+          border: 'border-[#D8C7FF]'
+        },
+        {
+          icon: Download,
+          title: '支援搭建動態鷹架',
+          desc: '正簡體中文、注音、拼音 標音範圍與模式、含六種外語輔助閱讀，告別繁瑣排版。',
+          color: 'text-[#56D0A0]',
+          bg: 'bg-[#EAFBF4]',
+          border: 'border-[#A7F3D0]'
+        }
+      ];
+
+      return (
+        <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200 fill-mode-both pb-2">
+          <div className="text-center mb-8">
+            <h3 className="text-2xl md:text-3xl font-black text-slate-800 mb-2 flex items-center justify-center gap-3 drop-shadow-sm">
+              <Sparkles className="text-[#FFCD57]" size={28} strokeWidth={2.5} /> 
+              提升華語教材製作效率
+              <Sparkles className="text-[#FFCD57]" size={28} strokeWidth={2.5} /> 
+            </h3>
+            <p className="text-base text-slate-500 font-medium tracking-wider">專為 華語教師 量身打造的智能PDF教材</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {features.map((f, i) => {
+              const Icon = f.icon;
+              return (
+                <div key={i} className={`p-6 md:p-7 bg-white rounded-[24px] border-2 ${f.border} shadow-[0_6px_0_0_#F0E5D8,inset_0_4px_8px_rgba(255,255,255,0.5)] hover:-translate-y-1.5 hover:shadow-[0_8px_0_0_#F0E5D8,0_12px_20px_rgba(0,0,0,0.04)] transition-all duration-300 group flex flex-col h-full`}>
+                  <div className="flex items-center gap-4 mb-3">
+                    <div className={`w-12 h-12 shrink-0 rounded-[16px] flex items-center justify-center ${f.bg} ${f.color} shadow-inner group-hover:scale-110 group-hover:-rotate-3 transition-all duration-300`}>
+                      <Icon size={24} strokeWidth={2.5} />
+                    </div>
+                    <h4 className="text-lg font-black text-slate-800 tracking-wide leading-snug">{f.title}</h4>
+                  </div>
+                  <p className="text-slate-500 font-bold leading-relaxed text-sm flex-1">{f.desc}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
+
+    function StepIndicator({ step, currentStep, label }) {
+      const isActive = currentStep === step; const isPast = currentStep > step;
+      return (
+        <div className={`flex items-center gap-2 px-4 py-2 rounded-2xl transition-all ${isActive ? 'bg-[#FF9B82] text-white shadow-[0_4px_0_0_#E2755D,inset_0_-2px_4px_rgba(0,0,0,0.1)]' : isPast ? 'text-[#FF9B82]' : 'text-slate-400'}`}>
+          {isPast ? <CheckCircle2 size={20} strokeWidth={3} /> : <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black shadow-sm ${isActive ? 'bg-white text-[#E2755D]' : 'bg-slate-200 text-slate-500'}`}>{step}</div>}
+          <span>{label}</span>
+        </div>
+      );
+    }
+
+    function Step1Input({ rawInput, setRawInput, selectedFiles, setSelectedFiles, handleAnalyze, isAnalyzing, customApiKey, setCustomApiKey }) {
+      const fileInputRef = useRef(null);
+      const handleFileSelect = (e) => { if (e.target.files?.length > 0) setSelectedFiles(prev => [...prev, ...Array.from(e.target.files)]); if (fileInputRef.current) fileInputRef.current.value = ''; };
+      return (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <FeatureHighlights />
+
+          <div className="bg-white p-10 rounded-[40px] shadow-[0_8px_0_0_#F0E5D8,0_16px_32px_rgba(0,0,0,0.04),inset_0_4px_8px_rgba(255,255,255,0.8),inset_0_-4px_8px_rgba(0,0,0,0.02)] border border-orange-50">
+            <h2 className="text-3xl font-black mb-4 flex items-center gap-3 text-slate-700 drop-shadow-sm"><Edit3 className="text-[#FF9B82]" size={32} strokeWidth={2.5}/>請匯入專屬GEM智能模組文本</h2>
+            <p className="text-slate-500 mb-8 text-xl font-medium">請將專屬GEM生成的內容/檔案，複製貼上/匯入。</p>
+            
+            <textarea className="w-full h-72 p-6 bg-[#FFFcf9] border-2 border-orange-50 rounded-[32px] shadow-[inset_0_4px_8px_rgba(0,0,0,0.03)] focus:border-[#FF9B82] outline-none mb-6 text-xl font-medium text-slate-700 transition-all resize-none" placeholder="僅接受專屬GEM智能模組文本" value={rawInput} onChange={(e) => setRawInput(e.target.value)} disabled={isAnalyzing} />
+            
+            <div className="flex flex-col gap-4">
+              <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" multiple accept="image/*,.pdf,.csv,.txt" disabled={isAnalyzing} />
+              <div className="flex flex-wrap gap-4 items-center">
+                <button onClick={() => fileInputRef.current?.click()} disabled={isAnalyzing} className="flex items-center gap-2 px-8 py-4 bg-[#FFF0E5] text-[#D86247] rounded-3xl font-black text-lg shadow-[0_6px_0_0_#FFD1C2,inset_0_-2px_4px_rgba(0,0,0,0.03)] disabled:opacity-50 hover:translate-y-1 hover:shadow-[0_4px_0_0_#FFD1C2] active:translate-y-[6px] active:shadow-none transition-all"><Upload size={22} strokeWidth={2.5} />📎 上傳專屬GEM檔案</button>
+                {selectedFiles.map((f, i) => (
+                  <div key={i} className="flex items-center gap-2 px-4 py-3 bg-white shadow-[0_4px_0_0_#FFF0E5] border border-orange-50 rounded-2xl">
+                    <FileImage size={20} className="text-[#FF9B82]" /><span className="text-base font-bold text-slate-600 max-w-[150px] truncate">{f.name}</span>
+                    <button onClick={() => setSelectedFiles(prev => prev.filter((_, idx) => idx !== i))} disabled={isAnalyzing} className="text-slate-400 p-1.5 hover:text-rose-500 hover:bg-[#FFF0F0] rounded-full transition-colors"><X size={16} strokeWidth={3} /></button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-8 p-6 bg-rose-50 border border-rose-100 rounded-[24px]">
+              <label className="flex items-center gap-2 text-rose-700 font-bold mb-3 text-lg">
+                <AlertCircle size={22} strokeWidth={2.5} /> 請輸入您的專屬 API Key，若無，請與Evelyn老師聯絡。
+              </label>
+              <input 
+                type="password" 
+                className="w-full px-5 py-4 bg-white rounded-xl outline-none focus:border-rose-400 border-2 border-transparent shadow-sm text-lg font-mono" 
+                placeholder="AIzaSy..." 
+                value={customApiKey} 
+                onChange={(e) => setCustomApiKey(e.target.value)} 
+                disabled={isAnalyzing} 
+              />
+              <p className="text-rose-600/80 text-sm mt-3 font-medium">若您一直看到「喝茶時間 (401)」畫面或是資料無法生成，請稍後再試，系統忙碌中。</p>
+            </div>
+
+            <div className="mt-12 flex justify-end pt-8 border-t-2 border-dashed border-orange-100">
+              <button onClick={handleAnalyze} disabled={isAnalyzing} className="group flex items-center gap-3 px-12 py-5 bg-[#FF9B82] text-white rounded-[32px] font-black text-2xl shadow-[0_8px_0_0_#E2755D,0_16px_24px_rgba(255,155,130,0.3),inset_0_-4px_8px_rgba(0,0,0,0.1)] hover:translate-y-1 hover:shadow-[0_6px_0_0_#E2755D,0_12px_20px_rgba(255,155,130,0.3),inset_0_-4px_8px_rgba(0,0,0,0.1)] active:translate-y-[8px] active:shadow-[0_0px_0_0_#E2755D,inset_0_2px_4px_rgba(0,0,0,0.2)] transition-all">
+                {isAnalyzing ? <div className="animate-spin rounded-full h-8 w-8 border-4 border-white border-t-transparent" /> : <><Wand2 size={28} strokeWidth={3}/>開始製作教材，約需1分鐘</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function Step2Editor({ data, setData, onNext, onPrev, renderMistake, autoLink }) {
+      const [activeTab, setActiveTab] = useState('core');
+      const tabs = [
+        { id: 'core', label: '核心課文', icon: BookOpen, color: 'bg-[#FFAC59]', shadow: 'shadow-[#E68A34]' },
+        { id: 'vocab', label: '核心詞彙卡', icon: Type, color: 'bg-[#56D0A0]', shadow: 'shadow-[#34A879]' },
+        { id: 'dialogue', label: '情境對話', icon: MessageCircle, color: 'bg-[#A084E8]', shadow: 'shadow-[#7D5EC4]' },
+        { id: 'grammar_point', label: '核心語法', icon: FileText, color: 'bg-[#FFCD57]', shadow: 'shadow-[#DCA427]' },
+        { id: 'grammar_diagnose', label: '語法診斷室', icon: FileWarning, color: 'bg-[#FF7F8F]', shadow: 'shadow-[#DB5B6D]' }
+      ];
+      
+      return (
+        <div className="space-y-8 animate-in fade-in duration-500">
+          <div className="flex flex-wrap gap-4 mb-6">
+            {tabs.map(tab => {
+              const Icon = tab.icon; const isActive = activeTab === tab.id;
+              return (
+                <button key={tab.id} onClick={() => setActiveTab(tab.id)} 
+                  className={`flex items-center gap-2 px-8 py-5 rounded-3xl font-black text-xl transition-all ${
+                    isActive 
+                    ? `${tab.color} text-white shadow-[inset_0_-4px_8px_rgba(0,0,0,0.2)] translate-y-[6px]` 
+                    : `bg-white text-slate-500 shadow-[0_6px_0_0_#F0E5D8] hover:translate-y-1 hover:shadow-[0_4px_0_0_#F0E5D8]`
+                  }`}>
+                  <Icon size={26} strokeWidth={2.5} />{tab.label}
+                </button>
+              );
+            })}
+          </div>
+          
+          <div className="bg-white p-10 rounded-[40px] shadow-[0_8px_0_0_#F0E5D8,0_16px_32px_rgba(0,0,0,0.04),inset_0_4px_8px_rgba(255,255,255,0.8),inset_0_-4px_8px_rgba(0,0,0,0.02)] border border-orange-50 min-h-[500px]">
+            {activeTab === 'core' && <CoreTextEditor data={data} setData={setData} autoLink={autoLink} />}
+            {activeTab === 'vocab' && <VocabEditor data={data} setData={setData} autoLink={autoLink} />}
+            {activeTab === 'dialogue' && <DialogueEditor data={data} setData={setData} />}
+            {activeTab === 'grammar_point' && <GrammarPointEditor data={data} setData={setData} autoLink={autoLink} />}
+            {activeTab === 'grammar_diagnose' && <GrammarDiagnoseEditor data={data} setData={setData} renderMistake={renderMistake} autoLink={autoLink} />}
+          </div>
+          
+          <div className="flex justify-between mt-12">
+            <button onClick={onPrev} className="px-10 py-5 bg-[#F8F2EA] text-slate-600 rounded-[32px] font-black text-xl shadow-[0_6px_0_0_#E8DCCB] hover:translate-y-1 hover:shadow-[0_4px_0_0_#E8DCCB] active:translate-y-[6px] active:shadow-none transition-all">返回上一步</button>
+            <button onClick={onNext} className="group flex items-center gap-3 px-12 py-5 bg-[#56D0A0] text-white rounded-[32px] font-black text-2xl shadow-[0_8px_0_0_#34A879,0_16px_24px_rgba(86,208,160,0.3),inset_0_-4px_8px_rgba(0,0,0,0.1)] hover:translate-y-1 hover:shadow-[0_6px_0_0_#34A879,0_12px_20px_rgba(86,208,160,0.3),inset_0_-4px_8px_rgba(0,0,0,0.1)] active:translate-y-[8px] active:shadow-[0_0px_0_0_#34A879,inset_0_2px_4px_rgba(0,0,0,0.2)] transition-all">內容確認，前往設定 <ChevronRight strokeWidth={3} /></button>
+          </div>
+        </div>
+      );
+    }
+
+    function CoreTextEditor({ data, setData, autoLink }) {
+      const [isEditingRaw, setIsEditingRaw] = useState(false);
+      const [rawText, setRawText] = useState('');
+      const [editingChunk, setEditingChunk] = useState(null); 
+      const [isSplitting, setIsSplitting] = useState(false);
+      const [splitText, setSplitText] = useState('');
+      useEffect(() => { if (isEditingRaw) setRawText((data.coreTextChunks || []).map(c => c.text || '').join('')); }, [isEditingRaw, data.coreTextChunks]);
+      
+      const handleSaveRaw = () => {
+        try {
+          const segmenter = new Intl.Segmenter('zh-TW', { granularity: 'word' });
+          const segments = Array.from(segmenter.segment(rawText));
+          let newChunks = segments.map((seg, i) => ({ id: `raw-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 9)}`, text: seg.segment, type: 'normal' }));
+          newChunks = autoLink(newChunks, data.vocabList, data.coreGrammar, data.grammarRules);
+          setData({ ...data, coreTextChunks: newChunks });
+        } catch (e) {
+          let newChunks = rawText.split(/([，。！？；：「」『』、\n])/).filter(Boolean).map((text, i) => ({ id: `raw-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 9)}`, text, type: 'normal' }));
+          newChunks = autoLink(newChunks, data.vocabList, data.coreGrammar, data.grammarRules);
+          setData({ ...data, coreTextChunks: newChunks });
+        }
+        setIsEditingRaw(false);
+      };
+      
+      const handleSaveChunk = () => {
+        if (!editingChunk) return;
+        let newChunks = (data.coreTextChunks || []).map(c => ({ ...c }));
+        let newVocabList = [...(data.vocabList || [])]; 
+        const idx = newChunks.findIndex(c => c.id === editingChunk.id);
+        if (idx === -1) return;
+        const oldText = newChunks[idx].text || '';
+
+        if (isSplitting) {
+          const parts = splitText.split(' ').filter(Boolean); 
+          if (parts.length > 0) {
+            const splitChunks = parts.map((part, i) => ({ id: `split-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 9)}`, text: part, type: 'normal' }));
+            const linked = autoLink(splitChunks, data.vocabList, data.coreGrammar, data.grammarRules);
+            newChunks.splice(idx, 1, ...linked);
+            setData({ ...data, coreTextChunks: newChunks });
+            setEditingChunk(null); return;
+          }
+        }
+
+        const newText = editingChunk.text || ''; const newType = editingChunk.type; 
+        
+        if (newText !== oldText && newText.startsWith(oldText)) {
+          let toEat = newText.slice(oldText.length);
+          let nextIdx = idx + 1;
+          while (toEat.length > 0 && nextIdx < newChunks.length) {
+            const nextC = newChunks[nextIdx];
+            if (toEat.startsWith(nextC.text)) {
+              toEat = toEat.slice(nextC.text.length);
+              newChunks.splice(nextIdx, 1);
+            } else break;
+          }
+        }
+        
+        newChunks[idx].text = newText;
+        newChunks = newChunks.map(chunk => (chunk.text === newText ? { ...chunk, type: newType } : chunk));
+        
+        if (newType === 'keyword' || newType === 'vocab') {
+           const existingIdx = newVocabList.findIndex(v => v.word === newText);
+           if (existingIdx === -1) {
+               newVocabList.push({ id: Date.now(), word: newText, pos: '名詞', type: newType });
+           } else {
+               newVocabList[existingIdx] = { ...newVocabList[existingIdx], type: newType };
+           }
+        }
+
+        const finalChunks = autoLink(newChunks, newVocabList, data.coreGrammar, data.grammarRules);
+        setData({ ...data, coreTextChunks: finalChunks, vocabList: newVocabList });
+        setEditingChunk(null);
+      };
+
+      return (
+        <div className="space-y-8">
+          <div className="flex justify-between items-center"><h3 className="text-3xl font-black text-slate-700">核心課文編輯</h3><button onClick={() => isEditingRaw ? handleSaveRaw() : setIsEditingRaw(true)} className={`px-6 py-3 rounded-2xl font-black text-lg shadow-[0_4px_0_0_rgba(0,0,0,0.1)] active:translate-y-[4px] active:shadow-none transition-all ${isEditingRaw ? 'bg-[#FFAC59] text-white shadow-[0_4px_0_0_#E68A34]' : 'bg-[#FFFcf9] text-slate-600 shadow-[0_4px_0_0_#F0E5D8]'}`}>{isEditingRaw ? '儲存文本' : '修改整個文本 (純文字)'}</button></div>
+          {!isEditingRaw && <div className="bg-[#FFFcf9] p-5 rounded-[24px] border border-orange-50 flex gap-4 items-center shadow-inner"><span className="font-bold text-slate-500">標記顏色：</span><div className="flex gap-3"><span className="px-4 py-1.5 bg-[#ffec99] rounded-xl font-bold text-yellow-900 shadow-sm">重點</span><span className="px-4 py-1.5 bg-[#d1f4df] rounded-xl font-bold text-[#1e6138] shadow-sm">生詞</span><span className="px-4 py-1.5 border-b-4 border-[#7A7387] bg-[#f1f5f9] rounded-t-xl font-bold text-slate-700 shadow-sm">語法</span></div></div>}
+          <div className="p-8 bg-white border-2 border-orange-50 rounded-[32px] min-h-[300px] text-2xl leading-[2.5] shadow-[inset_0_4px_12px_rgba(0,0,0,0.02)]">
+            {isEditingRaw ? <textarea className="w-full h-72 p-6 bg-[#FFFcf9] border-2 border-[#FFAC59] rounded-[24px] outline-none resize-none shadow-inner" value={rawText} onChange={(e) => setRawText(e.target.value)} /> : 
+            <div className="text-2xl leading-[2.8] tracking-wider text-slate-800 font-bold">{(data.coreTextChunks || []).map((chunk) => {
+              const textStr = (chunk.text || '').replace(/ /g, ''); const isPunc = chunk.type === 'punctuation' || /^[，。！？；：「」『』、\(\)（）\s"'.]+$/.test(textStr);
+              if (isPunc) return <span key={chunk.id} className="text-slate-500 px-0 mx-0 inline leading-normal">{textStr}</span>;
+              return <span key={chunk.id} onClick={() => { setEditingChunk({ ...chunk }); setIsSplitting(false); }} className={`cursor-pointer select-none inline box-decoration-clone transition-all hover:ring-4 hover:ring-orange-100 rounded-xl px-1 mx-[1px] ${chunk.type === 'keyword' ? 'bg-[#ffec99] shadow-sm' : chunk.type === 'vocab' ? 'bg-[#d1f4df] text-[#1e6138] shadow-sm' : chunk.type === 'grammar' ? 'border-b-4 border-[#7A7387] bg-[#f1f5f9] rounded-t-xl' : 'hover:bg-slate-100'}`}>{textStr}</span>;
+            })}</div>}
+          </div>
+          {editingChunk && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+              <div className="bg-white rounded-[40px] p-10 max-w-sm w-full shadow-[0_24px_48px_rgba(0,0,0,0.2)] border-2 border-[#FFAC59] transform animate-in zoom-in-95 duration-200">
+                <div className="flex justify-between items-center mb-8"><h4 className="text-2xl font-black text-slate-700">{isSplitting ? '拆分詞彙塊' : '編輯詞彙標記'}</h4><button onClick={() => setEditingChunk(null)} className="text-slate-400 hover:text-rose-500 bg-slate-100 p-2.5 rounded-full transition-colors"><X size={24} strokeWidth={3} /></button></div>
+                <div className="space-y-6">
+                  {!isSplitting ? (
+                    <>
+                      <div>
+                        <div className="flex justify-between items-end mb-3"><label className="text-base font-bold text-slate-500 ml-1">詞彙內容</label><button onClick={() => { setIsSplitting(true); setSplitText(editingChunk.text || ''); }} className="text-sm font-bold text-[#FFAC59] bg-[#FFF9F2] hover:bg-[#FFE8CC] px-3 py-1.5 rounded-xl transition-colors">✂️ 拆分此詞塊</button></div>
+                        <input type="text" value={editingChunk.text || ''} onChange={(e) => setEditingChunk({...editingChunk, text: e.target.value})} className="w-full px-5 py-4 bg-[#FFFcf9] border-2 border-orange-50 rounded-2xl text-2xl font-bold outline-none focus:border-[#FFAC59] shadow-inner" />
+                      </div>
+                      <div><label className="block text-base font-bold text-slate-500 mb-3 ml-1">標記等級分類</label><div className="grid grid-cols-2 gap-4">
+                        <TypeButton type="keyword" label="重點詞彙" colorClass="bg-[#ffec99] text-yellow-900" borderClass="border-yellow-400" current={editingChunk.type} onClick={() => setEditingChunk({...editingChunk, type: 'keyword'})} />
+                        <TypeButton type="vocab" label="一般詞彙" colorClass="bg-[#d1f4df] text-[#1e6138]" borderClass="border-[#48C0A3]" current={editingChunk.type} onClick={() => setEditingChunk({...editingChunk, type: 'vocab'})} />
+                        <TypeButton type="grammar" label="語法標記" colorClass="bg-[#eef3ff] text-indigo-800" borderClass="border-indigo-400" current={editingChunk.type} onClick={() => setEditingChunk({...editingChunk, type: 'grammar'})} />
+                        <TypeButton type="normal" label="無標記" colorClass="bg-[#f1f5f9] text-slate-600" borderClass="border-slate-300" current={editingChunk.type} onClick={() => setEditingChunk({...editingChunk, type: 'normal'})} />
+                      </div></div>
+                    </>
+                  ) : (
+                    <div className="animate-in fade-in duration-300">
+                      <label className="block text-base font-bold text-slate-500 mb-3 ml-1">請以「空格」隔開要拆分的字詞</label>
+                      <input autoFocus type="text" value={splitText} onChange={(e) => setSplitText(e.target.value)} className="w-full px-5 py-4 bg-[#FFFcf9] border-2 border-[#FFD5A6] rounded-2xl text-2xl font-bold outline-none focus:border-[#FFAC59] shadow-inner" placeholder="例如：日幣 貶值" />
+                      <button onClick={() => setIsSplitting(false)} className="w-full py-4 mt-6 bg-slate-100 text-slate-600 rounded-2xl font-black text-lg shadow-[0_4px_0_0_#cbd5e1] hover:translate-y-[2px] hover:shadow-[0_2px_0_0_#cbd5e1] transition-all">取消拆分，返回編輯</button>
+                    </div>
+                  )}
+                  <button onClick={handleSaveChunk} className={`w-full py-5 mt-4 text-white rounded-[24px] font-black text-2xl shadow-[0_6px_0_0_rgba(0,0,0,0.2)] transition-all active:translate-y-[6px] active:shadow-none ${isSplitting ? 'bg-[#56D0A0] shadow-[0_6px_0_0_#34A879]' : 'bg-[#FFAC59] shadow-[0_6px_0_0_#E68A34]'}`}>儲存變更</button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function TypeButton({ type, current, onClick, label, colorClass, borderClass }) { 
+      const isActive = type === current; 
+      return <button onClick={onClick} className={`px-4 py-4 rounded-2xl border-[3px] font-bold text-base transition-all ${isActive ? `${colorClass} ${borderClass} shadow-md scale-105` : 'bg-white border-orange-50 text-slate-400 hover:bg-orange-50/50'}`}>{label}</button>; 
+    }
+
+    function VocabEditor({ data, setData, autoLink }) {
+      const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+      const [editingItem, setEditingItem] = useState(null); 
+      const [newVocab, setNewVocab] = useState({ word: '', pos: '名詞', type: 'vocab' });
+
+      const handleSaveNew = () => {
+        if (newVocab.word.trim()) {
+          const newList = [...(data.vocabList || []), { ...newVocab, id: Date.now() }];
+          const newChunks = autoLink(data.coreTextChunks, newList, data.coreGrammar, data.grammarRules);
+          setData({ ...data, vocabList: newList, coreTextChunks: newChunks });
+          setNewVocab({ word: '', pos: '名詞', type: 'vocab' });
+          setIsAddModalOpen(false);
+        }
+      };
+
+      const handleSaveEdit = () => {
+        if (editingItem && editingItem.word.trim()) {
+          const newList = data.vocabList.map(v => v.id === editingItem.id ? editingItem : v);
+          const newChunks = autoLink(data.coreTextChunks, newList, data.coreGrammar, data.grammarRules);
+          setData({ ...data, vocabList: newList, coreTextChunks: newChunks });
+          setEditingItem(null);
+        }
+      };
+
+      return (
+        <div className="space-y-8">
+          <div className="flex justify-between items-center"><h3 className="text-3xl font-black text-slate-700">核心詞彙卡編輯</h3><button onClick={() => setIsAddModalOpen(true)} className="px-6 py-3 bg-[#EAFBF4] text-[#1B6B47] border-2 border-[#56D0A0] rounded-2xl font-black text-lg flex items-center gap-2 shadow-[0_4px_0_0_#34A879] hover:translate-y-[2px] hover:shadow-[0_2px_0_0_#34A879] active:translate-y-[4px] active:shadow-none transition-all"><Plus size={22} strokeWidth={3}/> 新增詞彙</button></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">{(data.vocabList || []).map((v, idx) => (
+            <div key={v.id} 
+                 onClick={() => setEditingItem({ ...v, type: v.type || 'vocab' })}
+                 className="p-6 bg-white rounded-[24px] relative group cursor-pointer shadow-[0_6px_0_0_#F0E5D8] border-2 border-orange-50 hover:translate-y-[2px] hover:shadow-[0_4px_0_0_#34A879] hover:border-[#56D0A0] transition-all">
+              <button onClick={(e) => {
+                e.stopPropagation();
+                const newList = data.vocabList.filter(item => item.id !== v.id);
+                const newChunks = autoLink(data.coreTextChunks, newList, data.coreGrammar, data.grammarRules);
+                setData({ ...data, vocabList: newList, coreTextChunks: newChunks });
+              }} className="absolute top-6 right-6 text-slate-300 hover:text-rose-500 bg-orange-50/50 p-2 rounded-full hover:bg-rose-50 transition-colors"><Trash2 size={20} strokeWidth={2.5}/></button>
+              <div className="flex items-center gap-5 mb-1"><span className="bg-[#56D0A0] text-white w-12 h-12 rounded-full flex items-center justify-center font-black text-xl shadow-inner">{idx + 1}</span><div className="flex-1"><span className="font-black text-3xl text-slate-800">{v.word}</span><span className="text-sm bg-[#EAFBF4] text-[#1B6B47] px-4 py-1.5 rounded-full font-bold ml-4 uppercase">{v.pos}</span></div></div>
+            </div>
+          ))}</div>
+
+          {isAddModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+              <div className="bg-white rounded-[40px] p-10 max-w-sm w-full shadow-[0_24px_48px_rgba(0,0,0,0.2)] border-2 border-[#56D0A0] animate-in zoom-in-95 duration-200">
+                <h4 className="text-2xl font-black text-slate-700 mb-8 flex items-center gap-3"><Plus className="text-[#56D0A0]" size={32} strokeWidth={3}/>新增詞彙</h4>
+                <div className="space-y-6">
+                  <div><label className="block text-base font-bold text-slate-500 mb-2 ml-1">詞彙名稱</label><input autoFocus type="text" className="w-full px-5 py-4 bg-[#f8fafc] border-2 border-slate-100 rounded-2xl text-2xl font-bold outline-none focus:border-[#56D0A0] shadow-inner" value={newVocab.word} onChange={(e) => setNewVocab({...newVocab, word: e.target.value})} placeholder="例如：日幣" /></div>
+                  <div><label className="block text-base font-bold text-slate-500 mb-2 ml-1">詞性</label><input type="text" className="w-full px-5 py-4 bg-[#f8fafc] border-2 border-slate-100 rounded-2xl outline-none focus:border-[#56D0A0] text-lg font-bold shadow-inner" value={newVocab.pos} onChange={(e) => setNewVocab({...newVocab, pos: e.target.value})} placeholder="例如：名詞" /></div>
+                  <div>
+                    <label className="block text-base font-bold text-slate-500 mb-3 ml-1">標記等級</label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <TypeButton type="keyword" label="重點詞彙" colorClass="bg-[#ffec99] text-yellow-900" borderClass="border-yellow-400" current={newVocab.type} onClick={() => setNewVocab({...newVocab, type: 'keyword'})} />
+                      <TypeButton type="vocab" label="一般詞彙" colorClass="bg-[#d1f4df] text-[#1e6138]" borderClass="border-[#48C0A3]" current={newVocab.type} onClick={() => setNewVocab({...newVocab, type: 'vocab'})} />
+                    </div>
+                  </div>
+                  <div className="flex gap-4 pt-6"><button onClick={() => setIsAddModalOpen(false)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-lg shadow-[0_4px_0_0_#cbd5e1] active:translate-y-[4px] active:shadow-none transition-all">取消</button><button onClick={handleSaveNew} className="flex-1 py-4 bg-[#56D0A0] text-white rounded-2xl font-black text-lg shadow-[0_4px_0_0_#34A879] active:translate-y-[4px] active:shadow-none transition-all">儲存詞彙</button></div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {editingItem && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+              <div className="bg-white rounded-[40px] p-10 max-w-sm w-full shadow-[0_24px_48px_rgba(0,0,0,0.2)] border-2 border-[#56D0A0] animate-in zoom-in-95 duration-200">
+                <h4 className="text-2xl font-black text-slate-700 mb-8 flex items-center gap-3"><Edit3 className="text-[#56D0A0]" size={32} strokeWidth={3}/>編輯核心詞彙</h4>
+                <div className="space-y-6">
+                  <div><label className="block text-base font-bold text-slate-500 mb-2 ml-1">詞彙內容</label><input autoFocus type="text" className="w-full px-5 py-4 bg-[#f8fafc] border-2 border-slate-100 rounded-2xl text-2xl font-bold outline-none focus:border-[#56D0A0] shadow-inner" value={editingItem.word} onChange={(e) => setEditingItem({...editingItem, word: e.target.value})} /></div>
+                  <div><label className="block text-base font-bold text-slate-500 mb-2 ml-1">詞性 (可由老師修正)</label><input type="text" className="w-full px-5 py-4 bg-[#f8fafc] border-2 border-slate-100 rounded-2xl outline-none focus:border-[#56D0A0] text-lg font-bold shadow-inner" value={editingItem.pos} onChange={(e) => setEditingItem({...editingItem, pos: e.target.value})} placeholder="例如：noun" /></div>
+                  <div>
+                    <label className="block text-base font-bold text-slate-500 mb-3 ml-1">標記等級</label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <TypeButton type="keyword" label="重點詞彙" colorClass="bg-[#ffec99] text-yellow-900" borderClass="border-yellow-400" current={editingItem.type} onClick={() => setEditingItem({...editingItem, type: 'keyword'})} />
+                      <TypeButton type="vocab" label="一般詞彙" colorClass="bg-[#d1f4df] text-[#1e6138]" borderClass="border-[#48C0A3]" current={editingItem.type} onClick={() => setEditingItem({...editingItem, type: 'vocab'})} />
+                    </div>
+                  </div>
+                  <div className="flex gap-4 pt-6"><button onClick={() => setEditingItem(null)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-lg shadow-[0_4px_0_0_#cbd5e1] active:translate-y-[4px] active:shadow-none transition-all">取消</button><button onClick={handleSaveEdit} className="flex-1 py-4 bg-[#56D0A0] text-white rounded-2xl font-black text-lg shadow-[0_4px_0_0_#34A879] active:translate-y-[4px] active:shadow-none transition-all">儲存修改</button></div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function DialogueEditor({ data, setData }) {
+      const updateLine = (sid, lid, f, v) => { setData({ ...data, dialogues: data.dialogues.map(d => d.id === sid ? { ...d, lines: d.lines.map(l => l.id === lid ? { ...l, [f]: v } : l) } : d) }); };
+      return (
+        <div className="space-y-10">
+          <div className="flex justify-between items-center"><h3 className="text-3xl font-black text-slate-700">情境對話編輯</h3><button onClick={() => setData({ ...data, dialogues: [...(data.dialogues || []), { id: Date.now(), title: '情境', lines: [] }] })} className="px-6 py-3 bg-[#F4F0FF] text-[#4A3285] border-2 border-[#A084E8] rounded-2xl font-black text-lg flex items-center gap-2 shadow-[0_4px_0_0_#7D5EC4] hover:translate-y-[2px] hover:shadow-[0_2px_0_0_#7D5EC4] active:translate-y-[4px] active:shadow-none transition-all"><Plus size={22} strokeWidth={3}/> 新增情境</button></div>
+          {(data.dialogues || []).map((s) => (
+            <div key={s.id} className="bg-white border-2 border-orange-50 shadow-[0_8px_0_0_#F0E5D8] rounded-[32px] p-8 relative">
+              <button onClick={() => setData({ ...data, dialogues: data.dialogues.filter(d => d.id !== s.id) })} className="absolute top-8 right-8 text-slate-300 hover:text-rose-500 bg-orange-50/50 p-2 rounded-full hover:bg-rose-50"><Trash2 size={22} strokeWidth={2.5}/></button>
+              <input className="text-2xl font-black text-[#4A3285] bg-[#F4F0FF] border-2 border-[#D8C7FF] px-6 py-3 rounded-2xl mb-8 outline-none focus:border-[#A084E8] w-full md:w-auto shadow-inner" value={s.title || ''} onChange={(e) => setData({ ...data, dialogues: data.dialogues.map(d => d.id === s.id ? { ...d, title: e.target.value } : d) })} placeholder="輸入情境標題" />
+              <div className="space-y-4">{(s.lines || []).map((l) => (
+                <div key={l.id} className="flex gap-4 items-start group"><input className="w-16 text-center font-black text-xl bg-[#f8fafc] border-2 border-slate-100 rounded-2xl py-4 outline-none focus:border-[#A084E8] shadow-inner" value={l.speaker || ''} onChange={(e) => updateLine(s.id, l.id, 'speaker', e.target.value)} /><textarea className="w-full bg-[#f8fafc] border-2 border-slate-100 rounded-2xl px-6 py-4 outline-none focus:border-[#A084E8] text-xl font-bold resize-none h-[64px] leading-relaxed shadow-inner" value={l.text || ''} onChange={(e) => updateLine(s.id, l.id, 'text', e.target.value)} placeholder="對話文字..." /><button onClick={() => setData({ ...data, dialogues: data.dialogues.map(d => d.id === s.id ? { ...d, lines: d.lines.filter(li => li.id !== l.id) } : d) })} className="text-slate-300 hover:text-rose-500 p-3 rounded-full hover:bg-rose-50 transition-colors mt-1"><Trash2 size={20} strokeWidth={2.5}/></button></div>
+              ))}</div>
+              <button onClick={() => setData({ ...data, dialogues: data.dialogues.map(d => d.id === s.id ? { ...d, lines: [...d.lines, { id: Date.now(), speaker: 'A', text: '' }] } : d) })} className="mt-8 text-[#A084E8] font-black text-lg flex items-center gap-2 hover:bg-[#F4F0FF] px-5 py-3 rounded-2xl transition-colors border-2 border-dashed border-[#D8C7FF]"><Plus size={20} strokeWidth={3}/> 新增句子</button>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    function GrammarPointEditor({ data, setData, autoLink }) {
+      const updatePoint = (id, field, value) => {
+        const newGrammar = (data.coreGrammar || []).map(p => p.id === id ? { ...p, [field]: value } : p);
+        let newData = { ...data, coreGrammar: newGrammar };
+        if (field === 'title') newData.coreTextChunks = autoLink(newData.coreTextChunks, newData.vocabList, newGrammar, newData.grammarRules);
+        setData(newData);
+      };
+      const updateExample = (id, idx, value) => setData({ ...data, coreGrammar: (data.coreGrammar || []).map(p => p.id === id ? { ...p, examples: p.examples.map((ex, i) => i === idx ? value : ex) } : p) });
+      return (
+        <div className="space-y-10">
+          <div className="flex justify-between items-center"><h3 className="text-3xl font-black text-slate-700">核心語法編輯</h3><button onClick={() => setData({ ...data, coreGrammar: [...(data.coreGrammar || []), { id: Date.now(), title: '', description: '', examples: [''] }] })} className="px-6 py-3 bg-[#FFFBEA] text-[#8C6D1F] border-2 border-[#FFCD57] rounded-2xl font-black text-lg flex items-center gap-2 shadow-[0_4px_0_0_#DCA427] hover:translate-y-[2px] hover:shadow-[0_2px_0_0_#DCA427] active:translate-y-[4px] active:shadow-none transition-all"><Plus size={22} strokeWidth={3}/> 新增語法點</button></div>
+          {(data.coreGrammar || []).map((p) => (
+            <div key={p.id} className="bg-white border-2 border-orange-50 shadow-[0_8px_0_0_#F0E5D8] rounded-[40px] p-10 relative">
+              <button onClick={() => setData({ ...data, coreGrammar: data.coreGrammar.filter(item => item.id !== p.id) })} className="absolute top-8 right-8 text-slate-300 hover:text-rose-500 bg-orange-50/50 p-2 rounded-full hover:bg-rose-50"><Trash2 size={22} strokeWidth={2.5}/></button>
+              <div className="space-y-8">
+                <input className="text-3xl font-black text-[#DCA427] bg-transparent border-b-4 border-[#FFEE99] px-2 py-3 w-full outline-none focus:border-[#FFCD57] transition-colors placeholder-[#FFEE99]" value={p.title || ''} onChange={(e) => updatePoint(p.id, 'title', e.target.value)} placeholder="語法標題" />
+                <div><label className="text-base font-black text-slate-500 mb-3 block ml-1">規則說明：</label><textarea className="w-full bg-[#f8fafc] border-2 border-slate-100 rounded-[24px] p-6 outline-none focus:border-[#FFCD57] h-32 text-xl font-medium shadow-inner" value={p.description || ''} onChange={(update) => updatePoint(p.id, 'description', update.target.value)} placeholder="語法規則..." /></div>
+                <div className="space-y-4 pt-4 border-t-2 border-dashed border-slate-100"><label className="text-lg font-black text-[#FFCD57] mb-2 block ml-1">教學例句：</label>
+                  {(p.examples || []).map((ex, i) => (
+                    <div key={i} className="flex gap-4 items-center"><div className="w-2.5 h-2.5 rounded-full bg-[#FFCD57] shrink-0 shadow-sm" /><input className="flex-1 bg-[#f8fafc] border-2 border-slate-100 px-6 py-4 rounded-2xl outline-none focus:border-[#FFCD57] text-xl font-bold shadow-inner" value={ex} onChange={(update) => updateExample(p.id, i, update.target.value)} placeholder="輸入例句" /><button onClick={() => updatePoint(p.id, 'examples', p.examples.filter((_, idx) => idx !== i))} className="text-slate-300 hover:text-rose-500 p-2 rounded-full hover:bg-rose-50"><Trash2 size={20} strokeWidth={2.5}/></button></div>
+                  ))}<button onClick={() => updatePoint(p.id, 'examples', [...p.examples, ''])} className="text-base font-black text-[#FFCD57] flex items-center gap-2 hover:bg-[#FFFBEA] px-4 py-2 rounded-xl transition-colors mt-2"><Plus size={18} strokeWidth={3}/> 新增例句</button></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    function GrammarDiagnoseEditor({ data, setData, renderMistake, autoLink }) {
+      const updateRule = (id, f, v) => {
+        const newRules = (data.grammarRules || []).map(r => r.id === id ? { ...r, [f]: v } : r);
+        let newData = { ...data, grammarRules: newRules };
+        if (f === 'theme') newData.coreTextChunks = autoLink(newData.coreTextChunks, newData.vocabList, newData.coreGrammar, newRules);
+        setData(newData);
+      };
+      return (
+        <div className="space-y-10">
+          <div className="flex justify-between items-center"><h3 className="text-3xl font-black text-slate-700">語法診 রুমে編輯</h3><button onClick={() => setData({ ...data, grammarRules: [...(data.grammarRules || []), { id: Date.now(), theme: '', mistake: '', correction: '', explanation: '' }] })} className="px-6 py-3 bg-[#FFF2F4] text-[#A6273B] border-2 border-[#FF7F8F] rounded-2xl font-black text-lg flex items-center gap-2 shadow-[0_4px_0_0_#DB5B6D] hover:translate-y-[2px] hover:shadow-[0_2px_0_0_#DB5B6D] active:translate-y-[4px] active:shadow-none transition-all"><Plus size={22} strokeWidth={3}/> 新增診斷</button></div>
+          <div className="space-y-8">{(data.grammarRules || []).map((r) => (
+            <div key={r.id} className="bg-white border-2 border-orange-50 shadow-[0_8px_0_0_#F0E5D8] rounded-[40px] p-10 relative">
+              <button onClick={() => setData({ ...data, grammarRules: data.grammarRules.filter(gr => gr.id !== r.id) })} className="absolute top-8 right-8 text-slate-300 hover:text-rose-500 bg-orange-50/50 p-2 rounded-full hover:bg-rose-50"><Trash2 size={22} strokeWidth={2.5}/></button>
+              <div className="space-y-8">
+                <div className="space-y-3"><label className="text-base font-black text-slate-500 ml-1">偏誤主題 (可作為語法自動渲染的標籤)</label><input className="w-full bg-[#f8fafc] border-2 border-slate-100 rounded-2xl px-6 py-4 outline-none focus:border-[#FF7F8F] font-black text-2xl text-[#A6273B] shadow-inner" value={r.theme || ''} onChange={(e) => updateRule(r.id, 'theme', e.target.value)} placeholder="例如：家庭/家人" /></div>
+                <div className="space-y-6 pt-4">
+                  <div className="space-y-3"><label className="text-base font-black text-[#FF7F8F] flex items-center gap-2 ml-1"><AlertCircle size={20} strokeWidth={2.5}/> 錯誤例句 (支援 <u>標籤局部紅線</u>)</label><textarea className="w-full bg-[#fff1f2] border-2 border-[#fecdd3] rounded-[24px] p-6 outline-none text-rose-700 text-xl font-bold h-32 shadow-inner focus:border-[#FF7F8F]" value={r.mistake || ''} onChange={(e) => updateRule(r.id, 'mistake', e.target.value)} placeholder="例如：我看到韓國<u>家人</u>來台灣。" /></div>
+                  <div className="p-5 bg-rose-50 rounded-2xl text-lg font-bold text-[#A6273B] border border-rose-100">預覽標記效果：{renderMistake(r.mistake)}</div>
+                  <div className="space-y-3 pt-4"><label className="text-base font-black text-[#56D0A0] flex items-center gap-2 ml-1"><CheckCircle2 size={20} strokeWidth={2.5}/> 正確例句</label><textarea className="w-full bg-[#ecfdf5] border-2 border-[#a7f3d0] rounded-[24px] p-6 outline-none text-[#1B6B47] text-xl font-bold h-32 shadow-inner focus:border-[#56D0A0]" value={r.correction || ''} onChange={(e) => updateRule(r.id, 'correction', e.target.value)} placeholder="輸入正確句子" /></div>
+                </div>
+                <div className="space-y-3 pt-6 border-t-2 border-dashed border-slate-100"><label className="text-base font-black text-slate-500 ml-1">語法/詞彙說明</label><textarea className="w-full bg-[#f8fafc] border-2 border-slate-100 rounded-[24px] p-6 outline-none focus:border-[#FF7F8F] h-40 text-xl font-medium shadow-inner" value={r.explanation || ''} onChange={(e) => updateRule(r.id, 'explanation', e.target.value)} placeholder="教學解釋..." /></div>
+              </div>
+            </div>
+          ))}</div>
+        </div>
+      );
+    }
+
+    function Step3Settings({ settings, setSettings, onNext, onPrev, isGenerating }) {
+      const fileInputRef = useRef(null);
+      const updateSetting = (key, value) => setSettings(prev => ({ ...prev, [key]: value }));
+      const updateTarget = (key) => setSettings(prev => ({ ...prev, translateTargets: { ...prev.translateTargets, [key]: !prev.translateTargets[key] } }));
+      const handleLogoUpload = (e) => { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = (event) => updateSetting('logoUrl', event.target.result); reader.readAsDataURL(file); } };
+      return (
+        <div className="space-y-8 animate-in fade-in slide-in-from-right-8 duration-500 max-w-5xl mx-auto">
+          <div className="bg-white p-12 rounded-[40px] shadow-[0_8px_0_0_#F0E5D8,0_16px_32px_rgba(0,0,0,0.04),inset_0_4px_8px_rgba(255,255,255,0.8),inset_0_-4px_8px_rgba(0,0,0,0.02)] border border-orange-50">
+            <h2 className="text-4xl font-black mb-12 flex items-center gap-4 text-slate-700"><Settings className="text-[#FFAC59]" size={40} />輸出格式與細節設定</h2>
+            <div className="space-y-12">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-3"><label className="font-black text-slate-500 ml-1">教材主題名稱</label><input type="text" className="w-full p-5 bg-[#f8fafc] border-2 border-slate-100 rounded-2xl outline-none focus:border-[#FFAC59] text-xl font-bold text-slate-700 shadow-inner" value={settings.themeTitle} onChange={(e) => updateSetting('themeTitle', e.target.value)} placeholder="" /></div>
+                <div className="space-y-3"><label className="font-black text-slate-500 ml-1">班級 / 學生名稱</label><input type="text" className="w-full p-5 bg-[#f8fafc] border-2 border-slate-100 rounded-2xl outline-none focus:border-[#FFAC59] text-xl font-bold text-slate-700 shadow-inner" value={settings.className} onChange={(e) => updateSetting('className', e.target.value)} placeholder="" /></div>
+                <div className="space-y-3"><label className="font-black text-slate-500 ml-1">老師姓名</label><input type="text" className="w-full p-5 bg-[#f8fafc] border-2 border-slate-100 rounded-2xl outline-none focus:border-[#FFAC59] text-xl font-bold text-slate-700 shadow-inner" value={settings.teacherName} onChange={(e) => updateSetting('teacherName', e.target.value)} placeholder="例如：Evelyn" /></div>
+                <div className="space-y-3"><label className="font-black text-slate-500 ml-1">講義日期</label><input type="date" className="w-full p-5 bg-[#f8fafc] border-2 border-slate-100 rounded-2xl outline-none focus:border-[#FFAC59] text-xl font-bold text-slate-700 shadow-inner" value={settings.date} onChange={(e) => updateSetting('date', e.target.value)} /></div>
+                <div className="space-y-3 md:col-span-2"><label className="font-black text-[#FFAC59] ml-1">教材等級</label><input type="text" className="w-full p-5 bg-[#FFF9F2] border-2 border-[#FFE1C2] rounded-2xl outline-none focus:border-[#FFAC59] text-xl font-black text-[#D47000] shadow-inner" value={settings.textLevel} onChange={(e) => updateSetting('textLevel', e.target.value)} /></div>
+              </div>
+              <div className="space-y-4">
+                <label className="font-black text-slate-500 ml-1 flex items-center gap-2"><ImageIcon size={22} className="text-[#FFAC59]"/> 教材標誌 (Logo) 上傳</label>
+                <div onClick={() => fileInputRef.current?.click()} className="group border-4 border-dashed border-slate-200 rounded-[32px] p-10 flex flex-col items-center justify-center bg-[#f8fafc] hover:bg-[#FFF9F2] hover:border-[#FFAC59] transition-all cursor-pointer relative overflow-hidden shadow-inner">
+                  <input type="file" ref={fileInputRef} onChange={handleLogoUpload} accept="image/*" className="hidden" />
+                  {settings.logoUrl ? (
+                    <div className="relative group/preview"><img src={settings.logoUrl} alt="Logo" className="max-h-32 rounded-2xl shadow-md bg-white p-2" /><button onClick={(e) => { e.stopPropagation(); updateSetting('logoUrl', null); }} className="absolute -top-4 -right-4 bg-rose-500 text-white p-2.5 rounded-full shadow-lg opacity-0 group-hover/preview:opacity-100 transition-opacity"><X size={20} strokeWidth={3} /></button></div>
+                  ) : (
+                    <div className="flex flex-col items-center text-slate-400"><Upload size={56} className="mb-4 group-hover:scale-110 group-hover:text-[#FFAC59] transition-all" /><p className="text-xl font-black group-hover:text-[#FFAC59] transition-colors">拖曳或點擊上傳 Logo 檔案</p></div>
+                  )}
+                </div>
+              </div>
+              <div className="border-t-[3px] border-dashed border-orange-50 my-8"></div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                <div className="space-y-8"><h4 className="font-black text-2xl text-slate-700 flex items-center gap-3"><Type className="text-[#FFCD57]" size={32}/>標音設定</h4>
+                  <div className="space-y-4"><label className="text-base font-black text-slate-500 ml-1">標音類型</label><select className="w-full p-5 bg-[#f8fafc] border-2 border-slate-100 rounded-2xl outline-none focus:border-[#FFCD57] font-bold text-xl text-slate-700 shadow-inner" value={settings.phoneticType} onChange={(e) => updateSetting('phoneticType', e.target.value)}><option value="pinyin">僅拼音 (Pinyin)</option><option value="zhuyin">僅注音 (ㄅㄆㄇ)</option><option value="zhuyin_pinyin">拼音 + 注音</option></select></div>
+                  <div className="space-y-4"><label className="text-base font-black text-slate-500 ml-1">標音範圍</label><div className="flex bg-[#f1f5f9] p-2 rounded-3xl shadow-inner"><button className={`flex-1 py-4 rounded-2xl font-black text-lg transition-all ${settings.phoneticScope === 'core_only' ? 'bg-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] text-[#DCA427]' : 'text-slate-500'}`} onClick={() => updateSetting('phoneticScope', 'core_only')}>核心詞彙為主</button><button className={`flex-1 py-4 rounded-2xl font-black text-lg transition-all ${settings.phoneticScope === 'full_text' ? 'bg-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] text-[#DCA427]' : 'text-slate-500'}`} onClick={() => updateSetting('phoneticScope', 'full_text')}>全文皆需標音</button></div></div>
+                </div>
+                <div className="space-y-8"><h4 className="font-black text-2xl text-slate-700 flex items-center gap-3"><Download className="text-[#56D0A0]" size={32}/>翻譯設定</h4>
+                  <div className="space-y-4"><label className="text-base font-black text-slate-500 ml-1">目標語言</label>
+                    <select className="w-full p-5 bg-[#f8fafc] border-2 border-slate-100 rounded-2xl outline-none focus:border-[#56D0A0] font-bold text-xl text-slate-700 shadow-inner" value={settings.translationLanguage} onChange={(e) => updateSetting('translationLanguage', e.target.value)}>
+                      <option value="英文 (English)">英文 (English)</option>
+                      <option value="韓文 (한국어)">韓文 (한국어)</option>
+                      <option value="日文 (日本語)">日文 (日本語)</option>
+                      <option value="越南文 (Tiếng Việt)">越南文 (Tiếng Việt)</option>
+                      <option value="法文 (Français)">法文 (Français)</option>
+                      <option value="義大利語 (Italiano)">義大利語 (Italiano)</option>
+                    </select>
+                  </div>
+                  <div className="space-y-4"><label className="text-base font-black text-slate-500 ml-1">翻譯模組</label><div className="grid grid-cols-2 gap-4">{Object.entries({coreText: '核心課文', dialogue: '情境對話', coreGrammar: '核心語法', grammar: '語法診斷室'}).map(([key, label]) => (<label key={key} className={`flex items-center gap-4 p-5 border-2 rounded-2xl cursor-pointer transition-all ${settings.translateTargets[key] ? 'border-[#56D0A0] bg-[#EAFBF4] shadow-[0_4px_0_0_#34A879]' : 'border-slate-100 hover:bg-slate-50 shadow-sm'}`}><input type="checkbox" className="w-6 h-6 accent-[#56D0A0] shrink-0 rounded-md" checked={settings.translateTargets[key]} onChange={() => updateTarget(key)} /><span className="font-bold text-lg text-slate-700">{label}</span></label>))}</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-between mt-12">
+            <button onClick={onPrev} disabled={isGenerating} className="px-10 py-5 bg-[#F8F2EA] text-slate-600 rounded-[32px] font-black text-xl shadow-[0_6px_0_0_#E8DCCB] hover:translate-y-1 hover:shadow-[0_4px_0_0_#E8DCCB] active:translate-y-[6px] active:shadow-none transition-all">返回編輯</button>
+            <button onClick={() => onNext()} disabled={isGenerating} className="group flex items-center gap-4 px-12 py-5 bg-[#A084E8] text-white rounded-[32px] font-black text-2xl shadow-[0_8px_0_0_#7D5EC4,0_16px_24px_rgba(160,132,232,0.3),inset_0_-4px_8px_rgba(0,0,0,0.1)] hover:translate-y-1 hover:shadow-[0_6px_0_0_#7D5EC4,0_12px_20px_rgba(160,132,232,0.3),inset_0_-4px_8px_rgba(0,0,0,0.1)] active:translate-y-[8px] active:shadow-[0_0px_0_0_#7D5EC4,inset_0_2px_4px_rgba(0,0,0,0.2)] disabled:opacity-70 transition-all">
+              {isGenerating ? <><div className="animate-spin rounded-full h-8 w-8 border-4 border-white border-t-transparent" />生成時間約需2分鐘</> : <>生成教材預覽 <ChevronRight size={28} strokeWidth={3}/></>}
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    function Step4Preview({ data, settings, onPrev, setData }) {
+      const [editingWord, setEditingWord] = useState(null);
+
+      const getTranslatedModuleTitle = (zhTitle, lang) => {
+        const dict = {
+          '📖 核心課文': { '英文 (English)': 'Core Text', '韓文 (한국어)': '핵심 本文', '日文 (日本語)': 'コアテキスト', '越南文 (Tiếng Việt)': 'Bài văn cốt lõi', '法文 (Français)': 'Texte principal', '義大利語 (Italiano)': 'Testo principale' },
+          '📝 核心生詞': { '英文 (English)': 'Core Vocabulary', '韓文 (한국어)': '핵심 語彙', '日文 (日本語)': 'コア単語', '越南文 (Tiếng Việt)': 'Từ vựng cốt lõi', '法文 (Français)': 'Vocabulaire principal', '義大利語 (Italiano)': 'Vocabolario principale' },
+          '📙 核心語法': { '英文 (English)': 'Core Grammar', '韓文 (한국어)': '핵심 文法', '日文 (日本語)': 'コア文法', '越南文 (Tiếng Việt)': 'Ngữ pháp cốt lõi', '法文 (Français)': 'Grammaire principale', '義大利語 (Italiano)': 'Grammatica principale' },
+          '💬 情境對話': { '英文 (English)': 'Situational Dialogue', '韓文 (한국어)': '상황별 대화', '日文 (日本語)': 'シチュエーション会話', '越南文 (Tiếng Việt)': 'Hội thoại tình huống', '法文 (Français)': 'Dialogue en situation', '義大利語 (Italiano)': 'Dialogo situazionale' },
+          '🛠️ 語法診斷室': { '英文 (English)': 'Grammar Diagnostics', '韓文 (한국어)': '문법 진단실', '日文 (日本語)': '文法診断室', '越南文 (Tiếng Việt)': 'Phòng chẩn đoán ngữ pháp', '法文 (Français)': 'Diagnostic grammatical', '義大利語 (Italiano)': 'Diagnostica grammaticale' }
+        };
+        const translated = dict[zhTitle]?.[lang];
+        return translated ? `${zhTitle} (${translated})` : zhTitle;
+      };
+
+      const handleDownload = () => { 
+        const printArea = document.getElementById('imi-print-area');
+        if (!printArea) return;
+
+        const customStyles = `
+          :root { --base-scale: 1.2; }
+          
+          @page {
+            size: A4 portrait; 
+            margin: 10mm 8mm 20mm 8mm; 
+          }
+
+          .print-avoid-break-after {
+              page-break-after: avoid !important;
+              break-after: avoid !important;
+          }
+
+          html, body { 
+              background-color: white !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              display: block !important;
+              overflow: visible !important; 
+              box-sizing: border-box !important;
+          }
+          .print-wrapper { 
+              width: 100% !important; 
+              max-width: 100% !important; 
+              overflow: visible !important;
+              display: block !important;
+              box-sizing: border-box !important;
+              padding-top: 0px !important;
+          }
+          #imi-print-area { 
+              padding: 0 5mm !important; 
+              margin: 0 !important;
+              border: none !important; 
+              border-radius: 0 !important; 
+              box-shadow: none !important; 
+              max-width: 100% !important; 
+              width: 100% !important;
+              overflow: visible !important; 
+              display: block !important;
+              position: relative !important; 
+              box-sizing: border-box !important;
+              background-color: transparent !important;
+              z-index: 2 !important; 
+          }
+          .content-inner-layer {
+              border: none !important;
+              border-radius: 0 !important;
+              box-shadow: none !important;
+              background-color: transparent !important;
+              overflow: visible !important; 
+              display: block !important;
+              position: static !important; 
+          }
+
+          .print-spacer-table { 
+              width: 100% !important; 
+              border-collapse: collapse !important; 
+              border: none !important; 
+          }
+          
+          .print-spacer-header { height: 12mm !important; }
+          .print-spacer-footer { 
+              height: 24mm !important; 
+              display: block !important;
+              position: relative !important; 
+          }
+          
+          .print-section-break {
+              display: block !important;
+              clear: both !important;
+              page-break-before: always !important; 
+              break-before: page !important;        
+              margin-top: 0 !important;
+              padding-top: 0 !important; 
+          }
+          
+          .avoid-break-inside {
+              break-inside: avoid-page !important;
+              page-break-inside: avoid !important;
+          }
+
+          .print-flex-row {
+              display: flex !important;
+              flex-direction: row !important;
+              align-items: flex-start !important;
+          }
+
+          .eastern-border-layer {
+              display: block !important;
+              position: fixed !important;
+              top: 0 !important; 
+              bottom: 0 !important; 
+              left: 0 !important; 
+              right: 0 !important;
+              width: 100% !important; 
+              height: 100% !important;
+              z-index: 1 !important;
+              overflow: visible !important;
+              pointer-events: none !important;
+          }
+
+          .purple-header {
+              padding: 8px 24px !important; 
+              -webkit-print-color-adjust: exact !important; 
+              print-color-adjust: exact !important;
+              border-radius: 20px !important;
+              margin-top: 0 !important;
+              margin-bottom: 12px !important;
+          }
+          .purple-header .opacity-95, .purple-header .opacity-90, .purple-header .opacity-85 {
+              opacity: 1 !important;
+          }
+          .print-hide-divider { display: none !important; }
+
+          .avoid-break-inside.flex {
+              gap: 12px !important;
+              padding: 16px !important;
+          }
+          .content-bg-transparent {
+              padding-left: 16px !important;
+              padding-right: 16px !important;
+          }
+
+          .p-10 { padding: 1rem 1.25rem !important; }
+          .p-12 { padding: 1.25rem 1.25rem !important; }
+          .p-8 { padding: 1rem !important; }
+          .p-6 { padding: 0.75rem 1rem !important; }
+          .space-y-12 > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem !important; }
+          .space-y-10 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.75rem !important; }
+          .space-y-8 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.75rem !important; }
+          .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.5rem !important; }
+          .space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.5rem !important; }
+          .space-y-3 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.25rem !important; }
+          .mb-10 { margin-bottom: 0.75rem !important; }
+          .mb-12 { margin-bottom: 1rem !important; }
+          .mb-8 { margin-bottom: 0.75rem !important; }
+          .mt-10 { margin-top: 1rem !important; }
+          .mt-8 { margin-top: 0.75rem !important; }
+          .pt-8 { padding-top: 0.75rem !important; }
+          .pb-6 { padding-bottom: 0.5rem !important; }
+          .gap-6 { gap: 0.75rem !important; }
+          .gap-5 { gap: 0.5rem !important; }
+
+          .hz-font { 
+              display: inline-block;
+              vertical-align: middle;
+              font-size: calc(24px * var(--base-scale)); 
+              font-weight: bold; 
+              color: #333 !important; 
+              line-height: 1.2; 
+              margin-right: calc(-1px * var(--base-scale)); 
+          }
+          .punc-text { 
+              display: inline !important;
+              font-size: calc(24px * var(--base-scale)); 
+              font-weight: bold; 
+              color: #333 !important; 
+              line-height: 1.2; 
+          }
+          .z-char { 
+              font-size: calc(12px * var(--base-scale)); 
+              color: #777; 
+              line-height: 0.9; 
+              transform: scale(0.85); 
+              display: flex; 
+              align-items: center; 
+              justify-content: center; 
+              height: calc(13px * var(--base-scale)); 
+              margin-bottom: calc(1px * var(--base-scale)); 
+          }
+          .sentence-block { 
+              display: block; 
+              line-height: 2.6 !important; 
+              text-align: left;
+              word-break: keep-all !important;
+              line-break: strict !important;
+          }
+          .char-unit { 
+              display: inline-block; 
+              white-space: nowrap;
+              position: relative; 
+              vertical-align: bottom; 
+          }
+          .zy-wrapper { 
+              position: relative; 
+              width: calc(16px * var(--base-scale)); 
+              height: calc(32px * var(--base-scale)); 
+              margin-left: calc(-1.5px * var(--base-scale)); 
+              display: inline-flex; 
+              flex-direction: column; 
+              justify-content: center; 
+              align-items: center; 
+              transform-origin: left center; 
+              vertical-align: middle;
+          }
+          .zy-col { 
+              display: flex; 
+              flex-direction: column; 
+              align-items: center; 
+              justify-content: center; 
+              width: 100%; 
+              line-height: 1; 
+          }
+          .tone-side { 
+              position: absolute; 
+              right: calc(-5px * var(--base-scale)); 
+              top: 63%; 
+              transform: translateY(-50%) scale(0.85); 
+              font-size: calc(16px * var(--base-scale)); 
+              color: #555; 
+              line-height: 1; 
+          }
+          .tone-top { 
+              position: absolute; 
+              top: calc(-3px * var(--base-scale)); 
+              left: 0; 
+              right: 0;
+              margin: 0 auto;
+              text-align: center;
+              transform: scale(0.9); 
+              font-size: calc(16px * var(--base-scale)); 
+              color: #555; 
+              line-height: 1; 
+              display: block;
+          }
+          .is-triple .z-char { height: calc(10px * var(--base-scale)); transform: scale(0.75); }  
+          .is-double .z-char { height: calc(12.5px * var(--base-scale)); transform: scale(0.85); }  
+          .is-single .z-char { height: calc(14px * var(--base-scale)); transform: scale(0.9); }  
+          .is-single + .tone-side { 
+              top: 50% !important; 
+              transform: translateY(-50%); 
+              right: -1.5px !important; 
+          }
+          
+          .hz-wrapper {
+              display: inline-flex !important;
+              flex-direction: column;
+              align-items: center;
+              vertical-align: top;
+              margin: 0 2px 10px 2px !important; 
+              line-height: 1.2;
+          }
+
+          .res-py { 
+              font-size: calc(14px * var(--base-scale)); 
+              color: #666; 
+              text-align: center; 
+              font-family: Arial, sans-serif;
+              margin-top: 4px !important;
+              line-height: 1.1; 
+              display: block !important;
+              position: static !important;
+              white-space: nowrap;
+              transform: none !important;
+          }
+          
+          .word-container { 
+              display: inline; 
+              -webkit-box-decoration-break: clone;
+              box-decoration-break: clone;
+          }
+        `;
+
+        const htmlContent = `
+          <!DOCTYPE html>
+          <html lang="zh-TW">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>${settings.className || '講義'} - ${settings.date}</title>
+              <script src="[https://cdn.tailwindcss.com](https://cdn.tailwindcss.com)"><\/script>
+              <style>${customStyles}</style>
+          </head>
+          <body>
+              <div class="print-wrapper">
+                  ${printArea.outerHTML}
+              </div>
+              <script>
+                  document.querySelectorAll('.word-container').forEach(el => {
+                      el.style.cursor = 'default';
+                      el.style.boxShadow = 'none';
+                      el.style.transform = 'none';
+                      el.title = '';
+                  });
+                  document.querySelectorAll('button[title="編輯整句標音"]').forEach(btn => btn.remove());
+              <\/script>
+          </body>
+          </html>
+        `;
+
+        const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `IMI_教材_${settings.className || '講義'}_${settings.date}.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }; 
+
+      const handleWordClick = (payload) => {
+        if (!payload) return;
+        setEditingWord(payload);
+      };
+
+      const savePhonetic = () => {
+        if (!editingWord) return;
+        const newData = { ...data };
+        if (editingWord.type === 'chunk') {
+            newData.coreTextChunks = (newData.coreTextChunks || []).map(c => c.id === editingWord.id ? { ...c, pinyin: editingWord.pinyin, zhuyin: editingWord.zhuyin } : c);
+        } else if (editingWord.type === 'vocab') {
+            newData.vocabList = (newData.vocabList || []).map(v => v.id === editingWord.id ? { ...v, pinyin: editingWord.pinyin, zhuyin: editingWord.zhuyin } : v);
+        } else if (editingWord.type === 'grammar_title') {
+            newData.coreGrammar = (newData.coreGrammar || []).map(g => g.id === editingWord.id ? { ...g, titlePinyin: editingWord.pinyin, titleZhuyin: editingWord.zhuyin } : g);
+        } else if (editingWord.type === 'grammar_desc') {
+            newData.coreGrammar = (newData.coreGrammar || []).map(g => g.id === editingWord.id ? { ...g, descPinyin: editingWord.pinyin, descZhuyin: editingWord.zhuyin } : g);
+        } else if (editingWord.type === 'grammar_example') {
+            newData.coreGrammar = (newData.coreGrammar || []).map(g => g.id === editingWord.parentId ? { ...g, examples: g.examples.map((ex, i) => i === editingWord.id ? { ...ex, pinyin: editingWord.pinyin, zhuyin: editingWord.zhuyin } : ex) } : g);
+        } else if (editingWord.type === 'dialogue_line') {
+            newData.dialogues = (newData.dialogues || []).map(d => d.id === editingWord.parentId ? { ...d, lines: d.lines.map(l => l.id === editingWord.id ? { ...l, pinyin: editingWord.pinyin, zhuyin: editingWord.zhuyin } : l) } : d);
+        } else if (editingWord.type === 'rule_mistake') {
+            newData.grammarRules = (newData.grammarRules || []).map(r => r.id === editingWord.id ? { ...r, mistakePinyin: editingWord.pinyin, mistakeZhuyin: editingWord.zhuyin } : r);
+        } else if (editingWord.type === 'rule_correction') {
+            newData.grammarRules = (newData.grammarRules || []).map(r => r.id === editingWord.id ? { ...r, correctionPinyin: editingWord.pinyin, correctionZhuyin: editingWord.zhuyin } : r);
+        } else if (editingWord.type === 'rule_explanation') {
+            newData.grammarRules = (newData.grammarRules || []).map(r => r.id === editingWord.id ? { ...r, explanationPinyin: editingWord.pinyin, explanationZhuyin: editingWord.zhuyin } : r);
+        }
+        if (setData) setData(newData);
+        setEditingWord(null);
+      };
+      
+      const isTypePinyin = settings.phoneticType === 'pinyin' || settings.phoneticType === 'zhuyin_pinyin';
+      const isTypeZhuyin = settings.phoneticType === 'zhuyin' || settings.phoneticType === 'zhuyin_pinyin';
+
+      const getWordType = (word) => {
+        if (data.coreGrammar && data.coreGrammar.some(g => g.title === word)) return 'grammar';
+        if (data.grammarRules && data.grammarRules.some(r => r.theme === word)) return 'grammar';
+        if (data.vocabList) {
+          const v = data.vocabList.find(v => v.word === word);
+          if (v && v.type) return v.type;
+        }
+        if (data.coreTextChunks) {
+          const chunk = data.coreTextChunks.find(c => c.text === word && c.type !== 'normal' && c.type !== 'punctuation');
+          if (chunk) return chunk.type;
+        }
+        return 'vocab';
+      };
+
+      return (
+        <EditPhoneticContext.Provider value={handleWordClick}>
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700 print:bg-white print:p-0">
+          
+          <style>{`
+            :root {
+              --base-scale: 1.2;
+            }
+            
+            @page {
+              size: A4 portrait; 
+              margin: 8mm; 
+            }
+            
+            body { margin: 0; }
+
+            .hz-font { 
+                display: inline-block;
+                vertical-align: middle;
+                font-size: calc(24px * var(--base-scale)); 
+                font-weight: bold; 
+                color: #333 !important; 
+                line-height: 1.2; 
+                margin-right: calc(-1px * var(--base-scale)); 
+            }
+            .punc-text { 
+                display: inline !important;
+                font-size: calc(24px * var(--base-scale)); 
+                font-weight: bold; 
+                color: #333 !important; 
+                line-height: 1.2; 
+            }
+            .z-char { 
+                font-size: calc(12px * var(--base-scale)); 
+                color: #777; 
+                line-height: 0.9; 
+                transform: scale(0.85); 
+                display: flex; 
+                align-items: center; 
+                justify-content: center; 
+                height: calc(13px * var(--base-scale)); 
+                margin-bottom: calc(1px * var(--base-scale)); 
+            }
+            .sentence-block { 
+                display: block; 
+                line-height: 2.8 !important; 
+                text-align: left;
+                word-break: keep-all !important;
+                line-break: strict !important;
+            }
+            .char-unit { 
+                display: inline-block; 
+                white-space: nowrap;
+                position: relative; 
+                vertical-align: bottom; 
+            }
+            .zy-wrapper { 
+                position: relative; 
+                width: calc(16px * var(--base-scale)); 
+                height: calc(32px * var(--base-scale)); 
+                margin-left: calc(-1.5px * var(--base-scale)); 
+                display: inline-flex; 
+                flex-direction: column; 
+                justify-content: center; 
+                align-items: center; 
+                transform-origin: left center; 
+                vertical-align: middle;
+            }
+            .zy-col { 
+                display: flex; 
+                flex-direction: column; 
+                align-items: center; 
+                justify-content: center; 
+                width: 100%; 
+                line-height: 1; 
+            }
+            .tone-side { 
+                position: absolute; 
+                right: calc(-5px * var(--base-scale)); 
+                top: 63%; 
+                transform: translateY(-50%) scale(0.85); 
+                font-size: calc(16px * var(--base-scale)); 
+                color: #555; 
+                line-height: 1; 
+            }
+            .tone-top { 
+                position: absolute; 
+                top: calc(-3px * var(--base-scale)); 
+                left: 0; 
+                right: 0;
+                margin: 0 auto;
+                text-align: center;
+                transform: scale(0.9); 
+                font-size: calc(16px * var(--base-scale)); 
+                color: #555; 
+                line-height: 1; 
+                display: block; 
+            }
+            .is-triple .z-char { height: calc(10px * var(--base-scale)); transform: scale(0.75); }  
+            .is-double .z-char { height: calc(12.5px * var(--base-scale)); transform: scale(0.85); }  
+            .is-single .z-char { height: calc(14px * var(--base-scale)); transform: scale(0.9); }  
+            .is-single + .tone-side { 
+                top: 50% !important; 
+                transform: translateY(-50%); 
+                right: -1.5px !important; 
+            }
+            
+            .hz-wrapper {
+                display: inline-flex !important;
+                flex-direction: column;
+                align-items: center;
+                vertical-align: top;
+                margin: 0 2px 18px 2px !important; 
+                line-height: 1.2;
+            }
+
+            .res-py { 
+                font-size: calc(14px * var(--base-scale)); 
+                color: #666; 
+                text-align: center; 
+                font-family: Arial, sans-serif;
+                margin-top: 4px !important;
+                line-height: 1.1; 
+                display: block !important;
+                position: static !important;
+                white-space: nowrap;
+                transform: none !important;
+            }
+            
+            .word-container { 
+                display: inline; 
+                -webkit-box-decoration-break: clone;
+                box-decoration-break: clone;
+            }
+
+            .print-spacer-table { 
+                width: 100% !important; 
+                border-collapse: collapse !important; 
+                border: none !important; 
+            }
+            
+            .print-spacer-header { height: 12mm !important; }
+            .print-spacer-footer { 
+                height: 24mm !important; 
+                display: block !important;
+                position: relative !important; 
+            }
+
+            .avoid-break-inside {
+                break-inside: avoid-page !important;
+                page-break-inside: avoid !important;
+            }
+            
+            @media print {
+                html, body { 
+                    padding: 0; background-color: white; margin: 0; 
+                }
+                .print-wrapper { max-width: 100%; width: 100%; padding-top: 0px !important; }
+                #imi-print-area { 
+                    padding: 0 10mm !important; 
+                    margin: 0 !important;
+                    border: none !important; 
+                    border-radius: 0 !important; 
+                    box-shadow: none !important; 
+                    max-width: 100% !important; 
+                    width: 100% !important;
+                    overflow: visible !important; 
+                    display: block !important;
+                    position: relative !important; 
+                    box-sizing: border-box !important;
+                    background-color: transparent !important;
+                    z-index: 2 !important; 
+                }
+                .eastern-border-layer {
+                    display: block !important;
+                    position: fixed !important;
+                    top: 0 !important; 
+                    bottom: 0 !important; 
+                    left: 0 !important; 
+                    right: 0 !important;
+                    width: 100% !important; 
+                    height: 100% !important;
+                    z-index: 1 !important;
+                    overflow: visible !important;
+                    pointer-events: none !important;
+                }
+                .content-inner-layer {
+                    border: none !important;
+                    border-radius: 0 !important;
+                    box-shadow: none !important;
+                    background-color: transparent !important;
+                    overflow: visible !important; 
+                    display: block !important;
+                    position: static !important; 
+                }
+                .content-bg-transparent {
+                    background-color: transparent !important;
+                }
+                .purple-header {
+                    padding: 8px 24px !important; 
+                    border-radius: 24px !important;
+                    margin-top: 0 !important;
+                    margin-bottom: 12px !important;
+                    -webkit-print-color-adjust: exact !important; 
+                    print-color-adjust: exact !important;
+                }
+                .purple-header .opacity-95, .purple-header .opacity-90, .purple-header .opacity-85 {
+                    opacity: 1 !important;
+                }
+
+                .p-10 { padding: 1rem 1.5rem !important; }
+                .p-12 { padding: 1.25rem 1.5rem !important; }
+                .p-8 { padding: 1rem !important; }
+                .p-6 { padding: 0.75rem 1rem !important; }
+                .space-y-12 > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem !important; }
+                .space-y-10 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.75rem !important; }
+                .space-y-8 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.75rem !important; }
+                .space-y-6 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.5rem !important; }
+                .space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.5rem !important; }
+                .space-y-3 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.25rem !important; }
+                .mb-10 { margin-bottom: 0.75rem !important; }
+                .mb-12 { margin-bottom: 1rem !important; }
+                .mb-8 { margin-bottom: 0.75rem !important; }
+                .mt-10 { margin-top: 1rem !important; }
+                .mt-8 { margin-top: 0.75rem !important; }
+                .pt-8 { padding-top: 0.75rem !important; }
+                .pb-6 { padding-bottom: 0.5rem !important; }
+                .gap-6 { gap: 0.75rem !important; }
+                .gap-5 { gap: 0.5rem !important; }
+
+                .print-flex-row {
+                display: flex !important;
+                flex-direction: row !important;
+                align-items: flex-start !important;
+                }
+                .print-section-break {
+                    display: block !important;
+                    clear: both !important;
+                    page-break-before: always !important; 
+                    break-before: page !important;        
+                    margin-top: 0 !important;
+                    padding-top: 0 !important; 
+                }
+                .print-hide-divider {
+                    display: none !important;
+                }
+            }
+          `}</style>
+
+          <div id="imi-print-area" className="bg-white shadow-[0_8px_0_0_#F0E5D8,0_16px_32px_rgba(0,0,0,0.04)] max-w-4xl mx-auto rounded-[40px] relative print:shadow-none print:border-none print:w-full print:rounded-none" style={{ padding: '0px', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+            
+            <div className="eastern-border-layer absolute inset-3 pointer-events-none" style={{ zIndex: 10 }}>
+              <div className="absolute top-0 left-[58px] right-[58px] h-[2px] bg-[#A89CC7]" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}></div>
+              <div className="absolute top-[12px] left-[58px] right-[58px] h-[2px] bg-[#A89CC7]" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}></div>
+              
+              <div className="absolute bottom-0 left-[58px] right-[58px] h-[2px] bg-[#A89CC7]" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}></div>
+              <div className="absolute bottom-[12px] left-[58px] right-[58px] h-[2px] bg-[#A89CC7]" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}></div>
+              
+              <div className="absolute left-0 top-[58px] bottom-[58px] w-[2px] bg-[#A89CC7]" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}></div>
+              <div className="absolute left-[12px] top-[58px] bottom-[58px] w-[2px] bg-[#A89CC7]" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}></div>
+              
+              <div className="absolute right-0 top-[58px] bottom-[58px] w-[2px] bg-[#A89CC7]" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}></div>
+              <div className="absolute right-[12px] top-[58px] bottom-[58px] w-[2px] bg-[#A89CC7]" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}></div>
+
+              <svg className="absolute top-0 left-0 w-[60px] h-[60px]" viewBox="0 0 60 60" fill="none" stroke="#A89CC7" strokeWidth="2" xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)">
+                <path d="M 1 60 L 1 1 L 60 1" />
+                <path d="M 13 60 L 13 25 L 25 25 L 25 13 L 60 13" />
+                <rect x="22" y="22" width="6" height="6" />
+                <path d="M 13 25 A 12 12 0 0 1 25 13" />
+                <line x1="36" y1="1" x2="36" y2="13" />
+                <line x1="44" y1="1" x2="44" y2="13" />
+                <line x1="52" y1="1" x2="52" y2="13" />
+                <line x1="1" y1="36" x2="13" y2="36" />
+                <line x1="1" y1="44" x2="13" y2="44" />
+                <line x1="1" y1="52" x2="13" y2="52" />
+              </svg>
+              <svg className="absolute top-0 right-0 w-[60px] h-[60px]" style={{ transform: 'scaleX(-1)' }} viewBox="0 0 60 60" fill="none" stroke="#A89CC7" strokeWidth="2" xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)">
+                <path d="M 1 60 L 1 1 L 60 1" />
+                <path d="M 13 60 L 13 25 L 25 25 L 25 13 L 60 13" />
+                <rect x="22" y="22" width="6" height="6" />
+                <path d="M 13 25 A 12 12 0 0 1 25 13" />
+                <line x1="36" y1="1" x2="36" y2="13" />
+                <line x1="44" y1="1" x2="44" y2="13" />
+                <line x1="52" y1="1" x2="52" y2="13" />
+                <line x1="1" y1="36" x2="13" y2="36" />
+                <line x1="1" y1="44" x2="13" y2="44" />
+                <line x1="1" y1="52" x2="13" y2="52" />
+              </svg>
+              <svg className="absolute bottom-0 left-0 w-[60px] h-[60px]" style={{ transform: 'scaleY(-1)' }} viewBox="0 0 60 60" fill="none" stroke="#A89CC7" strokeWidth="2" xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)">
+                <path d="M 1 60 L 1 1 L 60 1" />
+                <path d="M 13 60 L 13 25 L 25 25 L 25 13 L 60 13" />
+                <rect x="22" y="22" width="6" height="6" />
+                <path d="M 13 25 A 12 12 0 0 1 25 13" />
+                <line x1="36" y1="1" x2="36" y2="13" />
+                <line x1="44" y1="1" x2="44" y2="13" />
+                <line x1="52" y1="1" x2="52" y2="13" />
+                <line x1="1" y1="36" x2="13" y2="36" />
+                <line x1="1" y1="44" x2="13" y2="44" />
+                <line x1="1" y1="52" x2="13" y2="52" />
+              </svg>
+              <svg className="absolute bottom-0 right-0 w-[60px] h-[60px]" style={{ transform: 'scale(-1, -1)' }} viewBox="0 0 60 60" fill="none" stroke="#A89CC7" strokeWidth="2" xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)">
+                <path d="M 1 60 L 1 1 L 60 1" />
+                <path d="M 13 60 L 13 25 L 25 25 L 25 13 L 60 13" />
+                <rect x="22" y="22" width="6" height="6" />
+                <path d="M 13 25 A 12 12 0 0 1 25 13" />
+                <line x1="36" y1="1" x2="36" y2="13" />
+                <line x1="44" y1="1" x2="44" y2="13" />
+                <line x1="52" y1="1" x2="52" y2="13" />
+                <line x1="1" y1="36" x2="13" y2="36" />
+                <line x1="1" y1="44" x2="13" y2="44" />
+                <line x1="1" y1="52" x2="13" y2="52" />
+              </svg>
+            </div>
+
+            <div className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none z-[100] overflow-hidden" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+              {Array.from({ length: 30 }).map((_, i) => (
+                <div key={i} className="w-full relative box-border" style={{ height: '100vh', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                  <div className="absolute left-0 right-0 text-center font-bold text-sm tracking-widest" style={{ bottom: '28px', color: '#A89CC7', fontFamily: 'ui-sans-serif, system-ui, sans-serif' }}>
+                    - {i + 1} -
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <table className="print-spacer-table relative z-0">
+              <thead>
+                <tr><td className="border-none p-0"><div className="print-spacer-header"></div></td></tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td className="border-none p-0 relative">
+                    <div style={{ padding: '0px' }}> 
+                      <div className="content-inner-layer relative bg-white z-0 rounded-[32px] overflow-visible shadow-sm" style={{ border: '1px solid #E4E0EB', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact', minHeight: '800px' }}>
+                        
+                        <div className="purple-header p-8 md:p-10 text-white border-b-[6px] border-[#8A7EA5]" style={{ backgroundColor: '#9A8CB0', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                          <div className="flex justify-between items-end">
+                            <div className="flex items-center gap-6">
+                              <div className="w-24 h-24 rounded-full bg-white flex items-center justify-center overflow-hidden shrink-0 border-4 border-[#F4F0FF]" style={{ boxShadow: '0 8px 16px rgba(0,0,0,0.15), inset 0 4px 8px rgba(0,0,0,0.05), inset 0 -4px 8px rgba(154,140,176,0.4)', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                                {settings.logoUrl ? (
+                                  <img src={settings.logoUrl} alt="Logo" className="w-[85%] h-[85%] object-contain drop-shadow-sm" />
+                                ) : (
+                                  <div className="flex items-center justify-center w-full h-full bg-[#0a192f]" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                                     <span className="text-[#FFD700] font-black text-3xl tracking-tighter" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>IMI</span>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="space-y-2"><h1 className="text-5xl font-black tracking-tighter">{settings.themeTitle || '課後複習講義'}</h1></div>
+                            </div>
+                            <div className="text-right flex flex-col items-end shrink-0 z-10 relative">
+                              <span className="bg-white/20 text-white px-4 py-1.5 rounded-xl font-black text-sm mb-2 tracking-widest border border-white/40 shadow-sm" style={{ WebkitPrintColorAdjust: 'exact' }}>教材等級：{settings.textLevel}</span>
+                              <p className="text-2xl font-black opacity-95">{settings.className || '柔棋'}</p>
+                              <p className="text-xl font-bold opacity-90">{settings.teacherName ? `${settings.teacherName} 老師` : '老師'}</p>
+                              <p className="text-lg font-medium opacity-85">{settings.date}</p>
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="content-bg-transparent px-6 py-6 md:px-8 md:py-8 bg-white">
+                          <section>
+                            <SectionHeader title={getTranslatedModuleTitle("📖 核心課文", settings.translationLanguage)} color="#7A7387" border="#7A7387" />
+                            <div className="mt-10 sentence-block">
+                              {(data.coreTextChunks || []).map((chunk, i) => {
+                                const textStr = (chunk.text || '').replace(/ /g, ''); 
+                                const isPunc = chunk.type === 'punctuation' || /^[，。！？；：「」『』、\(\)（）\s"'.?!:;]+$/.test(textStr);
+                                
+                                if (isPunc) return <span key={chunk.id || `chunk-${i}`} className="word-container punc-text px-0" style={{ display: 'inline' }}>{'\u2060'}{textStr}</span>;
+                                
+                                const isFullText = settings.phoneticScope === 'full_text';
+                                const isTarget = chunk.type === 'keyword' || chunk.type === 'vocab' || chunk.type === 'grammar';
+                                const shouldShow = isFullText || isTarget;
+                                
+                                let finalPinyin = chunk.pinyin || '';
+                                let finalZhuyin = chunk.zhuyin || '';
+                                if (isTarget) {
+                                  const matchedVocab = (data.vocabList || []).find(v => v.word === textStr);
+                                  if (matchedVocab) {
+                                    finalPinyin = finalPinyin || matchedVocab.pinyin || '';
+                                    finalZhuyin = finalZhuyin || matchedVocab.zhuyin || '';
+                                  }
+                                }
+
+                                const showP = shouldShow && isTypePinyin; 
+                                const showZ = shouldShow && isTypeZhuyin;
+                                
+                                const highlightStyle = chunk.type === 'keyword' ? { borderBottom: '4px solid #FFCD57', color: '#B8860B', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' }
+                                              : chunk.type === 'vocab' ? { borderBottom: '4px solid #56D0A0', color: '#1B6B47', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' }
+                                              : chunk.type === 'grammar' ? { borderBottom: '4px dashed #7A7387', color: '#5C5666', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' }
+                                              : {};
+
+                                const editPayload = { type: 'chunk', id: chunk.id, text: textStr, pinyin: finalPinyin, zhuyin: finalZhuyin };
+
+                                return <WordBlock key={chunk.id || `chunk-${i}`} text={textStr} pinyinStr={finalPinyin} zhuyinStr={finalZhuyin} showP={showP} showZ={showZ} highlightStyle={highlightStyle} editPayload={editPayload} />;
+                              })}
+                            </div>
+                            {settings.translateTargets.coreText && data.coreTextTranslation && <div className="mt-10 p-6 rounded-[24px] text-slate-600 text-base italic font-medium leading-relaxed bg-white avoid-break-inside" style={{ border: '2px solid #E4E0EB', WebkitPrintColorAdjust: 'exact' }}>{data.coreTextTranslation}</div>}
+                          </section>
+                          
+                          <ModuleDivider />
+
+                          <section className="print-section-break">
+                            <SectionHeader title={getTranslatedModuleTitle("📝 核心生詞", settings.translationLanguage)} color="#38A385" border="#48C0A3" />
+                            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-8 print:gap-4">
+                              {(data.vocabList || []).map((v, i) => {
+                                const showP = isTypePinyin;
+                                const showZ = isTypeZhuyin;
+                                
+                                const wType = getWordType(v.word);
+                                let themeColor = '#48C0A3';
+                                let lightBg = '#E6F7F2';
+                                let darkText = '#2B7A66';
+                                if (wType === 'keyword') {
+                                  themeColor = '#FFCD57'; lightBg = '#FFFBEA'; darkText = '#B8860B';
+                                } else if (wType === 'grammar') {
+                                  themeColor = '#7A7387'; lightBg = '#F3F1F5'; darkText = '#5C5666';
+                                }
+
+                                return (
+                                  <div key={v.id || `vocab-${i}`} className="avoid-break-inside flex p-6 bg-white items-start gap-5 rounded-[24px]" style={{ border: '2px solid #e2e8f0', borderBottom: `6px solid ${themeColor}`, borderRight: `4px solid ${themeColor}`, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                                    <div className="text-white w-14 h-14 rounded-full flex items-center justify-center font-black text-2xl shrink-0 mt-1 shadow-inner" style={{ backgroundColor: themeColor, WebkitPrintColorAdjust: 'exact' }}>{i + 1}</div>
+                                    <div className="flex-1 space-y-2">
+                                      <div className="flex items-start gap-4 flex-wrap">
+                                        <span className="font-black text-slate-800 tracking-tight flex items-end">
+                                          <WordBlock text={v.word} pinyinStr={v.pinyin} zhuyinStr={v.zhuyin} showP={showP} showZ={showZ} highlightStyle={{}} editPayload={{ type: 'vocab', id: v.id, text: v.word, pinyin: v.pinyin || '', zhuyin: v.zhuyin || '' }} />
+                                        </span>
+                                        <span className="text-sm px-3 py-1 font-extrabold rounded-full mt-1.5" style={{ backgroundColor: lightBg, color: darkText, WebkitPrintColorAdjust: 'exact' }}>{settings.translateTargets.vocab && v.posTranslation ? v.posTranslation : v.pos}</span>
+                                      </div>
+                                    {settings.translateTargets.vocab && (
+                                      <p className="text-slate-700 font-extrabold text-base italic pt-3 mt-3 tracking-tight" style={{ borderTop: `2px dashed ${lightBg}` }}>
+                                        {v.translation || '(未生成翻譯)'}
+                                      </p>
+                                    )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </section>
+
+                          {((data.coreGrammar || []).length > 0) && <ModuleDivider />}
+
+                          {(data.coreGrammar || []).length > 0 && (
+                            <section className="print-section-break">
+                              <SectionHeader title={getTranslatedModuleTitle("📙 核心語法", settings.translationLanguage)} color="#D4A017" border="#FFEE99" />
+                              <div className="mt-10 space-y-12">
+                                {(data.coreGrammar || []).map((p, i) => (
+                                  <div key={p.id || `grammar-${i}`} className="p-10 rounded-[40px] bg-white" style={{ border: '2px solid #FFEE99', borderBottom: '6px solid #FFD700', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                                    <h4 className="font-black text-3xl mb-5 leading-tight print-avoid-break-after" style={{ color: '#B8860B' }}>
+                                      <InlineRubyText text={p.title} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={p.titlePinyin} sentenceZhuyin={p.titleZhuyin} alwaysShowRuby={true} sentenceEditPayload={{ type: 'grammar_title', id: p.id, text: p.title, pinyin: p.titlePinyin || '', zhuyin: p.titleZhuyin || '' }} />
+                                    </h4>
+                                    <div className="text-slate-800 text-xl font-bold mb-5 leading-relaxed">
+                                      <InlineRubyText text={p.description} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={p.descPinyin} sentenceZhuyin={p.descZhuyin} sentenceEditPayload={{ type: 'grammar_desc', id: p.id, text: p.description, pinyin: p.descPinyin || '', zhuyin: p.descZhuyin || '' }} />
+                                    </div>
+                                    {settings.translateTargets.coreGrammar && (
+                                      <p className="text-slate-600 text-base italic mb-8 border-l-4 pl-4 font-medium" style={{ borderColor: '#FFD700' }}>
+                                        {p.translation || '(未生成翻譯)'}
+                                      </p>
+                                    )}
+                                    
+                                    <div className="space-y-5 pt-6" style={{ borderTop: '2px solid #FFEE99' }}>
+                                      {(p.examples || []).map((ex, j) => {
+                                        const text = typeof ex === 'string' ? ex : ex.text;
+                                        const isDialogue = text.includes(':') || text.includes('：');
+                                        if (isDialogue) {
+                                          const lines = text.split(/(?=[A-Z甲乙]\s*[:：])/).filter(Boolean);
+                                          const exPinyin = typeof ex === 'object' ? (ex.pinyin || '') : '';
+                                          const exZhuyin = typeof ex === 'object' ? (ex.zhuyin || '') : '';
+                                          const fullPyTokens = filterPhoneticTokens(exPinyin);
+                                          const fullZyTokens = filterPhoneticTokens(exZhuyin);
+                                          let pyCursor = 0;
+                                          let zyCursor = 0;
+
+                                          return (
+                                            <div key={j} className="bg-white p-6 rounded-3xl space-y-3 avoid-break-inside" style={{ border: '2px solid #FFEE99', WebkitPrintColorAdjust: 'exact' }}>
+                                              {lines.map((lineStr, lidx) => {
+                                                const match = lineStr.match(/^([^:：]+[:：])\s*(.*)$/);
+                                                const role = match ? match[1] : '';
+                                                const content = match ? match[2] : lineStr;
+
+                                                const roleHanziCount = (role.match(/[\u4e00-\u9fa5]/g) || []).length;
+                                                const contentHanziCount = (content.match(/[\u4e00-\u9fa5]/g) || []).length;
+
+                                                pyCursor += roleHanziCount;
+                                                zyCursor += roleHanziCount;
+
+                                                const contentPy = fullPyTokens.slice(pyCursor, pyCursor + contentHanziCount).join(' ');
+                                                const contentZy = fullZyTokens.slice(zyCursor, zyCursor + contentHanziCount).join(' ');
+                                                
+                                                pyCursor += contentHanziCount;
+                                                zyCursor += contentHanziCount;
+
+                                                return (
+                                                  <div key={lidx} className="flex gap-4 print-flex-row items-start">
+                                                    {role && <span className="font-black w-auto min-w-[2.5rem] shrink-0 text-xl pt-1" style={{ color: '#D4A017' }}>{role}</span>}
+                                                    <span className="text-xl text-slate-800 font-bold flex-1" style={{ lineHeight: '2.6' }}>
+                                                      <InlineRubyText text={content} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={contentPy} sentenceZhuyin={contentZy} sentenceEditPayload={typeof ex === 'object' ? { type: 'grammar_example', parentId: p.id, id: j, text: text, pinyin: ex.pinyin || '', zhuyin: ex.zhuyin || '' } : null} />
+                                                    </span>
+                                                  </div>
+                                                );
+                                              })}
+                                            </div>
+                                          );
+                                        }
+                                        return (
+                                          <div key={j} className="flex gap-5 items-start avoid-break-inside">
+                                            <div className="w-3 h-3 rounded-full mt-4 shrink-0 shadow-sm" style={{ backgroundColor: '#FFD700', WebkitPrintColorAdjust: 'exact' }} />
+                                            <div className="flex-1 flex flex-col min-w-0">
+                                              <span style={{ lineHeight: '2.6' }}>
+                                                <InlineRubyText text={text} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={typeof ex === 'object' ? ex.pinyin : ''} sentenceZhuyin={typeof ex === 'object' ? ex.zhuyin : ''} sentenceEditPayload={typeof ex === 'object' ? { type: 'grammar_example', parentId: p.id, id: j, text: text, pinyin: ex.pinyin || '', zhuyin: ex.zhuyin || '' } : null} />
+                                              </span>
+                                              {typeof ex === 'object' && settings.translateTargets.coreGrammar && ex.translation && (<span className="text-slate-600 text-base block mt-2 border-l-2 pl-3 font-medium" style={{ borderColor: '#FFEE99' }}>{ex.translation}</span>)}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </section>
+                          )}
+
+                          {((data.dialogues || []).length > 0) && <ModuleDivider />}
+
+                          {(data.dialogues || []).length > 0 && (
+                            <section className="print-section-break">
+                              <SectionHeader title={getTranslatedModuleTitle("💬 情境對話", settings.translationLanguage)} color="#615A6B" border="#7A7387" />
+                              <div className="mt-10 space-y-12">
+                                {(data.dialogues || []).map((d, i) => (
+                                  <div key={d.id || `dialogue-${i}`} className="p-10 rounded-[40px] bg-white" style={{ border: '2px solid #E4E0EB', borderBottom: '6px solid #7A7387', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                                    <h4 className="font-black text-2xl mb-8 inline-block px-8 py-3 rounded-full shadow-sm print-avoid-break-after" style={{ backgroundColor: '#ffffff', color: '#615A6B', border: '1px solid #E4E0EB', WebkitPrintColorAdjust: 'exact' }}>{d.title}</h4>
+                                    <div className="space-y-6">
+                                      {(d.lines || []).map((l, j) => (
+                                        <div key={l.id || `line-${j}`} className="flex gap-6 avoid-break-inside print-flex-row items-start">
+                                          <span className="font-black w-14 shrink-0 text-3xl border-r-4 pt-1" style={{ color: '#7A7387', borderColor: '#D3CDD9' }}>{l.speaker}</span>
+                                          <div className="flex-1 flex flex-col min-w-0">
+                                            <span className="text-xl text-slate-800 font-bold" style={{ lineHeight: '2.6' }}>
+                                              <InlineRubyText text={l.text} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={l.pinyin} sentenceZhuyin={l.zhuyin} sentenceEditPayload={{ type: 'dialogue_line', parentId: d.id, id: l.id, text: l.text, pinyin: l.pinyin || '', zhuyin: l.zhuyin || '' }} />
+                                            </span>
+                                            {settings.translateTargets.dialogue && l.translation && <span className="text-slate-600 text-base block mt-2 opacity-90 font-medium">{l.translation}</span>}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </section>
+                          )}
+
+                          {((data.grammarRules || []).length > 0) && <ModuleDivider />}
+
+                          {(data.grammarRules || []).length > 0 && (
+                            <section className="print-section-break">
+                              <SectionHeader title={getTranslatedModuleTitle("🛠️ 語法診斷室", settings.translationLanguage)} color="#D95A50" border="#F07167" />
+                              <div className="mt-10 space-y-10">
+                                {(data.grammarRules || []).map((rule, i) => (
+                                  <div key={rule.id || `rule-${i}`} className="p-8 md:p-8 relative overflow-hidden bg-white rounded-[32px]" style={{ border: '2px solid #FDF1F0', borderBottom: '6px solid #F07167', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                                    <div className="absolute top-0 right-0 px-6 py-2 rounded-bl-2xl font-black text-sm uppercase tracking-widest shadow-sm text-white" style={{ backgroundColor: '#F07167', WebkitPrintColorAdjust: 'exact' }}>重點提醒</div>
+                                    <div className="space-y-6 mt-1">
+                                      <h4 className="text-2xl font-black mb-4 flex items-center gap-3 print-avoid-break-after" style={{ color: '#D95A50' }}><AlertCircle size={30}/>{rule.theme || "偏誤分析"}</h4>
+                                      
+                                      <div className="space-y-4 pb-2">
+                                        <div className="flex items-center justify-between gap-4 py-4 px-6 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #FDF1F0', WebkitPrintColorAdjust: 'exact' }}>
+                                          <RenderMistakePDF rule={rule} text={rule.mistake} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} />
+                                          <span className="font-black text-4xl px-2 font-sans shrink-0" style={{ color: '#F07167' }}>X</span>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-4 py-4 px-6 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #E6F7F2', WebkitPrintColorAdjust: 'exact' }}>
+                                          <InlineRubyText text={rule.correction} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} isCorrection={true} sentencePinyin={rule.correctionPinyin} sentenceZhuyin={rule.correctionZhuyin} sentenceEditPayload={{ type: 'rule_correction', id: rule.id, text: rule.correction, pinyin: rule.correctionPinyin || '', zhuyin: rule.correctionZhuyin || '' }} />
+                                          <span className="font-black text-4xl px-2 italic font-serif shrink-0" style={{ color: '#48C0A3' }}>O</span>
+                                        </div>
+                                      </div>
+
+                                      <div className="p-6 rounded-[24px] mt-4 bg-white avoid-break-inside" style={{ border: '2px solid #e2e8f0', WebkitPrintColorAdjust: 'exact' }}>
+                                        <div className="flex items-center gap-3 mb-3">
+                                          <div className="w-2 h-6 rounded-full" style={{ backgroundColor: '#F07167', WebkitPrintColorAdjust: 'exact' }} />
+                                          <strong className="text-slate-600 text-lg font-black uppercase tracking-widest">💡 語法/詞彙說明</strong>
+                                        </div>
+                                        <div className="text-slate-800 text-lg font-bold mb-4 whitespace-pre-wrap sentence-block" style={{ lineHeight: '2.2' }}>
+                                          <InlineRubyText text={rule.explanation} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={rule.explanationPinyin} sentenceZhuyin={rule.explanationZhuyin} sentenceEditPayload={{ type: 'rule_explanation', id: rule.id, text: rule.explanation, pinyin: rule.explanationPinyin || '', zhuyin: rule.explanationZhuyin || '' }} />
+                                        </div>
+                                        {settings.translateTargets.grammar && (
+                                          <p className="text-slate-600 text-sm font-bold border-t-2 pt-4 mt-2 opacity-90" style={{ borderColor: '#e2e8f0' }}>
+                                            {rule.translation || '(未生成翻譯)'}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </section>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td className="border-none p-0 relative">
+                    <div className="print-spacer-footer bg-transparent">
+                    </div>
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-2xl p-4 rounded-full shadow-[0_16px_32px_rgba(0,0,0,0.1),inset_0_4px_8px_rgba(255,255,255,1)] border border-slate-200 flex items-center gap-6 z-20 print:hidden relative">
+            <button onClick={onPrev} className="px-10 py-5 text-slate-600 font-black text-xl hover:bg-[#FFF6E9] rounded-[32px] transition-colors">返回設定</button>
+            <button onClick={handleDownload} className="px-12 py-5 bg-[#FF9B82] text-white rounded-[32px] font-black text-2xl shadow-[0_8px_0_0_#E2755D] hover:translate-y-1 hover:shadow-[0_4px_0_0_#E2755D] active:translate-y-[8px] active:shadow-none transition-all flex items-center gap-3"><Download size={28} strokeWidth={3}/>下載 HTML 教材</button>
+          </div>
+          
+          {editingWord && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 print:hidden">
+              <div className="bg-white rounded-[40px] p-10 max-w-2xl w-full shadow-[0_24px_48px_rgba(0,0,0,0.2)] border-2 border-[#FF9B82] animate-in zoom-in-95 duration-200">
+                <h4 className="text-2xl font-black text-slate-700 mb-6 flex items-center gap-3">
+                  <Edit3 className="text-[#FF9B82]" size={32} strokeWidth={3}/>
+                  校正標音 (整句 / 破音字編輯)
+                </h4>
+                <div className="space-y-6">
+                  <div className="p-5 bg-orange-50 rounded-2xl text-center overflow-hidden max-h-40 overflow-y-auto">
+                    <span className="text-2xl font-black text-slate-800 break-all leading-relaxed">{editingWord.text}</span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-base font-bold text-slate-500 mb-2 ml-1">拼音 (Pinyin)</label>
+                      <textarea autoFocus className="w-full px-5 py-4 bg-[#f8fafc] border-2 border-slate-100 rounded-2xl text-xl font-bold outline-none focus:border-[#FF9B82] shadow-inner resize-none h-40 leading-relaxed" value={editingWord.pinyin} onChange={(e) => setEditingWord({...editingWord, pinyin: e.target.value})} placeholder="請以空格隔開" />
+                    </div>
+                    <div>
+                      <label className="block text-base font-bold text-slate-500 mb-2 ml-1">注音 (Zhuyin)</label>
+                      <textarea className="w-full px-5 py-4 bg-[#f8fafc] border-2 border-slate-100 rounded-2xl text-xl font-bold outline-none focus:border-[#FF9B82] shadow-inner resize-none h-40 leading-relaxed" value={editingWord.zhuyin} onChange={(e) => setEditingWord({...editingWord, zhuyin: e.target.value})} placeholder="請以空格隔開" />
+                    </div>
+                  </div>
+                  <div className="flex gap-4 pt-4">
+                    <button onClick={() => setEditingWord(null)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-lg shadow-[0_4px_0_0_#cbd5e1] active:translate-y-[4px] active:shadow-none transition-all">取消</button>
+                    <button onClick={savePhonetic} className="flex-1 py-4 bg-[#FF9B82] text-white rounded-2xl font-black text-lg shadow-[0_4px_0_0_#E2755D] active:translate-y-[4px] active:shadow-none transition-all">確認儲存</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        </EditPhoneticContext.Provider>
+      );
+    }
+
+    function ModuleDivider() {
+      return (
+        <div className="flex items-center justify-center py-12 print-hide-divider">
+          <div className="h-1 w-24 rounded-full" style={{ backgroundColor: '#e2e8f0', WebkitPrintColorAdjust: 'exact' }}></div>
+          <div className="mx-6 text-slate-300 text-2xl">✦</div>
+          <div className="h-1 w-24 rounded-full" style={{ backgroundColor: '#e2e8f0', WebkitPrintColorAdjust: 'exact' }}></div>
+        </div>
+      );
+    }
+
+    function SectionHeader({ title, color, border }) { 
+      return (
+        <div className="pb-4 mb-2 print-avoid-break-after" style={{ borderBottom: `4px solid ${border}`, WebkitPrintColorAdjust: 'exact' }}>
+          <h3 className="text-4xl font-black tracking-tight" style={{ color: color }}>{title}</h3>
+        </div>
+      ); 
+    }
+
+    function ZhuyinBlock({ syllable }) {
+      if (!syllable) return null;
+      const cleanSyllable = syllable.replace(/\s+/g, '');
+      const chars = cleanSyllable.split('');
+      const tones = ['ˊ', 'ˇ', 'ˋ', '˙'];
+      const baseChars = chars.filter(c => !tones.includes(c));
+      const toneChar = chars.find(c => tones.includes(c));
+      
+      const isTriple = baseChars.length === 3;
+      const isDouble = baseChars.length === 2;
+      const isSingle = baseChars.length === 1;
+      
+      const colClass = `zy-col ${isTriple ? 'is-triple' : isDouble ? 'is-double' : 'is-single'}`;
+      
+      return (
+          <span className="zy-wrapper">
+              {toneChar === '˙' && <span className="tone-top">{toneChar}</span>}
+              <span className={colClass}>
+                  {baseChars.map((z, zi) => <span className="z-char" key={zi}>{z}</span>)}
+              </span>
+              {toneChar && toneChar !== '˙' && <span className="tone-side">{toneChar}</span>}
+          </span>
+      );
+    }
+
+    function WordBlock({ text, pinyinStr, zhuyinStr, showP, showZ, highlightStyle, editPayload }) {
+      const onEdit = React.useContext(EditPhoneticContext);
+      const hanziChars = text.split('');
+      const isHanzi = (char) => /[\u4e00-\u9fa5]/.test(char);
+      
+      const rawPyTokens = filterPhoneticTokens(pinyinStr);
+      const rawZyTokens = filterPhoneticTokens(zhuyinStr);
+      
+      let pyIdx = 0;
+      let zyIdx = 0;
+      const isEditable = !!(editPayload && onEdit);
+      
+      const hasHighlight = !!highlightStyle?.borderBottom;
+
+      return (
+        <span 
+          className={`word-container ${isEditable ? 'cursor-pointer hover:ring-4 hover:ring-[#FF9B82]/40 rounded-lg transition-all' : ''}`} 
+          style={{ display: 'inline', WebkitBoxDecorationBreak: 'clone', boxDecorationBreak: 'clone' }}
+          onClick={(e) => {
+             if (isEditable) {
+                e.stopPropagation();
+                onEdit(editPayload);
+             }
+          }}
+          title={isEditable ? "點擊修改詞彙標音" : ""}
+        >
+          {hanziChars.map((char, index) => {
+            const isHz = isHanzi(char);
+            let py = '';
+            let zy = '';
+            if (isHz) {
+              py = rawPyTokens[pyIdx] || '';
+              zy = rawZyTokens[zyIdx] || '';
+              pyIdx++;
+              zyIdx++;
+            }
+
+            const charHighlightStyle = hasHighlight ? {
+               borderBottom: highlightStyle.borderBottom,
+               color: highlightStyle.color,
+               fontWeight: highlightStyle.fontWeight,
+               paddingBottom: '0px'
+            } : {};
+
+            if (!isHz) {
+               return (
+                 <span key={index} className="punc-text">
+                   {'\u2060'}{char}
+                 </span>
+               );
+            }
+
+            return (
+              <span key={index} className="hz-wrapper">
+                <span className="char-unit" style={{ ...charHighlightStyle, position: 'relative' }}>
+                  <span className="hz-font">{char}</span>
+                  {showZ && zy && <ZhuyinBlock syllable={zy} />}
+                </span>
+                {showP && <span className="res-py">{py || '\u00A0'}</span>}
+              </span>
+            );
+          })}
+        </span>
+      );
+    }
+
+    function InlineRubyText({ text, settings, vocabList, coreTextChunks, coreGrammar, grammarRules, sentencePinyin, sentenceZhuyin, isCorrection = false, alwaysShowRuby = false, sentenceEditPayload = null }) {
+      const onEdit = React.useContext(EditPhoneticContext);
+      if (!text) return null;
+
+      const isTypePinyin = settings.phoneticType === 'pinyin' || settings.phoneticType === 'zhuyin_pinyin';
+      const isTypeZhuyin = settings.phoneticType === 'zhuyin' || settings.phoneticType === 'zhuyin_pinyin';
+      const effectiveScope = alwaysShowRuby ? 'full_text' : settings.phoneticScope;
+
+      const isHanzi = (char) => /[\u4e00-\u9fa5]/.test(char);
+
+      let targetWords = (vocabList || []).filter(v => v.word).map(v => v.word);
+      if (coreGrammar) targetWords.push(...coreGrammar.filter(g => g.title).map(g => g.title));
+      if (grammarRules) targetWords.push(...grammarRules.filter(r => r.theme).map(r => r.theme));
+      
+      targetWords = [...new Set(targetWords)];
+      targetWords.sort((a, b) => b.length - a.length);
+
+      if (effectiveScope !== 'full_text' && targetWords.length === 0) {
+         return (
+           <span className={`${isCorrection ? 'text-[#1B4D3E]' : 'text-slate-900'} relative group`} style={{ display: 'inline' }}>
+             <WordBlock text={text} pinyinStr="" zhuyinStr="" showP={false} showZ={false} highlightStyle={{}} />
+             {sentenceEditPayload && onEdit && (
+                 <button onClick={(e) => { e.stopPropagation(); onEdit(sentenceEditPayload); }} className="ml-2 opacity-0 group-hover:opacity-100 text-[#FF9B82] transition-opacity print:hidden inline-flex align-middle pb-2" title="編輯整句標音">
+                    <Edit3 size={18} strokeWidth={3} />
+                 </button>
+             )}
+           </span>
+         );
+      }
+
+      const getWordType = (word) => {
+        if (coreGrammar && coreGrammar.some(g => g.title === word)) return 'grammar';
+        if (grammarRules && grammarRules.some(r => r.theme === word)) return 'grammar';
+        if (vocabList) {
+          const v = vocabList.find(v => v.word === word);
+          if (v && v.type) return v.type;
+        }
+        if (coreTextChunks) {
+          const chunk = coreTextChunks.find(c => c.text === word && c.type !== 'normal' && c.type !== 'punctuation');
+          if (chunk) return chunk.type;
+        }
+        return 'vocab';
+      };
+
+      const escapedWords = targetWords.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      const regex = targetWords.length > 0 ? new RegExp(`(${escapedWords.join('|')})`, 'g') : /(?!)/g;
+      const parts = text.split(regex);
+
+      const fullPyTokens = filterPhoneticTokens(sentencePinyin);
+      const fullZyTokens = filterPhoneticTokens(sentenceZhuyin);
+      
+      let pyCursor = 0;
+      let zyCursor = 0;
+
+      const content = parts.map((part, i) => {
+        if (!part) return null;
+        let hanziCount = 0;
+        for(const char of part) { if(isHanzi(char)) hanziCount++; }
+
+        const partPyTokens = fullPyTokens.slice(pyCursor, pyCursor + hanziCount);
+        const partZyTokens = fullZyTokens.slice(zyCursor, zyCursor + hanziCount);
+        pyCursor += hanziCount;
+        zyCursor += hanziCount;
+
+        const matchedVocab = (vocabList || []).find(v => v.word === part);
+        const matchedGrammar = (coreGrammar || []).find(g => g.title === part) || (grammarRules || []).find(r => r.theme === part);
+        
+        let pyForBlock = '';
+        let zyForBlock = '';
+        let showP = false;
+        let showZ = false;
+        let highlightStyle = {};
+        let editPayload = null;
+
+        if (matchedVocab || matchedGrammar) {
+          showP = isTypePinyin;
+          showZ = isTypeZhuyin;
+          
+          if (matchedVocab) {
+              pyForBlock = effectiveScope === 'full_text' ? (partPyTokens.join(' ') || matchedVocab.pinyin) : matchedVocab.pinyin;
+              zyForBlock = effectiveScope === 'full_text' ? (partZyTokens.join(' ') || matchedVocab.zhuyin) : matchedVocab.zhuyin;
+              editPayload = { type: 'vocab', id: matchedVocab.id, text: part, pinyin: matchedVocab.pinyin || '', zhuyin: matchedVocab.zhuyin || '' };
+          } else {
+              pyForBlock = partPyTokens.join(' ');
+              zyForBlock = partZyTokens.join(' ');
+              editPayload = null; 
+          }
+          
+          const wType = getWordType(part);
+          if (wType === 'keyword') {
+              highlightStyle = { borderBottom: '4px solid #FFCD57', color: '#B8860B', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' };
+          } else if (wType === 'grammar') {
+              highlightStyle = { borderBottom: '4px dashed #7A7387', color: '#5C5666', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' };
+          } else {
+              highlightStyle = { borderBottom: '4px solid #56D0A0', color: '#1B6B47', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' };
+          }
+        } else {
+          if (effectiveScope === 'full_text') {
+            showP = isTypePinyin;
+            showZ = isTypeZhuyin;
+            pyForBlock = partPyTokens.join(' ');
+            zyForBlock = partZyTokens.join(' ');
+          }
+        }
+
+        return <WordBlock key={i} text={part} pinyinStr={pyForBlock} zhuyinStr={zyForBlock} showP={showP} showZ={showZ} highlightStyle={highlightStyle} editPayload={editPayload} />;
+      });
+
+      return (
+        <span className={`${isCorrection ? 'text-[#1B4D3E]' : 'text-slate-900'} relative group`} style={{ display: 'inline' }}>
+          {content}
+          {sentenceEditPayload && onEdit && (
+             <button onClick={(e) => { e.stopPropagation(); onEdit(sentenceEditPayload); }} className="ml-2 opacity-0 group-hover:opacity-100 text-[#FF9B82] transition-opacity print:hidden inline-flex align-middle pb-2" title="編輯整句標音">
+                <Edit3 size={18} strokeWidth={3} />
+             </button>
+          )}
+        </span>
+      );
+    }
+
+    function RenderMistakePDF({ rule, text, settings, vocabList, coreTextChunks, coreGrammar, grammarRules }) {
+      const onEdit = React.useContext(EditPhoneticContext);
+      if (!text) return null;
+      const parts = text.split(/(<u>.*?<\/u>)/g);
+      
+      const cleanText = text.replace(/<\/?u>/g, '');
+      const editPayload = { type: 'rule_mistake', id: rule.id, text: cleanText, pinyin: rule.mistakePinyin || '', zhuyin: rule.mistakeZhuyin || '' };
+
+      const fullPyTokens = filterPhoneticTokens((rule.mistakePinyin || '').replace(/<\/?u>/g, ''));
+      const fullZyTokens = filterPhoneticTokens((rule.mistakeZhuyin || '').replace(/<\/?u>/g, ''));
+      
+      let pyCursor = 0;
+      let zyCursor = 0;
+
+      return (
+        <div className="sentence-block flex-1 min-w-0 relative group" style={{ display: 'inline' }}>
+          {parts.map((part, i) => {
+            const isUnderlined = part.startsWith('<u>') && part.endsWith('</u>');
+            const innerText = isUnderlined ? part.slice(3, -4) : part;
+
+            let hanziCount = 0;
+            for(const char of innerText) { if(/[\u4e00-\u9fa5]/.test(char)) hanziCount++; }
+
+            const partPy = fullPyTokens.slice(pyCursor, pyCursor + hanziCount).join(' ');
+            const partZy = fullZyTokens.slice(zyCursor, zyCursor + hanziCount).join(' ');
+            
+            pyCursor += hanziCount;
+            zyCursor += hanziCount;
+
+            const renderSpan = (
+                <InlineRubyText text={innerText} settings={settings} vocabList={vocabList} coreTextChunks={coreTextChunks} coreGrammar={coreGrammar} grammarRules={grammarRules} sentencePinyin={partPy} sentenceZhuyin={partZy} />
+            );
+
+            return isUnderlined ? (
+                <span key={i} className="font-bold line-through decoration-[4px]" style={{ color: '#F07167', textDecorationColor: '#F07167', display: 'inline' }}>
+                   {renderSpan}
+                </span>
+            ) : <React.Fragment key={i}>{renderSpan}</React.Fragment>;
+          })}
+          {onEdit && (
+             <button onClick={(e) => { e.stopPropagation(); onEdit(editPayload); }} className="ml-2 opacity-0 group-hover:opacity-100 text-[#FF9B82] transition-opacity print:hidden inline-flex align-middle pb-2" title="編輯整句標音">
+                <Edit3 size={18} strokeWidth={3} />
+             </button>
+          )}
+        </div>
+      );
+    }
+
+    const root = createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
