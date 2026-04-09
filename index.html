@@ -44,10 +44,18 @@
       try {
         const res = await fetch(url, options);
         if (!res.ok) {
-          if (res.status === 401 || res.status === 403 || res.status === 404) {
-            return { isError: true, type: 'Auth', status: res.status, message: `環境 API 認證限制 (${res.status})` };
+          let errorMessage = `HTTP 錯誤狀態碼: ${res.status}`;
+          try {
+             const errorData = await res.json();
+             if (errorData.error && errorData.error.message) {
+                 errorMessage = errorData.error.message;
+             }
+          } catch(e) {}
+          
+          if (res.status === 400 || res.status === 401 || res.status === 403 || res.status === 404) {
+            return { isError: true, type: 'Auth', status: res.status, message: `連線限制或金鑰錯誤 (${res.status}): ${errorMessage}` };
           }
-          throw new Error(`API Error: ${res.status}`);
+          throw new Error(errorMessage);
         }
         return await res.json();
       } catch (err) {
@@ -118,16 +126,23 @@
       };
 
       const handleAnalyze = async () => {
+        const apiKey = ""; 
+        const activeKey = customApiKey.trim() || apiKey;
+        
+        if (!activeKey) {
+            setError("老師您好！系統偵測到您尚未輸入 API Key，請先在下方欄位輸入您的專屬 API 金鑰再開始喔！");
+            return;
+        }
+
         if (!rawInput.trim() && selectedFiles.length === 0) {
-          setError("老師，請輸入專屬GEM生成的教材模組內容喔！");
+          setError("老師，請匯入或貼上專屬 GEM 生成的教材模組內容喔！");
           return;
         }
+        
         setError(null);
         setIsAnalyzing(true);
 
         try {
-          const apiKey = ""; 
-          const activeKey = customApiKey.trim() || apiKey;
           const modelName = customApiKey.trim() ? "gemini-2.5-flash" : "gemini-2.5-flash-preview-09-2025";
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
           
@@ -186,14 +201,12 @@
           const result = await fetchWithBackoff(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
           if (result && result.isError) { setError(`${result.message}`); setIsAnalyzing(false); return; }
           
-          // ======== Step 1：修復映射問題 ========
           let responseText = result.candidates?.[0]?.content?.parts?.[0]?.text;
           if (!responseText) {
-            throw new Error("AI 沒有回傳有效的內容");
+            throw new Error("AI 被安全機制阻擋，或未回傳有效內容。");
           }
           
           responseText = responseText.replace(/```json\n?/gi, '').replace(/```\n?/g, '').trim();
-          
           const jsonStart = responseText.indexOf('{');
           const jsonEnd = responseText.lastIndexOf('}');
           if (jsonStart !== -1 && jsonEnd !== -1) {
@@ -205,9 +218,8 @@
             parsedResponse = JSON.parse(responseText);
           } catch (parseErr) {
             console.error("JSON 解析失敗，原始字串為：", responseText);
-            throw new Error("分析映射時發生狀況。");
+            throw new Error("AI 回傳的格式有誤，無法順利讀取資料，請檢查匯入內容是否完整。");
           }
-          // ===================================
           
           const generateStrId = (prefix, i) => `${prefix}-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 5)}`;
           const generateNumId = (i) => Date.now() + Math.floor(Math.random() * 1000000) + i;
@@ -237,15 +249,28 @@
             setExportSettings(prev => ({ ...prev, textLevel: parsedResponse.textLevel }));
           }
           setCurrentStep(2);
-        } catch (err) { setError("分析映射時發生狀況。請稍後再試一次！"); } finally { setIsAnalyzing(false); }
+        } catch (err) { 
+            console.error(err);
+            setError(`處理失敗：${err.message}`); 
+        } finally { 
+            setIsAnalyzing(false); 
+        }
       };
 
       const handleGeneratePreview = async () => {
+        const apiKey = ""; 
+        const activeKey = customApiKey.trim() || apiKey;
+        
+        if (!activeKey) {
+            setError("請確認您已在第一步輸入了正確的 API Key！");
+            return;
+        }
+
         setError(null);
         setIsGeneratingPreview(true);
 
         const fallbackToOriginalData = () => {
-          console.warn("API 認證受限或網路不穩定，啟動 無縫降級機制...");
+          console.warn("啟動無縫降級機制...");
           setFinalPreviewData({
             coreTextChunks: (parsedData.coreTextChunks || []).map(c => ({...c, pinyin: '', zhuyin: ''})),
             coreTextTranslation: '',
@@ -267,8 +292,6 @@
         };
 
         try {
-          const apiKey = ""; 
-          const activeKey = customApiKey.trim() || apiKey;
           const modelName = customApiKey.trim() ? "gemini-2.5-flash" : "gemini-2.5-flash-preview-09-2025";
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
           
@@ -314,9 +337,7 @@
           const payload = {
             contents: [{ role: "user", parts: [{ text: JSON.stringify(dataToTranslate) }] }],
             systemInstruction: { parts: [{ text: systemInstruction }] },
-            generationConfig: {
-              responseMimeType: "application/json"
-            }
+            generationConfig: { responseMimeType: "application/json" }
           };
 
           const result = await fetchWithBackoff(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -337,7 +358,6 @@
             return;
           }
 
-          // ======== Step 4：終極修復預覽生成「映射問題」 ========
           responseText = responseText.replace(/```json\n?/gi, '').replace(/```\n?/g, '').trim();
           const pJsonStart = responseText.indexOf('{');
           const pJsonEnd = responseText.lastIndexOf('}');
@@ -362,7 +382,6 @@
                 return;
             }
           }
-          // =================================================
 
           const mergedData = {
             coreTextChunks: (parsedData.coreTextChunks || []).map((c, i) => {
@@ -413,7 +432,8 @@
           setFinalPreviewData(mergedData);
           setCurrentStep(4);
         } catch (err) { 
-          console.error("預覽生成異常，進入安全降級:", err);
+          console.error(err);
+          setError(`翻譯與標音生成失敗：${err.message}`);
           fallbackToOriginalData();
         } finally { 
           setIsGeneratingPreview(false); 
