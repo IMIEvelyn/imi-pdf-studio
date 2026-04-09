@@ -142,8 +142,8 @@
         setIsAnalyzing(true);
 
         try {
-          // 強制降級使用最穩定、額度最高的 1.5-flash 模型！
-          const modelName = "gemini-1.5-flash";
+          // 強制使用最精準的全名 gemini-1.5-flash-latest 解決 404 找不到模型的問題
+          const modelName = "gemini-1.5-flash-latest";
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
           
           const systemInstruction = `你是一位專業的資料歸位助手。老師提供的是已經整理好的結構化教材內容，請精準地歸位。
@@ -280,8 +280,8 @@
         };
 
         try {
-          // 強制降級使用最穩定、額度最高的 1.5-flash 模型！
-          const modelName = "gemini-1.5-flash";
+          // 強制使用最精準的全名 gemini-1.5-flash-latest 解決 404 找不到模型的問題
+          const modelName = "gemini-1.5-flash-latest";
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
           
           const dataToTranslate = {
