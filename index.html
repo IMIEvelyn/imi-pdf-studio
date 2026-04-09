@@ -52,7 +52,7 @@
              }
           } catch(e) {}
           
-          if (res.status === 400 || res.status === 401 || res.status === 403 || res.status === 404) {
+          if (res.status === 400 || res.status === 401 || res.status === 403 || res.status === 404 || res.status === 429) {
             return { isError: true, type: 'Auth', status: res.status, message: `連線限制或金鑰錯誤 (${res.status}): ${errorMessage}` };
           }
           throw new Error(errorMessage);
@@ -126,8 +126,7 @@
       };
 
       const handleAnalyze = async () => {
-        const apiKey = ""; 
-        const activeKey = customApiKey.trim() || apiKey;
+        const activeKey = customApiKey.trim();
         
         if (!activeKey) {
             setError("老師您好！系統偵測到您尚未輸入 API Key，請先在下方欄位輸入您的專屬 API 金鑰再開始喔！");
@@ -143,7 +142,8 @@
         setIsAnalyzing(true);
 
         try {
-          const modelName = customApiKey.trim() ? "gemini-2.5-flash" : "gemini-2.5-flash-preview-09-2025";
+          // 強制降級使用最穩定、額度最高的 1.5-flash 模型！
+          const modelName = "gemini-1.5-flash";
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
           
           const systemInstruction = `你是一位專業的資料歸位助手。老師提供的是已經整理好的結構化教材內容，請精準地歸位。
@@ -183,18 +183,7 @@
             contents: [{ role: "user", parts: [{ text: combinedText }, ...fileParts] }],
             systemInstruction: { parts: [{ text: systemInstruction }] },
             generationConfig: {
-              responseMimeType: "application/json",
-              responseSchema: {
-                type: "OBJECT",
-                properties: {
-                  textLevel: { type: "STRING" },
-                  coreTextChunks: { type: "ARRAY", items: { type: "OBJECT", properties: { id: { type: "STRING" }, text: { type: "STRING" }, type: { type: "STRING" } } } },
-                  vocabList: { type: "ARRAY", items: { type: "OBJECT", properties: { id: { type: "INTEGER" }, word: { type: "STRING" }, pos: { type: "STRING" } } } },
-                  dialogues: { type: "ARRAY", items: { type: "OBJECT", properties: { id: { type: "INTEGER" }, title: { type: "STRING" }, lines: { type: "ARRAY", items: { type: "OBJECT", properties: { id: { type: "INTEGER" }, speaker: { type: "STRING" }, text: { type: "STRING" } } } } } } },
-                  coreGrammar: { type: "ARRAY", items: { type: "OBJECT", properties: { id: { type: "INTEGER" }, title: { type: "STRING" }, description: { type: "STRING" }, examples: { type: "ARRAY", items: { type: "STRING" } } } } },
-                  grammarRules: { type: "ARRAY", items: { type: "OBJECT", properties: { id: { type: "INTEGER" }, theme: { type: "STRING" }, mistake: { type: "STRING" }, correction: { type: "STRING" }, explanation: { type: "STRING" } } } }
-                }
-              }
+              responseMimeType: "application/json"
             }
           };
 
@@ -258,8 +247,7 @@
       };
 
       const handleGeneratePreview = async () => {
-        const apiKey = ""; 
-        const activeKey = customApiKey.trim() || apiKey;
+        const activeKey = customApiKey.trim();
         
         if (!activeKey) {
             setError("請確認您已在第一步輸入了正確的 API Key！");
@@ -292,7 +280,8 @@
         };
 
         try {
-          const modelName = customApiKey.trim() ? "gemini-2.5-flash" : "gemini-2.5-flash-preview-09-2025";
+          // 強制降級使用最穩定、額度最高的 1.5-flash 模型！
+          const modelName = "gemini-1.5-flash";
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
           
           const dataToTranslate = {
@@ -343,8 +332,9 @@
           const result = await fetchWithBackoff(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
           
           if (result && result.isError) { 
-            if (result.status === 401 || result.status === 403) {
-              fallbackToOriginalData();
+            if (result.status === 401 || result.status === 403 || result.status === 429) {
+              setError(result.message); 
+              setIsGeneratingPreview(false); 
               return;
             }
             setError(result.message); 
