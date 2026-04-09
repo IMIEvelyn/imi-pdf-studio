@@ -463,7 +463,7 @@
         return parts.map((part, i) => {
           if (part.startsWith('<u>') && part.endsWith('</u>')) {
             const innerText = part.slice(3, -4);
-            return <span key={i} className="bg-slate-200 px-1.5 py-0.5 rounded-md text-slate-800">{innerText}</span>;
+            return <span key={i} className="bg-[#fecdd3] px-1.5 py-0.5 rounded-md text-slate-900">{innerText}</span>;
           }
           return <span key={i}>{part}</span>;
         });
@@ -977,7 +977,7 @@
                     <div className="flex justify-between items-center px-1">
                       <label className="text-base font-black text-[#FF7F8F] flex items-center gap-2">
                         <AlertCircle size={20} strokeWidth={2.5}/> 錯誤例句 
-                        <span className="text-sm font-medium text-rose-400/80">(支援 &lt;u&gt;標籤淺灰底反白&lt;/u&gt;)</span>
+                        <span className="text-sm font-medium text-rose-400/80">(支援 &lt;u&gt;標籤淺粉底反白&lt;/u&gt;)</span>
                       </label>
                       <button 
                         onClick={() => {
@@ -991,9 +991,9 @@
                             setTimeout(() => { ta.focus(); ta.setSelectionRange(start, end + 7); }, 0);
                           }
                         }}
-                        className="text-sm font-black bg-slate-100 text-slate-600 px-4 py-2 rounded-xl hover:bg-slate-200 transition-all shadow-sm flex items-center gap-2"
+                        className="text-sm font-black bg-rose-100 text-rose-600 px-4 py-2 rounded-xl hover:bg-rose-200 transition-all shadow-sm flex items-center gap-2"
                       >
-                        <Edit3 size={18} strokeWidth={3} /> 將反白處標記為錯誤(淺灰底)
+                        <Edit3 size={18} strokeWidth={3} /> 將反白處標記為錯誤(淺粉底)
                       </button>
                     </div>
                     <textarea id={`mistake-ta-${r.id}`} className="w-full bg-[#fff1f2] border-2 border-[#fecdd3] rounded-[24px] p-6 outline-none text-rose-700 text-xl font-bold h-32 shadow-inner focus:border-[#FF7F8F]" value={r.mistake || ''} onChange={(e) => updateRule(r.id, 'mistake', e.target.value)} placeholder="例如：我看到韓國家人來台灣。" />
@@ -2349,7 +2349,7 @@
             );
 
             return isUnderlined ? (
-                <span key={i} style={{ backgroundColor: '#e2e8f0', padding: '2px 4px', borderRadius: '6px', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact', display: 'inline' }}>
+                <span key={i} style={{ backgroundColor: '#fecdd3', padding: '2px 4px', borderRadius: '6px', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact', display: 'inline' }}>
                    {renderSpan}
                 </span>
             ) : <React.Fragment key={i}>{renderSpan}</React.Fragment>;
