@@ -29,7 +29,7 @@
     import { 
       Wand2, BookOpen, MessageCircle, FileWarning, Settings, 
       Download, Plus, Trash2, Edit3, ChevronRight, CheckCircle2,
-      Coffee, AlertCircle, Type, X, Upload, FileImage, FileText, File, Save, Image as ImageIcon, Sparkles
+      Coffee, AlertCircle, Type, X, Upload, FileImage, FileText, File, Save, Image as ImageIcon, Sparkles, Zap
     } from 'lucide-react';
 
     const EditPhoneticContext = React.createContext(null);
@@ -125,14 +125,108 @@
         });
       };
 
-      const handleAnalyze = async () => {
-        const activeKey = customApiKey.trim();
-        
-        if (!activeKey) {
-            setError("老師您好！系統偵測到您尚未輸入 API Key，請先在下方欄位輸入您的專屬 API 金鑰再開始喔！");
-            return;
-        }
+      // ⚡️ 本地智能解析器 (不用連線 AI，0秒解碼老師的完美格式)
+      const tryLocalParse = (text) => {
+          if (!text.includes('### 1. 核心課文')) return null;
 
+          const result = {
+              textLevel: '', coreTextChunks: [], vocabList: [], dialogues: [], coreGrammar: [], grammarRules: []
+          };
+
+          const levelMatch = text.match(/TBCL\s*(.+?)\n/i) || text.match(/(TBCL.*?)\n/i);
+          if (levelMatch) result.textLevel = levelMatch[1].trim();
+
+          const extractSection = (startMarker, endMarker) => {
+              const start = text.indexOf(startMarker);
+              if (start === -1) return '';
+              const end = endMarker ? text.indexOf(endMarker, start) : text.length;
+              return text.substring(start + startMarker.length, end !== -1 ? end : text.length).trim();
+          };
+
+          const sec1 = extractSection('### 1. 核心課文', '### 2.');
+          const sec2 = extractSection('### 2. 核心詞彙', '### 3.');
+          const sec3 = extractSection('### 3. 情境對話', '### 4.');
+          const sec4 = extractSection('### 4. 核心語法', '### 5.');
+          const sec5 = extractSection('### 5. 語法診斷室', null);
+
+          const generateStrId = (prefix, i) => `${prefix}-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 5)}`;
+          const generateNumId = (i) => Date.now() + Math.floor(Math.random() * 1000000) + i;
+
+          if (sec1) {
+               try {
+                   const segmenter = new Intl.Segmenter('zh-TW', { granularity: 'word' });
+                   const segments = Array.from(segmenter.segment(sec1));
+                   result.coreTextChunks = segments.map((seg, i) => ({ id: generateStrId('chunk', i), text: seg.segment, type: 'normal' }));
+               } catch (e) {
+                   result.coreTextChunks = sec1.split(/(?=[，。！？；：「」『』、])/).map((t, i) => ({ id: generateStrId('chunk', i), text: t, type: 'normal' }));
+               }
+          }
+
+          if (sec2) {
+               const words = sec2.split(/[,、\n]/).map(w => w.trim()).filter(Boolean);
+               result.vocabList = words.map((w, i) => ({ id: generateNumId(i), word: w, pos: '生詞', type: 'vocab' }));
+          }
+
+          if (sec3) {
+               const blocks = sec3.split('---').map(b => b.trim()).filter(Boolean);
+               result.dialogues = blocks.map((b, i) => {
+                   const lines = b.split('\n').map(l => l.trim()).filter(Boolean);
+                   const titleLine = lines.find(l => l.startsWith('主題：'));
+                   const title = titleLine ? titleLine.replace('主題：', '').trim() : `情境對話 ${i+1}`;
+                   
+                   const speakerLines = lines.filter(l => /^[A-Z甲乙]：|:/.test(l) || /^.*：/.test(l)).map((l, j) => {
+                       const match = l.match(/^([^:：]+)[:：]\s*(.*)$/);
+                       if (match && match[1] !== '主題') {
+                           return { id: generateNumId(j), speaker: match[1].trim(), text: match[2].trim() };
+                       }
+                       return null;
+                   }).filter(Boolean);
+                   
+                   return { id: generateNumId(i), title, lines: speakerLines.length > 0 ? speakerLines : [{id: generateNumId(99), speaker: 'A', text: b}] };
+               });
+          }
+
+          if (sec4) {
+               const blocks = sec4.split('---').map(b => b.trim()).filter(Boolean);
+               blocks.forEach(b => {
+                   const lines = b.split('\n').map(l => l.trim()).filter(Boolean);
+                   let currentGrammar = null;
+                   lines.forEach(l => {
+                       if (l.startsWith('語法：')) {
+                           if (currentGrammar) result.coreGrammar.push(currentGrammar);
+                           currentGrammar = { id: generateNumId(result.coreGrammar.length), title: l.replace('語法：', '').trim(), description: '', examples: [] };
+                       } else if (l.startsWith('* 例句：') && currentGrammar) {
+                           currentGrammar.examples.push(l.replace('* 例句：', '').trim());
+                       } else if (l.startsWith('* 說明：') && currentGrammar) {
+                           currentGrammar.description = l.replace('* 說明：', '').trim();
+                       }
+                   });
+                   if (currentGrammar) result.coreGrammar.push(currentGrammar);
+               });
+          }
+
+          if (sec5) {
+               const lines = sec5.split('\n').map(l => l.trim()).filter(Boolean);
+               let currentRule = null;
+               lines.forEach(l => {
+                   if (l.startsWith('【辨析主題】：')) {
+                       if (currentRule) result.grammarRules.push(currentRule);
+                       currentRule = { id: generateNumId(result.grammarRules.length), theme: l.replace('【辨析主題】：', '').trim(), mistake: '', correction: '', explanation: '' };
+                   } else if (l.includes('（x）') || l.includes('(x)')) {
+                       if (currentRule) currentRule.mistake = l.replace(/（x）|\(x\)/i, '').trim();
+                   } else if (l.includes('（o）') || l.includes('(o)')) {
+                       if (currentRule) currentRule.correction = l.replace(/（o）|\(o\)/i, '').trim();
+                   } else if (l.startsWith('* 情境說明：')) {
+                       if (currentRule) currentRule.explanation = l.replace('* 情境說明：', '').trim();
+                   }
+               });
+               if (currentRule) result.grammarRules.push(currentRule);
+          }
+          
+          return result;
+      };
+
+      const handleAnalyze = async () => {
         if (!rawInput.trim() && selectedFiles.length === 0) {
           setError("老師，請匯入或貼上專屬 GEM 生成的教材模組內容喔！");
           return;
@@ -142,101 +236,80 @@
         setIsAnalyzing(true);
 
         try {
-          // 強制使用最精準的全名 gemini-1.5-flash-latest 解決 404 找不到模型的問題
-          const modelName = "gemini-1.5-flash-latest";
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
-          
-          const systemInstruction = `你是一位專業的資料歸位助手。老師提供的是已經整理好的結構化教材內容，請精準地歸位。
-          
-          【任務核心】
-          1. [等級]：提取等級資訊放入 textLevel。
-          2. [課文]：將內容放入 coreTextChunks。必須進行極致斷詞(1-4字)，字間嚴禁空格。
-          3. [生詞]：提取詞彙與詞性放入 vocabList。不需要說明。
-          4. [對話]：將教材中的情境對話完整搬運至 dialogues 陣列。
-          5. [語法點]：提取標題(title)、說明(description)與例句(examples)放入 coreGrammar。
-          6. [語法診斷室優化]：
-             - 提取偏誤主題 (theme)，例如「家庭/家人」。
-             - 錯誤例句 (mistake) 請在「具體錯掉的詞」外包圍 <u></u> 標籤。
-             - 正確例句 (correction) 為完整正確句。
-             - 語法說明 (explanation) 提供理論解釋。
-          7. [標記]：匹配生詞表的詞 type 為 'vocab'，匹配語法標題的詞 type 為 'grammar'。標點符號必為 'punctuation'。
-          8. 內容保真：嚴禁改寫原始文本。`;
-
           let combinedText = rawInput;
-          const fileParts = [];
           for (const file of selectedFiles) {
             if (file.type === 'text/csv' || file.name.endsWith('.csv') || file.type === 'text/plain' || file.name.endsWith('.txt')) {
                const text = await file.text();
                combinedText += `\n\n[FILE: ${file.name}]\n${text}`;
-            } else {
-               const base64Data = await new Promise((resolve, reject) => {
-                 const reader = new FileReader();
-                 reader.onload = () => resolve(reader.result.split(',')[1]);
-                 reader.onerror = error => reject(error);
-                 reader.readAsDataURL(file);
-               });
-               fileParts.push({ inlineData: { mimeType: file.type, data: base64Data } });
             }
           }
 
+          // ⚡️ 觸發本地秒解模式！跳過 AI！
+          const localParsedData = tryLocalParse(combinedText);
+          if (localParsedData && localParsedData.coreTextChunks.length > 0) {
+              const linkedChunks = autoLinkChunks(localParsedData.coreTextChunks, localParsedData.vocabList, localParsedData.coreGrammar, localParsedData.grammarRules);
+              setParsedData({
+                  textLevel: localParsedData.textLevel || exportSettings.textLevel,
+                  coreTextChunks: linkedChunks,
+                  vocabList: localParsedData.vocabList,
+                  dialogues: localParsedData.dialogues,
+                  coreGrammar: localParsedData.coreGrammar,
+                  grammarRules: localParsedData.grammarRules
+              });
+              if (localParsedData.textLevel) {
+                  setExportSettings(prev => ({ ...prev, textLevel: localParsedData.textLevel }));
+              }
+              setIsAnalyzing(false);
+              setCurrentStep(2);
+              return; 
+          }
+
+          // 如果格式不符，才呼叫 AI
+          const activeKey = customApiKey.trim();
+          if (!activeKey) {
+              setError("您匯入的資料格式與標準範本不同，系統嘗試呼叫 AI 分析，但您尚未輸入 API Key！");
+              setIsAnalyzing(false);
+              return;
+          }
+
+          const modelName = "gemini-2.5-flash"; // 統一穩定版
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
+          
+          const systemInstruction = `你是一位專業的資料歸位助手。老師提供的是已經整理好的結構化教材內容，請精準地歸位。
+          【任務核心】提取 textLevel, coreTextChunks(極致斷詞), vocabList, dialogues, coreGrammar, grammarRules。嚴禁改寫原始文本。`;
+
           const payload = {
-            contents: [{ role: "user", parts: [{ text: combinedText }, ...fileParts] }],
+            contents: [{ role: "user", parts: [{ text: combinedText }] }],
             systemInstruction: { parts: [{ text: systemInstruction }] },
-            generationConfig: {
-              responseMimeType: "application/json"
-            }
+            generationConfig: { responseMimeType: "application/json" }
           };
 
           const result = await fetchWithBackoff(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
           if (result && result.isError) { setError(`${result.message}`); setIsAnalyzing(false); return; }
           
           let responseText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (!responseText) {
-            throw new Error("AI 被安全機制阻擋，或未回傳有效內容。");
-          }
+          if (!responseText) throw new Error("AI 被阻擋或未回傳有效內容。");
           
           responseText = responseText.replace(/```json\n?/gi, '').replace(/```\n?/g, '').trim();
           const jsonStart = responseText.indexOf('{');
           const jsonEnd = responseText.lastIndexOf('}');
-          if (jsonStart !== -1 && jsonEnd !== -1) {
-            responseText = responseText.substring(jsonStart, jsonEnd + 1);
-          }
+          if (jsonStart !== -1 && jsonEnd !== -1) responseText = responseText.substring(jsonStart, jsonEnd + 1);
           
-          let parsedResponse;
-          try {
-            parsedResponse = JSON.parse(responseText);
-          } catch (parseErr) {
-            console.error("JSON 解析失敗，原始字串為：", responseText);
-            throw new Error("AI 回傳的格式有誤，無法順利讀取資料，請檢查匯入內容是否完整。");
-          }
+          let parsedResponse = JSON.parse(responseText);
           
           const generateStrId = (prefix, i) => `${prefix}-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 5)}`;
           const generateNumId = (i) => Date.now() + Math.floor(Math.random() * 1000000) + i;
 
           const fixedChunks = (parsedResponse.coreTextChunks || []).map((c, i) => ({ ...c, id: generateStrId('chunk', i) }));
           const fixedVocabList = Array.isArray(parsedResponse.vocabList) ? parsedResponse.vocabList.map((v, i) => ({ ...v, id: generateNumId(i) })) : [];
-          const fixedDialogues = Array.isArray(parsedResponse.dialogues) ? parsedResponse.dialogues.map((d, i) => ({
-            ...d,
-            id: generateNumId(i),
-            lines: Array.isArray(d.lines) ? d.lines.map((l, j) => ({ ...l, id: generateNumId(j) })) : []
-          })) : [];
+          const fixedDialogues = Array.isArray(parsedResponse.dialogues) ? parsedResponse.dialogues.map((d, i) => ({ ...d, id: generateNumId(i), lines: Array.isArray(d.lines) ? d.lines.map((l, j) => ({ ...l, id: generateNumId(j) })) : [] })) : [];
           const fixedCoreGrammar = Array.isArray(parsedResponse.coreGrammar) ? parsedResponse.coreGrammar.map((g, i) => ({ ...g, id: generateNumId(i) })) : [];
           const fixedGrammarRules = Array.isArray(parsedResponse.grammarRules) ? parsedResponse.grammarRules.map((r, i) => ({ ...r, id: generateNumId(i) })) : [];
 
           const linkedChunks = autoLinkChunks(fixedChunks, fixedVocabList, fixedCoreGrammar, fixedGrammarRules);
           
-          setParsedData({
-            textLevel: parsedResponse.textLevel || '',
-            coreTextChunks: linkedChunks,
-            vocabList: fixedVocabList,
-            dialogues: fixedDialogues,
-            coreGrammar: fixedCoreGrammar,
-            grammarRules: fixedGrammarRules
-          });
-
-          if (parsedResponse.textLevel) {
-            setExportSettings(prev => ({ ...prev, textLevel: parsedResponse.textLevel }));
-          }
+          setParsedData({ textLevel: parsedResponse.textLevel || '', coreTextChunks: linkedChunks, vocabList: fixedVocabList, dialogues: fixedDialogues, coreGrammar: fixedCoreGrammar, grammarRules: fixedGrammarRules });
+          if (parsedResponse.textLevel) setExportSettings(prev => ({ ...prev, textLevel: parsedResponse.textLevel }));
           setCurrentStep(2);
         } catch (err) { 
             console.error(err);
@@ -248,31 +321,17 @@
 
       const handleGeneratePreview = async () => {
         const activeKey = customApiKey.trim();
-        
-        if (!activeKey) {
-            setError("請確認您已在第一步輸入了正確的 API Key！");
-            return;
-        }
-
+        if (!activeKey) { setError("要生成翻譯與注音，請確認您已在第一步輸入了正確的 API Key！"); return; }
         setError(null);
         setIsGeneratingPreview(true);
 
         const fallbackToOriginalData = () => {
-          console.warn("啟動無縫降級機制...");
           setFinalPreviewData({
             coreTextChunks: (parsedData.coreTextChunks || []).map(c => ({...c, pinyin: '', zhuyin: ''})),
             coreTextTranslation: '',
             vocabList: (parsedData.vocabList || []).map(v => ({...v, pinyin: '', zhuyin: '', translation: ''})),
-            dialogues: (parsedData.dialogues || []).map(d => ({
-              ...d,
-              lines: (d.lines || []).map(l => ({...l, pinyin: '', zhuyin: '', translation: ''}))
-            })),
-            coreGrammar: (parsedData.coreGrammar || []).map(g => ({
-              ...g,
-              titlePinyin: '', titleZhuyin: '', descPinyin: '', descZhuyin: '',
-              translation: '',
-              examples: (g.examples || []).map(ex => ({ text: typeof ex === 'string' ? ex : ex.text || '', pinyin: '', zhuyin: '', translation: '' }))
-            })),
+            dialogues: (parsedData.dialogues || []).map(d => ({ ...d, lines: (d.lines || []).map(l => ({...l, pinyin: '', zhuyin: '', translation: ''})) })),
+            coreGrammar: (parsedData.coreGrammar || []).map(g => ({ ...g, titlePinyin: '', titleZhuyin: '', descPinyin: '', descZhuyin: '', translation: '', examples: (g.examples || []).map(ex => ({ text: typeof ex === 'string' ? ex : ex.text || '', pinyin: '', zhuyin: '', translation: '' })) })),
             grammarRules: (parsedData.grammarRules || []).map(r => ({...r, mistakePinyin: '', mistakeZhuyin: '', correctionPinyin: '', correctionZhuyin: '', explanationPinyin: '', explanationZhuyin: '', translation: ''}))
           });
           setCurrentStep(4);
@@ -280,48 +339,23 @@
         };
 
         try {
-          // 強制使用最精準的全名 gemini-1.5-flash-latest 解決 404 找不到模型的問題
-          const modelName = "gemini-1.5-flash-latest";
+          const modelName = "gemini-2.5-flash"; 
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
           
           const dataToTranslate = {
             coreTextChunks: (parsedData.coreTextChunks || []).map(c => ({ ...c, pinyin: c.pinyin || "", zhuyin: c.zhuyin || "" })),
             coreTextTranslation: parsedData.coreTextTranslation || "",
             vocabList: (parsedData.vocabList || []).map(v => ({ ...v, pinyin: v.pinyin || "", zhuyin: v.zhuyin || "", translation: v.translation || "", posTranslation: v.posTranslation || "" })),
-            dialogues: (parsedData.dialogues || []).map(d => ({
-                ...d,
-                lines: (d.lines || []).map(l => ({ ...l, pinyin: l.pinyin || "", zhuyin: l.zhuyin || "", translation: l.translation || "" }))
-            })),
-            coreGrammar: (parsedData.coreGrammar || []).map(g => ({
-                ...g,
-                titlePinyin: g.titlePinyin || "", titleZhuyin: g.titleZhuyin || "", descPinyin: g.descPinyin || "", descZhuyin: g.descZhuyin || "", translation: g.translation || "",
-                examples: (g.examples || []).map(ex => {
-                    const exObj = typeof ex === 'string' ? { text: ex } : ex;
-                    return { text: exObj.text, pinyin: exObj.pinyin || "", zhuyin: exObj.zhuyin || "", translation: exObj.translation || "" };
-                })
-            })),
-            grammarRules: (parsedData.grammarRules || []).map(r => ({
-                ...r,
-                mistakePinyin: r.mistakePinyin || "", mistakeZhuyin: r.mistakeZhuyin || "", correctionPinyin: r.correctionPinyin || "", correctionZhuyin: r.correctionZhuyin || "", explanationPinyin: r.explanationPinyin || "", explanationZhuyin: r.explanationZhuyin || "", translation: r.translation || ""
-            }))
+            dialogues: (parsedData.dialogues || []).map(d => ({ ...d, lines: (d.lines || []).map(l => ({ ...l, pinyin: l.pinyin || "", zhuyin: l.zhuyin || "", translation: l.translation || "" })) })),
+            coreGrammar: (parsedData.coreGrammar || []).map(g => ({ ...g, titlePinyin: g.titlePinyin || "", titleZhuyin: g.titleZhuyin || "", descPinyin: g.descPinyin || "", descZhuyin: g.descZhuyin || "", translation: g.translation || "", examples: (g.examples || []).map(ex => { const exObj = typeof ex === 'string' ? { text: ex } : ex; return { text: exObj.text, pinyin: exObj.pinyin || "", zhuyin: exObj.zhuyin || "", translation: exObj.translation || "" }; }) })),
+            grammarRules: (parsedData.grammarRules || []).map(r => ({ ...r, mistakePinyin: r.mistakePinyin || "", mistakeZhuyin: r.mistakeZhuyin || "", correctionPinyin: r.correctionPinyin || "", correctionZhuyin: r.correctionZhuyin || "", explanationPinyin: r.explanationPinyin || "", explanationZhuyin: r.explanationZhuyin || "", translation: r.translation || "" }))
           };
 
           const systemInstruction = `你是一位專業華語出版助手。請負責將以下 JSON 結構中的內容補齊標音與翻譯。
-          
           【極度重要任務：強制補齊，禁止留空！】
           1. pinyin 與 zhuyin：只要有中文的地方，包含 coreTextChunks, vocabList, dialogues, coreGrammar, grammarRules，請務必將對應的 pinyin 與 zhuyin 欄位填滿！
-          ★ 致命警告：所有 Pinyin 與 Zhuyin 必須「每一個漢字空一格」斷開！且請略過 <u> 等 HTML 標籤不需標音。絕不允許連寫！
-          錯誤範例：Yuánxiāo (連寫) / ㄩㄢˊㄒㄧㄠ (連寫)
-          正確範例：Yuán xiāo (單字空一格) / ㄩㄢˊ ㄒㄧㄠ (單字空一格)
-          標點符號不需標音，文字之間必須嚴格單字斷開！
-          2. translation (翻譯)：請依照設定的語言 ${exportSettings.translationLanguage}，為 vocabList, coreGrammar, grammarRules, dialogues, coreTextTranslation 填寫翻譯！「絕對不能漏掉任何模組的翻譯」！
-          ★ 極度重要翻譯守則：
-             - 針對「vocabList (核心生詞)」：請將 pos (詞性) 同步翻譯成目標語言並放入 posTranslation 欄位。
-             - 針對「coreGrammar (核心語法)」：translation 欄位必須「同時包含」title(標題) 與 description(規則說明) 兩者的完整翻譯，嚴禁只翻譯標題、嚴禁偷懶省略！
-             - 針對「grammarRules (語法診斷室)」：請務必將 explanation (語法/詞彙說明) 進行「完整且精確的全文翻譯」並放入 translation 欄位！
-             必須 100% 對照中文原文逐字逐句翻譯，這是給母語非華語成人學習者看的詳細解說。
-          
-          請保持原本的 JSON 結構完整返回。`;
+          ★ 致命警告：所有 Pinyin 與 Zhuyin 必須「每一個漢字空一格」斷開！略過 <u> 等 HTML 標籤。
+          2. translation (翻譯)：請依照設定的語言 ${exportSettings.translationLanguage}，為各模組填寫精確翻譯！`;
 
           const payload = {
             contents: [{ role: "user", parts: [{ text: JSON.stringify(dataToTranslate) }] }],
@@ -332,45 +366,27 @@
           const result = await fetchWithBackoff(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
           
           if (result && result.isError) { 
-            if (result.status === 401 || result.status === 403 || result.status === 429) {
-              setError(result.message); 
-              setIsGeneratingPreview(false); 
-              return;
-            }
-            setError(result.message); 
-            setIsGeneratingPreview(false); 
-            return; 
+            setError(result.message); setIsGeneratingPreview(false); return; 
           }
           
           let responseText = result.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (!responseText) {
-            fallbackToOriginalData();
-            return;
-          }
+          if (!responseText) { fallbackToOriginalData(); return; }
 
           responseText = responseText.replace(/```json\n?/gi, '').replace(/```\n?/g, '').trim();
           const pJsonStart = responseText.indexOf('{');
           const pJsonEnd = responseText.lastIndexOf('}');
-          if (pJsonStart !== -1 && pJsonEnd !== -1) {
-            responseText = responseText.substring(pJsonStart, pJsonEnd + 1);
-          }
+          if (pJsonStart !== -1 && pJsonEnd !== -1) responseText = responseText.substring(pJsonStart, pJsonEnd + 1);
 
           let responseData = {};
           try {
             responseData = JSON.parse(responseText);
           } catch (parseError) {
-            console.error("JSON Parse Error:", parseError, "Raw Response:", responseText);
             try {
                 let fixedText = responseText;
                 const lastBracket = Math.max(fixedText.lastIndexOf('}'), fixedText.lastIndexOf(']'));
-                if(lastBracket !== -1) {
-                    fixedText = fixedText.substring(0, lastBracket + 1);
-                }
+                if(lastBracket !== -1) fixedText = fixedText.substring(0, lastBracket + 1);
                 responseData = JSON.parse(fixedText);
-            } catch (e) {
-                fallbackToOriginalData();
-                return;
-            }
+            } catch (e) { fallbackToOriginalData(); return; }
           }
 
           const mergedData = {
@@ -594,10 +610,10 @@
           <FeatureHighlights />
 
           <div className="bg-white p-10 rounded-[40px] shadow-[0_8px_0_0_#F0E5D8,0_16px_32px_rgba(0,0,0,0.04),inset_0_4px_8px_rgba(255,255,255,0.8),inset_0_-4px_8px_rgba(0,0,0,0.02)] border border-orange-50">
-            <h2 className="text-3xl font-black mb-4 flex items-center gap-3 text-slate-700 drop-shadow-sm"><Edit3 className="text-[#FF9B82]" size={32} strokeWidth={2.5}/>請匯入專屬GEM智能模組文本</h2>
-            <p className="text-slate-500 mb-8 text-xl font-medium">請將專屬GEM生成的內容/檔案，複製貼上/匯入。</p>
+            <h2 className="text-3xl font-black mb-4 flex items-center gap-3 text-slate-700 drop-shadow-sm"><Zap className="text-[#FF9B82]" size={32} strokeWidth={2.5}/>請貼上您的教材內容</h2>
+            <p className="text-slate-500 mb-8 text-xl font-medium">只要按照「### 1. 核心課文」等格式，系統將為您瞬間秒解！</p>
             
-            <textarea className="w-full h-72 p-6 bg-[#FFFcf9] border-2 border-orange-50 rounded-[32px] shadow-[inset_0_4px_8px_rgba(0,0,0,0.03)] focus:border-[#FF9B82] outline-none mb-6 text-xl font-medium text-slate-700 transition-all resize-none" placeholder="僅接受專屬GEM智能模組文本" value={rawInput} onChange={(e) => setRawInput(e.target.value)} disabled={isAnalyzing} />
+            <textarea className="w-full h-72 p-6 bg-[#FFFcf9] border-2 border-orange-50 rounded-[32px] shadow-[inset_0_4px_8px_rgba(0,0,0,0.03)] focus:border-[#FF9B82] outline-none mb-6 text-xl font-medium text-slate-700 transition-all resize-none" placeholder="請貼上內容..." value={rawInput} onChange={(e) => setRawInput(e.target.value)} disabled={isAnalyzing} />
             
             <div className="flex flex-col gap-4">
               <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" multiple accept="image/*,.pdf,.csv,.txt" disabled={isAnalyzing} />
@@ -614,7 +630,7 @@
 
             <div className="mt-8 p-6 bg-rose-50 border border-rose-100 rounded-[24px]">
               <label className="flex items-center gap-2 text-rose-700 font-bold mb-3 text-lg">
-                <AlertCircle size={22} strokeWidth={2.5} /> 請輸入您的專屬 API Key，若無，請與Evelyn老師聯絡。
+                <AlertCircle size={22} strokeWidth={2.5} /> 請輸入您的專屬 API Key（必填）
               </label>
               <input 
                 type="password" 
@@ -624,12 +640,12 @@
                 onChange={(e) => setCustomApiKey(e.target.value)} 
                 disabled={isAnalyzing} 
               />
-              <p className="text-rose-600/80 text-sm mt-3 font-medium">若您一直看到「喝茶時間 (401)」畫面或是資料無法生成，請稍後再試，系統忙碌中。</p>
+              <p className="text-rose-600/80 text-sm mt-3 font-medium">雖然第一步已支援本地秒解，但最後的注音與翻譯生成仍需使用此金鑰。</p>
             </div>
 
             <div className="mt-12 flex justify-end pt-8 border-t-2 border-dashed border-orange-100">
               <button onClick={handleAnalyze} disabled={isAnalyzing} className="group flex items-center gap-3 px-12 py-5 bg-[#FF9B82] text-white rounded-[32px] font-black text-2xl shadow-[0_8px_0_0_#E2755D,0_16px_24px_rgba(255,155,130,0.3),inset_0_-4px_8px_rgba(0,0,0,0.1)] hover:translate-y-1 hover:shadow-[0_6px_0_0_#E2755D,0_12px_20px_rgba(255,155,130,0.3),inset_0_-4px_8px_rgba(0,0,0,0.1)] active:translate-y-[8px] active:shadow-[0_0px_0_0_#E2755D,inset_0_2px_4px_rgba(0,0,0,0.2)] transition-all">
-                {isAnalyzing ? <div className="animate-spin rounded-full h-8 w-8 border-4 border-white border-t-transparent" /> : <><Wand2 size={28} strokeWidth={3}/>開始製作教材，約需1分鐘</>}
+                {isAnalyzing ? <div className="animate-spin rounded-full h-8 w-8 border-4 border-white border-t-transparent" /> : <><Zap size={28} strokeWidth={3}/>瞬間解析教材 (0.1秒)</>}
               </button>
             </div>
           </div>
