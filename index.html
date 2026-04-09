@@ -125,7 +125,6 @@
         });
       };
 
-      // ⚡️ 本地智能解析器 (不用連線 AI，0秒解碼老師的完美格式)
       const tryLocalParse = (text) => {
           if (!text.includes('### 1. 核心課文')) return null;
 
@@ -244,7 +243,6 @@
             }
           }
 
-          // ⚡️ 觸發本地秒解模式！跳過 AI！
           const localParsedData = tryLocalParse(combinedText);
           if (localParsedData && localParsedData.coreTextChunks.length > 0) {
               const linkedChunks = autoLinkChunks(localParsedData.coreTextChunks, localParsedData.vocabList, localParsedData.coreGrammar, localParsedData.grammarRules);
@@ -264,7 +262,6 @@
               return; 
           }
 
-          // 如果格式不符，才呼叫 AI
           const activeKey = customApiKey.trim();
           if (!activeKey) {
               setError("您匯入的資料格式與標準範本不同，系統嘗試呼叫 AI 分析，但您尚未輸入 API Key！");
@@ -272,7 +269,7 @@
               return;
           }
 
-          const modelName = "gemini-2.5-flash"; // 統一穩定版
+          const modelName = "gemini-2.5-flash"; 
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
           
           const systemInstruction = `你是一位專業的資料歸位助手。老師提供的是已經整理好的結構化教材內容，請精準地歸位。
@@ -466,10 +463,7 @@
         return parts.map((part, i) => {
           if (part.startsWith('<u>') && part.endsWith('</u>')) {
             const innerText = part.slice(3, -4);
-            if (isPDF) {
-              return <span key={i} className="text-red-600 font-bold line-through decoration-red-600 decoration-[3px]">{innerText}</span>;
-            }
-            return <span key={i} className="text-red-500 font-bold underline decoration-red-500 decoration-4 underline-offset-4">{innerText}</span>;
+            return <span key={i} className="bg-slate-200 px-1.5 py-0.5 rounded-md text-slate-800">{innerText}</span>;
           }
           return <span key={i}>{part}</span>;
         });
@@ -983,7 +977,7 @@
                     <div className="flex justify-between items-center px-1">
                       <label className="text-base font-black text-[#FF7F8F] flex items-center gap-2">
                         <AlertCircle size={20} strokeWidth={2.5}/> 錯誤例句 
-                        <span className="text-sm font-medium text-rose-400/80">(先反白錯字，再點擊右側按鈕)</span>
+                        <span className="text-sm font-medium text-rose-400/80">(支援 &lt;u&gt;標籤淺灰底反白&lt;/u&gt;)</span>
                       </label>
                       <button 
                         onClick={() => {
@@ -997,9 +991,9 @@
                             setTimeout(() => { ta.focus(); ta.setSelectionRange(start, end + 7); }, 0);
                           }
                         }}
-                        className="text-sm font-black bg-[#ffe4e6] text-[#e11d48] px-4 py-2 rounded-xl hover:bg-[#fecdd3] transition-all shadow-sm flex items-center gap-2"
+                        className="text-sm font-black bg-slate-100 text-slate-600 px-4 py-2 rounded-xl hover:bg-slate-200 transition-all shadow-sm flex items-center gap-2"
                       >
-                        <Edit3 size={18} strokeWidth={3} /> 將反白處加紅線
+                        <Edit3 size={18} strokeWidth={3} /> 將反白處標記為錯誤(淺灰底)
                       </button>
                     </div>
                     <textarea id={`mistake-ta-${r.id}`} className="w-full bg-[#fff1f2] border-2 border-[#fecdd3] rounded-[24px] p-6 outline-none text-rose-700 text-xl font-bold h-32 shadow-inner focus:border-[#FF7F8F]" value={r.mistake || ''} onChange={(e) => updateRule(r.id, 'mistake', e.target.value)} placeholder="例如：我看到韓國家人來台灣。" />
@@ -2355,7 +2349,7 @@
             );
 
             return isUnderlined ? (
-                <span key={i} className="font-bold line-through decoration-[4px]" style={{ color: '#F07167', textDecorationColor: '#F07167', display: 'inline' }}>
+                <span key={i} style={{ backgroundColor: '#e2e8f0', padding: '2px 4px', borderRadius: '6px', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact', display: 'inline' }}>
                    {renderSpan}
                 </span>
             ) : <React.Fragment key={i}>{renderSpan}</React.Fragment>;
