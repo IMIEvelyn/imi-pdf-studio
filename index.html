@@ -316,7 +316,10 @@
 
           const payload = {
             contents: [{ role: "user", parts: [{ text: JSON.stringify(dataToTranslate) }] }],
-            systemInstruction: { parts: [{ text: systemInstruction }] }
+            systemInstruction: { parts: [{ text: systemInstruction }] },
+            generationConfig: {
+              responseMimeType: "application/json"
+            }
           };
 
           const result = await fetchWithBackoff(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
@@ -355,10 +358,8 @@
                 const lastBracket = Math.max(fixedText.lastIndexOf('}'), fixedText.lastIndexOf(']'));
                 if(lastBracket !== -1) {
                     fixedText = fixedText.substring(0, lastBracket + 1);
-                     if(fixedText.endsWith('}')) fixedText += ']}'; 
                 }
-                fallbackToOriginalData();
-                return;
+                responseData = JSON.parse(fixedText);
             } catch (e) {
                 fallbackToOriginalData();
                 return;
