@@ -52,7 +52,8 @@
              }
           } catch(e) {}
           
-          if (res.status === 400 || res.status === 401 || res.status === 403 || res.status === 404 || res.status === 429) {
+          // 移除了 429，讓 429 錯誤進入下方的 throw Error，從而觸發 catch 裡的自動重試機制
+          if (res.status === 400 || res.status === 401 || res.status === 403 || res.status === 404) {
             return { isError: true, type: 'Auth', status: res.status, message: `連線限制或金鑰錯誤 (${res.status}): ${errorMessage}` };
           }
           throw new Error(errorMessage);
@@ -61,6 +62,7 @@
       } catch (err) {
         if (err.isError) return err; 
         if (retries <= 0) throw err;
+        // 自動在背景等待並重試，不會直接跳出喝茶時間
         await new Promise(r => setTimeout(r, delay));
         return fetchWithBackoff(url, options, retries - 1, delay * 2);
       }
@@ -269,7 +271,8 @@
               return;
           }
 
-          const modelName = "gemini-2.5-flash"; 
+          // 確保分析時使用高額度的 1.5-flash-latest
+          const modelName = "gemini-1.5-flash-latest"; 
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
           
           const systemInstruction = `你是一位專業的資料歸位助手。老師提供的是已經整理好的結構化教材內容，請精準地歸位。
@@ -336,7 +339,8 @@
         };
 
         try {
-          const modelName = "gemini-2.5-flash"; 
+          // 強制升級為額度最高的 gemini-1.5-flash-latest，避免 429 和 404 報錯
+          const modelName = "gemini-1.5-flash-latest"; 
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
           
           const dataToTranslate = {
@@ -1856,7 +1860,7 @@
                                 }
 
                                 return (
-                                  <div key={v.id || `vocab-${i}`} className="avoid-break-inside flex px-4 py-3 bg-white items-start gap-4 rounded-[24px]" style={{ border: '2px solid #e2e8f0', borderBottom: `6px solid ${themeColor}`, borderRight: `4px solid ${themeColor}`, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                                  <div key={v.id || `vocab-${i}`} className="avoid-break-inside flex px-5 py-3.5 bg-white items-start gap-4 rounded-[24px]" style={{ border: '2px solid #e2e8f0', borderBottom: `6px solid ${themeColor}`, borderRight: `4px solid ${themeColor}`, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
                                     <div className="text-white w-14 h-14 rounded-full flex items-center justify-center font-black text-2xl shrink-0 mt-0.5 shadow-inner" style={{ backgroundColor: themeColor, WebkitPrintColorAdjust: 'exact' }}>{i + 1}</div>
                                     <div className="flex-1 flex flex-col min-w-0">
                                       <div className="flex items-center gap-3 flex-wrap mt-0.5">
@@ -1866,7 +1870,7 @@
                                         <span className="text-sm px-3 py-1 font-extrabold rounded-full whitespace-nowrap self-center" style={{ backgroundColor: lightBg, color: darkText, WebkitPrintColorAdjust: 'exact' }}>{settings.translateTargets.vocab && v.posTranslation ? v.posTranslation : v.pos}</span>
                                       </div>
                                     {settings.translateTargets.vocab && (
-                                      <p className="text-slate-700 font-extrabold text-base italic pt-1 mt-0.5 tracking-tight" style={{ borderTop: `2px dashed ${lightBg}` }}>
+                                      <p className="text-slate-700 font-extrabold text-base italic pt-1.5 mt-1 tracking-tight" style={{ borderTop: `2px dashed ${lightBg}` }}>
                                         {v.translation || '(未生成翻譯)'}
                                       </p>
                                     )}
@@ -1969,7 +1973,7 @@
                                 {(data.dialogues || []).map((d, i) => (
                                   <div key={d.id || `dialogue-${i}`} className="p-10 rounded-[40px] bg-white" style={{ border: '2px solid #E4E0EB', borderBottom: '6px solid #7A7387', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
                                     <h4 className="font-black text-2xl mb-8 inline-block px-8 py-3 rounded-full shadow-sm print-avoid-break-after" style={{ backgroundColor: '#ffffff', color: '#615A6B', border: '1px solid #E4E0EB', WebkitPrintColorAdjust: 'exact' }}>{d.title}</h4>
-                                    <div className="space-y-4">
+                                    <div className="space-y-3">
                                       {(d.lines || []).map((l, j) => (
                                         <div key={l.id || `line-${j}`} className="flex gap-6 avoid-break-inside print-flex-row items-start">
                                           <span className="font-black w-14 shrink-0 text-3xl border-r-4 pt-1" style={{ color: '#7A7387', borderColor: '#D3CDD9' }}>{l.speaker}</span>
@@ -1977,7 +1981,7 @@
                                             <span className="text-xl text-slate-800 font-bold" style={{ lineHeight: '2.6' }}>
                                               <InlineRubyText text={l.text} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={l.pinyin} sentenceZhuyin={l.zhuyin} sentenceEditPayload={{ type: 'dialogue_line', parentId: d.id, id: l.id, text: l.text, pinyin: l.pinyin || '', zhuyin: l.zhuyin || '' }} />
                                             </span>
-                                            {settings.translateTargets.dialogue && l.translation && <span className="text-slate-600 text-base block mt-2 opacity-90 font-medium">{l.translation}</span>}
+                                            {settings.translateTargets.dialogue && l.translation && <span className="text-slate-600 text-base block mt-1.5 opacity-90 font-medium">{l.translation}</span>}
                                           </div>
                                         </div>
                                       ))}
@@ -2000,12 +2004,12 @@
                                     <div className="space-y-6 mt-1">
                                       <h4 className="text-2xl font-black mb-4 flex items-center gap-3 print-avoid-break-after" style={{ color: '#D95A50' }}><AlertCircle size={30}/>{rule.theme || "偏誤分析"}</h4>
                                       
-                                      <div className="space-y-2.5 pb-1">
-                                        <div className="flex items-center justify-between gap-4 py-0.5 px-5 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #FDF1F0', WebkitPrintColorAdjust: 'exact' }}>
+                                      <div className="space-y-2 pb-1">
+                                        <div className="flex items-center justify-between gap-4 py-1.5 px-5 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #FDF1F0', WebkitPrintColorAdjust: 'exact' }}>
                                           <RenderMistakePDF rule={rule} text={rule.mistake} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} />
                                           <span className="font-black text-4xl px-2 font-sans shrink-0" style={{ color: '#F07167' }}>X</span>
                                         </div>
-                                        <div className="flex items-center justify-between gap-4 py-0.5 px-5 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #E6F7F2', WebkitPrintColorAdjust: 'exact' }}>
+                                        <div className="flex items-center justify-between gap-4 py-1.5 px-5 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #E6F7F2', WebkitPrintColorAdjust: 'exact' }}>
                                           <InlineRubyText text={rule.correction} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} isCorrection={true} sentencePinyin={rule.correctionPinyin} sentenceZhuyin={rule.correctionZhuyin} sentenceEditPayload={{ type: 'rule_correction', id: rule.id, text: rule.correction, pinyin: rule.correctionPinyin || '', zhuyin: rule.correctionZhuyin || '' }} />
                                           <span className="font-black text-4xl px-2 italic font-serif shrink-0" style={{ color: '#48C0A3' }}>O</span>
                                         </div>
