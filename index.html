@@ -40,27 +40,27 @@
       return cleanedStr.trim().split(/(?:\s+|　+)/).filter(Boolean);
     };
 
-    // 恢復強大的「指數退避自動重試」機制，遇到 429 (塞車) 或 500 (主機忙碌) 會在背景默默重試 6 次
-    const fetchWithBackoff = async (url, options, retries = 6, delay = 2000) => {
+    const fetchWithBackoff = async (url, options, retries = 5, delay = 1000) => {
       try {
         const res = await fetch(url, options);
         if (!res.ok) {
-          if (res.status === 400 || res.status === 401 || res.status === 403 || res.status === 404) {
-            let errorMessage = `HTTP 錯誤狀態碼: ${res.status}`;
-            try {
-               const errorData = await res.json();
-               if (errorData.error && errorData.error.message) {
-                   errorMessage = errorData.error.message;
-               }
-            } catch(e) {}
-            return { isError: true, type: 'Auth', status: res.status, message: `連線限制或找不到模型 (${res.status}): ${errorMessage}` };
+          let errorMessage = `HTTP 錯誤狀態碼: ${res.status}`;
+          try {
+             const errorData = await res.json();
+             if (errorData.error && errorData.error.message) {
+                 errorMessage = errorData.error.message;
+             }
+          } catch(e) {}
+          
+          if (res.status === 400 || res.status === 401 || res.status === 403 || res.status === 404 || res.status === 429) {
+            return { isError: true, type: 'Auth', status: res.status, message: `連線限制或金鑰錯誤 (${res.status}): ${errorMessage}` };
           }
-          throw new Error(`HTTP Error ${res.status}`); 
+          throw new Error(errorMessage);
         }
         return await res.json();
       } catch (err) {
         if (err.isError) return err; 
-        if (retries <= 0) return { isError: true, message: `伺服器極度忙碌中 (429)，系統已在背景為您自動排隊重試多次仍失敗。請稍候 1 分鐘後再點擊生成。` };
+        if (retries <= 0) throw err;
         await new Promise(r => setTimeout(r, delay));
         return fetchWithBackoff(url, options, retries - 1, delay * 2);
       }
@@ -264,12 +264,11 @@
 
           const activeKey = customApiKey.trim();
           if (!activeKey) {
-              setError("您匯入的資料格式與標準範本不同，系統嘗試呼叫 AI 分析，但您尚未輸入 API Key！(部署於 GitHub 必須使用您個人的金鑰)");
+              setError("您匯入的資料格式與標準範本不同，系統嘗試呼叫 AI 分析，但您尚未輸入 API Key！");
               setIsAnalyzing(false);
               return;
           }
 
-          // 統一使用金鑰保證能支援的 2.5 版
           const modelName = "gemini-2.5-flash"; 
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
           
@@ -319,7 +318,7 @@
 
       const handleGeneratePreview = async () => {
         const activeKey = customApiKey.trim();
-        if (!activeKey) { setError("要生成翻譯與注音，請確認您已在第一步輸入了正確的 API Key！(部署於 GitHub 必須使用您個人的金鑰)"); return; }
+        if (!activeKey) { setError("要生成翻譯與注音，請確認您已在第一步輸入了正確的 API Key！"); return; }
         setError(null);
         setIsGeneratingPreview(true);
 
@@ -340,64 +339,20 @@
           const modelName = "gemini-2.5-flash"; 
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
           
-          // ⚡️ 動態精準瘦身機制：根據老師的設定，把不必要的資料剔除，省下 80% 的運算量，完美避開塞車 (429)！
-          const dataToTranslate = {};
+          const dataToTranslate = {
+            coreTextChunks: (parsedData.coreTextChunks || []).map(c => ({ ...c, pinyin: c.pinyin || "", zhuyin: c.zhuyin || "" })),
+            coreTextTranslation: parsedData.coreTextTranslation || "",
+            vocabList: (parsedData.vocabList || []).map(v => ({ ...v, pinyin: v.pinyin || "", zhuyin: v.zhuyin || "", translation: v.translation || "", posTranslation: v.posTranslation || "" })),
+            dialogues: (parsedData.dialogues || []).map(d => ({ ...d, lines: (d.lines || []).map(l => ({ ...l, pinyin: l.pinyin || "", zhuyin: l.zhuyin || "", translation: l.translation || "" })) })),
+            coreGrammar: (parsedData.coreGrammar || []).map(g => ({ ...g, titlePinyin: g.titlePinyin || "", titleZhuyin: g.titleZhuyin || "", descPinyin: g.descPinyin || "", descZhuyin: g.descZhuyin || "", translation: g.translation || "", examples: (g.examples || []).map(ex => { const exObj = typeof ex === 'string' ? { text: ex } : ex; return { text: exObj.text, pinyin: exObj.pinyin || "", zhuyin: exObj.zhuyin || "", translation: exObj.translation || "" }; }) })),
+            grammarRules: (parsedData.grammarRules || []).map(r => ({ ...r, mistakePinyin: r.mistakePinyin || "", mistakeZhuyin: r.mistakeZhuyin || "", correctionPinyin: r.correctionPinyin || "", correctionZhuyin: r.correctionZhuyin || "", explanationPinyin: r.explanationPinyin || "", explanationZhuyin: r.explanationZhuyin || "", translation: r.translation || "" }))
+          };
 
-          if (exportSettings.phoneticScope === 'full_text') {
-              dataToTranslate.coreTextChunks = (parsedData.coreTextChunks || []).map(c => ({ id: c.id, text: c.text, pinyin: c.pinyin || "", zhuyin: c.zhuyin || "" }));
-          }
-
-          if (exportSettings.translateTargets.coreText) {
-              dataToTranslate.coreTextTranslation = parsedData.coreTextTranslation || "";
-          }
-
-          dataToTranslate.vocabList = (parsedData.vocabList || []).map(v => {
-              const item = { id: v.id, word: v.word, pinyin: v.pinyin || "", zhuyin: v.zhuyin || "" };
-              if (exportSettings.translateTargets.vocab) {
-                  item.translation = v.translation || "";
-                  item.pos = v.pos;
-                  item.posTranslation = v.posTranslation || "";
-              }
-              return item;
-          });
-
-          dataToTranslate.dialogues = (parsedData.dialogues || []).map(d => ({
-              id: d.id,
-              lines: (d.lines || []).map(l => {
-                  const item = { id: l.id, text: l.text, pinyin: l.pinyin || "", zhuyin: l.zhuyin || "" };
-                  if (exportSettings.translateTargets.dialogue) item.translation = l.translation || "";
-                  return item;
-              })
-          }));
-
-          dataToTranslate.coreGrammar = (parsedData.coreGrammar || []).map(g => {
-              const item = { id: g.id, title: g.title, description: g.description, titlePinyin: g.titlePinyin || "", titleZhuyin: g.titleZhuyin || "", descPinyin: g.descPinyin || "", descZhuyin: g.descZhuyin || "" };
-              if (exportSettings.translateTargets.coreGrammar) item.translation = g.translation || "";
-              item.examples = (g.examples || []).map(ex => {
-                  const exObj = typeof ex === 'string' ? { text: ex } : ex;
-                  const exItem = { text: exObj.text, pinyin: exObj.pinyin || "", zhuyin: exObj.zhuyin || "" };
-                  if (exportSettings.translateTargets.coreGrammar) exItem.translation = exObj.translation || "";
-                  return exItem;
-              });
-              return item;
-          });
-
-          dataToTranslate.grammarRules = (parsedData.grammarRules || []).map(r => {
-              const item = { id: r.id, mistake: r.mistake, correction: r.correction, explanation: r.explanation, mistakePinyin: r.mistakePinyin || "", mistakeZhuyin: r.mistakeZhuyin || "", correctionPinyin: r.correctionPinyin || "", correctionZhuyin: r.correctionZhuyin || "", explanationPinyin: r.explanationPinyin || "", explanationZhuyin: r.explanationZhuyin || "" };
-              if (exportSettings.translateTargets.grammar) item.translation = r.translation || "";
-              return item;
-          });
-
-          const systemInstruction = `你是一位專業華語出版助手。請根據老師提供的 JSON 結構補齊標音與翻譯。
-          
-          【動態參數要求 - 必須嚴格遵守，節省算力】
-          1. 標音範圍：老師設定為「${exportSettings.phoneticScope === 'full_text' ? '全文皆需標音' : '僅核心詞彙與語法為主'}」。
-             - 若 JSON 有傳入 coreTextChunks，請將裡面的 pinyin 與 zhuyin 填滿。
-             - vocabList, dialogues, coreGrammar, grammarRules 等出現的 pinyin 與 zhuyin 請務必填滿。
-          2. 翻譯要求 (目標語言: ${exportSettings.translationLanguage})：
-             - 只有 JSON 中有出現 \`translation\` 或 \`posTranslation\` 欄位的地方才需要翻譯。若無該欄位，請完全略過翻譯。
-             
-          ★ 致命警告：只要有生成 Pinyin 與 Zhuyin 的地方，必須「每一個漢字空一格」斷開！略過 <u> 等 HTML 標籤。`;
+          const systemInstruction = `你是一位專業華語出版助手。請負責將以下 JSON 結構中的內容補齊標音與翻譯。
+          【極度重要任務：強制補齊，禁止留空！】
+          1. pinyin 與 zhuyin：只要有中文的地方，包含 coreTextChunks, vocabList, dialogues, coreGrammar, grammarRules，請務必將對應的 pinyin 與 zhuyin 欄位填滿！
+          ★ 致命警告：所有 Pinyin 與 Zhuyin 必須「每一個漢字空一格」斷開！略過 <u> 等 HTML 標籤。
+          2. translation (翻譯)：請依照設定的語言 ${exportSettings.translationLanguage}，為各模組填寫精確翻譯！`;
 
           const payload = {
             contents: [{ role: "user", parts: [{ text: JSON.stringify(dataToTranslate) }] }],
@@ -431,30 +386,28 @@
             } catch (e) { fallbackToOriginalData(); return; }
           }
 
-          // 將瘦身版 AI 回傳的資料，完美合併回原本的完整資料中
           const mergedData = {
             coreTextChunks: (parsedData.coreTextChunks || []).map((c, i) => {
-              if (exportSettings.phoneticScope !== 'full_text') return c;
-              const aiC = (responseData.coreTextChunks || []).find(ac => ac.id === c.id) || {};
+              const aiC = (responseData.coreTextChunks || []).find(ac => ac.id === c.id) || (responseData.coreTextChunks || [])[i] || {};
               return { ...c, pinyin: aiC.pinyin || c.pinyin || '', zhuyin: aiC.zhuyin || c.zhuyin || '' };
             }),
-            coreTextTranslation: responseData.coreTextTranslation || parsedData.coreTextTranslation || '',
+            coreTextTranslation: responseData.coreTextTranslation || '',
             vocabList: (parsedData.vocabList || []).map((v, i) => {
-              const aiV = (responseData.vocabList || []).find(av => av.id === v.id) || {};
+              const aiV = (responseData.vocabList || []).find(av => av.id === v.id) || (responseData.vocabList || [])[i] || {};
               return { ...v, pinyin: aiV.pinyin || v.pinyin || '', zhuyin: aiV.zhuyin || v.zhuyin || '', translation: aiV.translation || v.translation || '', posTranslation: aiV.posTranslation || v.posTranslation || '' };
             }),
             dialogues: (parsedData.dialogues || []).map((d, i) => {
-              const aiD = (responseData.dialogues || []).find(ad => ad.id === d.id) || {};
+              const aiD = (responseData.dialogues || []).find(ad => ad.id === d.id) || (responseData.dialogues || [])[i] || {};
               return {
                 ...d,
                 lines: (d.lines || []).map((l, j) => {
-                  const aiL = (aiD.lines || []).find(al => al.id === l.id) || {};
+                  const aiL = (aiD.lines || []).find(al => al.id === l.id) || (aiD.lines || [])[j] || {};
                   return { ...l, pinyin: aiL.pinyin || l.pinyin || '', zhuyin: aiL.zhuyin || l.zhuyin || '', translation: aiL.translation || l.translation || '' };
                 })
               };
             }),
             coreGrammar: (parsedData.coreGrammar || []).map((g, i) => {
-              const aiG = (responseData.coreGrammar || []).find(ag => ag.id === g.id) || {};
+              const aiG = (responseData.coreGrammar || []).find(ag => ag.id === g.id) || (responseData.coreGrammar || [])[i] || {};
               return {
                 ...g,
                 titlePinyin: aiG.titlePinyin || g.titlePinyin || '', titleZhuyin: aiG.titleZhuyin || g.titleZhuyin || '',
@@ -468,7 +421,7 @@
               };
             }),
             grammarRules: (parsedData.grammarRules || []).map((r, i) => {
-              const aiR = (responseData.grammarRules || []).find(ar => ar.id === r.id) || {};
+              const aiR = (responseData.grammarRules || []).find(ar => ar.id === r.id) || (responseData.grammarRules || [])[i] || {};
               return {
                 ...r,
                 mistakePinyin: aiR.mistakePinyin || r.mistakePinyin || '', mistakeZhuyin: aiR.mistakeZhuyin || r.mistakeZhuyin || '',
@@ -548,7 +501,7 @@
               <div className="bg-white rounded-[40px] p-10 max-w-md w-full shadow-[0_24px_48px_rgba(0,0,0,0.2),inset_0_4px_8px_rgba(255,255,255,1)] transform transition-all text-center border border-slate-100">
                 <div className="inline-flex justify-center items-center w-24 h-24 rounded-full bg-[#FFF0F3] text-[#FF7F8F] mb-6 shadow-[0_8px_0_0_#FFB6C1,inset_0_-4px_8px_rgba(0,0,0,0.05)]"><Coffee size={48} strokeWidth={2.5} /></div>
                 <h3 className="text-2xl font-black text-slate-800 mb-3 drop-shadow-sm">— 喝茶時間到了 —</h3>
-                <p className="text-base text-slate-600 mb-8 font-medium whitespace-pre-wrap">{error}</p>
+                <p className="text-base text-slate-600 mb-8 font-medium">{error}</p>
                 <div className="space-y-4">
                   <button onClick={() => setError(null)} className="w-full py-4 bg-slate-800 text-white rounded-2xl font-black text-lg shadow-[0_6px_0_0_#1e293b,0_10px_20px_rgba(0,0,0,0.1)] hover:translate-y-1 hover:shadow-[0_4px_0_0_#1e293b,0_6px_10px_rgba(0,0,0,0.1)] active:translate-y-[6px] active:shadow-[0_0px_0_0_#1e293b] transition-all">了解，返回修改</button>
                   <button onClick={loadMockData} className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-lg shadow-[0_6px_0_0_#e2e8f0] hover:translate-y-1 hover:shadow-[0_4px_0_0_#e2e8f0] active:translate-y-[6px] active:shadow-none transition-all">載入模擬資料</button>
@@ -671,17 +624,17 @@
 
             <div className="mt-8 p-6 bg-rose-50 border border-rose-100 rounded-[24px]">
               <label className="flex items-center gap-2 text-rose-700 font-bold mb-3 text-lg">
-                <AlertCircle size={22} strokeWidth={2.5} /> 請輸入您的專屬 Google API Key（必填）
+                <AlertCircle size={22} strokeWidth={2.5} /> 請輸入您的專屬 API Key（必填）
               </label>
               <input 
                 type="password" 
-                className="w-full px-5 py-4 bg-white rounded-xl outline-none focus:border-rose-400 border-2 border-transparent shadow-sm text-lg font-mono text-slate-700" 
+                className="w-full px-5 py-4 bg-white rounded-xl outline-none focus:border-rose-400 border-2 border-transparent shadow-sm text-lg font-mono" 
                 placeholder="AIzaSy..." 
                 value={customApiKey} 
                 onChange={(e) => setCustomApiKey(e.target.value)} 
                 disabled={isAnalyzing} 
               />
-              <p className="text-rose-600/80 text-sm mt-3 font-medium">⚠️ 提醒：因為此系統部署於您的 GitHub，必須填寫您個人的 API 金鑰才能進行最後一步的注音與翻譯連線哦！</p>
+              <p className="text-rose-600/80 text-sm mt-3 font-medium">雖然第一步已支援本地秒解，但最後的注音與翻譯生成仍需使用此金鑰。</p>
             </div>
 
             <div className="mt-12 flex justify-end pt-8 border-t-2 border-dashed border-orange-100">
@@ -909,7 +862,7 @@
                   const newChunks = autoLink(data.coreTextChunks, newList, data.coreGrammar, data.grammarRules);
                   setData({ ...data, vocabList: newList, coreTextChunks: newChunks });
                 }} className="absolute top-6 right-6 text-slate-300 hover:text-rose-500 bg-white/50 p-2 rounded-full hover:bg-rose-50 transition-colors"><Trash2 size={20} strokeWidth={2.5}/></button>
-                <div className="flex items-center gap-5 mb-1"><span className={`${circleBg} text-white w-12 h-12 rounded-full flex items-center justify-center font-black text-xl shadow-inner`}>{idx + 1}</span><div className="flex-1"><span className="font-black text-3xl text-slate-800">{v.word}</span><span className={`text-sm ${posBg} ${posText} px-4 py-1.5 rounded-full font-bold ml-4 uppercase whitespace-nowrap`}>{v.pos}</span></div></div>
+                <div className="flex items-center gap-5 mb-1"><span className={`${circleBg} text-white w-12 h-12 rounded-full flex items-center justify-center font-black text-xl shadow-inner`}>{idx + 1}</span><div className="flex-1"><span className="font-black text-3xl text-slate-800">{v.word}</span><span className={`text-sm ${posBg} ${posText} px-4 py-1.5 rounded-full font-bold ml-4 uppercase`}>{v.pos}</span></div></div>
               </div>
             );
           })}</div>
@@ -1903,17 +1856,17 @@
                                 }
 
                                 return (
-                                  <div key={v.id || `vocab-${i}`} className="avoid-break-inside flex px-5 py-3.5 bg-white items-start gap-4 rounded-[24px]" style={{ border: '2px solid #e2e8f0', borderBottom: `6px solid ${themeColor}`, borderRight: `4px solid ${themeColor}`, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-                                    <div className="text-white w-14 h-14 rounded-full flex items-center justify-center font-black text-2xl shrink-0 mt-0.5 shadow-inner" style={{ backgroundColor: themeColor, WebkitPrintColorAdjust: 'exact' }}>{i + 1}</div>
-                                    <div className="flex-1 flex flex-col min-w-0">
-                                      <div className="flex items-center gap-3 flex-wrap mt-0.5">
+                                  <div key={v.id || `vocab-${i}`} className="avoid-break-inside flex p-6 bg-white items-start gap-5 rounded-[24px]" style={{ border: '2px solid #e2e8f0', borderBottom: `6px solid ${themeColor}`, borderRight: `4px solid ${themeColor}`, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                                    <div className="text-white w-14 h-14 rounded-full flex items-center justify-center font-black text-2xl shrink-0 mt-1 shadow-inner" style={{ backgroundColor: themeColor, WebkitPrintColorAdjust: 'exact' }}>{i + 1}</div>
+                                    <div className="flex-1 space-y-2">
+                                      <div className="flex items-start gap-4 flex-wrap">
                                         <span className="font-black text-slate-800 tracking-tight flex items-end">
                                           <WordBlock text={v.word} pinyinStr={v.pinyin} zhuyinStr={v.zhuyin} showP={showP} showZ={showZ} highlightStyle={{}} editPayload={{ type: 'vocab', id: v.id, text: v.word, pinyin: v.pinyin || '', zhuyin: v.zhuyin || '' }} />
                                         </span>
-                                        <span className="text-sm px-3 py-1 font-extrabold rounded-full whitespace-nowrap self-center" style={{ backgroundColor: lightBg, color: darkText, WebkitPrintColorAdjust: 'exact' }}>{settings.translateTargets.vocab && v.posTranslation ? v.posTranslation : v.pos}</span>
+                                        <span className="text-sm px-3 py-1 font-extrabold rounded-full mt-1.5" style={{ backgroundColor: lightBg, color: darkText, WebkitPrintColorAdjust: 'exact' }}>{settings.translateTargets.vocab && v.posTranslation ? v.posTranslation : v.pos}</span>
                                       </div>
                                     {settings.translateTargets.vocab && (
-                                      <p className="text-slate-700 font-extrabold text-base italic pt-1.5 mt-1 tracking-tight" style={{ borderTop: `2px dashed ${lightBg}` }}>
+                                      <p className="text-slate-700 font-extrabold text-base italic pt-3 mt-3 tracking-tight" style={{ borderTop: `2px dashed ${lightBg}` }}>
                                         {v.translation || '(未生成翻譯)'}
                                       </p>
                                     )}
@@ -2009,14 +1962,14 @@
 
                           {((data.dialogues || []).length > 0) && <ModuleDivider />}
 
-                          {((data.dialogues || []).length > 0) && (
+                          {(data.dialogues || []).length > 0 && (
                             <section className="print-section-break">
                               <SectionHeader title={getTranslatedModuleTitle("💬 情境對話", settings.translationLanguage)} color="#615A6B" border="#7A7387" />
                               <div className="mt-10 space-y-12">
                                 {(data.dialogues || []).map((d, i) => (
-                                  <div key={d.id || `dialogue-${i}`} className="px-8 py-7 md:px-8 md:py-7 rounded-[32px] bg-white" style={{ border: '2px solid #E4E0EB', borderBottom: '6px solid #7A7387', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-                                    <h4 className="font-black text-2xl mb-5 inline-block px-6 py-2.5 rounded-full shadow-sm print-avoid-break-after" style={{ backgroundColor: '#ffffff', color: '#615A6B', border: '1px solid #E4E0EB', WebkitPrintColorAdjust: 'exact' }}>{d.title}</h4>
-                                    <div className="space-y-4">
+                                  <div key={d.id || `dialogue-${i}`} className="p-10 rounded-[40px] bg-white" style={{ border: '2px solid #E4E0EB', borderBottom: '6px solid #7A7387', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                                    <h4 className="font-black text-2xl mb-8 inline-block px-8 py-3 rounded-full shadow-sm print-avoid-break-after" style={{ backgroundColor: '#ffffff', color: '#615A6B', border: '1px solid #E4E0EB', WebkitPrintColorAdjust: 'exact' }}>{d.title}</h4>
+                                    <div className="space-y-6">
                                       {(d.lines || []).map((l, j) => (
                                         <div key={l.id || `line-${j}`} className="flex gap-6 avoid-break-inside print-flex-row items-start">
                                           <span className="font-black w-14 shrink-0 text-3xl border-r-4 pt-1" style={{ color: '#7A7387', borderColor: '#D3CDD9' }}>{l.speaker}</span>
@@ -2024,7 +1977,7 @@
                                             <span className="text-xl text-slate-800 font-bold" style={{ lineHeight: '2.6' }}>
                                               <InlineRubyText text={l.text} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={l.pinyin} sentenceZhuyin={l.zhuyin} sentenceEditPayload={{ type: 'dialogue_line', parentId: d.id, id: l.id, text: l.text, pinyin: l.pinyin || '', zhuyin: l.zhuyin || '' }} />
                                             </span>
-                                            {settings.translateTargets.dialogue && l.translation && <span className="text-slate-600 text-base block mt-0.5 opacity-90 font-medium">{l.translation}</span>}
+                                            {settings.translateTargets.dialogue && l.translation && <span className="text-slate-600 text-base block mt-2 opacity-90 font-medium">{l.translation}</span>}
                                           </div>
                                         </div>
                                       ))}
@@ -2047,12 +2000,12 @@
                                     <div className="space-y-6 mt-1">
                                       <h4 className="text-2xl font-black mb-4 flex items-center gap-3 print-avoid-break-after" style={{ color: '#D95A50' }}><AlertCircle size={30}/>{rule.theme || "偏誤分析"}</h4>
                                       
-                                      <div className="space-y-2 pb-1">
-                                        <div className="flex items-center justify-between gap-4 py-0.5 px-5 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #FDF1F0', WebkitPrintColorAdjust: 'exact' }}>
+                                      <div className="space-y-4 pb-2">
+                                        <div className="flex items-center justify-between gap-4 py-4 px-6 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #FDF1F0', WebkitPrintColorAdjust: 'exact' }}>
                                           <RenderMistakePDF rule={rule} text={rule.mistake} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} />
                                           <span className="font-black text-4xl px-2 font-sans shrink-0" style={{ color: '#F07167' }}>X</span>
                                         </div>
-                                        <div className="flex items-center justify-between gap-4 py-0.5 px-5 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #E6F7F2', WebkitPrintColorAdjust: 'exact' }}>
+                                        <div className="flex items-center justify-between gap-4 py-4 px-6 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #E6F7F2', WebkitPrintColorAdjust: 'exact' }}>
                                           <InlineRubyText text={rule.correction} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} isCorrection={true} sentencePinyin={rule.correctionPinyin} sentenceZhuyin={rule.correctionZhuyin} sentenceEditPayload={{ type: 'rule_correction', id: rule.id, text: rule.correction, pinyin: rule.correctionPinyin || '', zhuyin: rule.correctionZhuyin || '' }} />
                                           <span className="font-black text-4xl px-2 italic font-serif shrink-0" style={{ color: '#48C0A3' }}>O</span>
                                         </div>
@@ -2242,7 +2195,7 @@
       );
     }
 
-    function InlineRubyText({ text, settings, vocabList, coreTextChunks, coreGrammar, grammarRules, sentencePinyin, sentenceZhuyin, isCorrection = false, alwaysShowRuby = false, sentenceEditPayload = null, customHighlightStyle = null }) {
+    function InlineRubyText({ text, settings, vocabList, coreTextChunks, coreGrammar, grammarRules, sentencePinyin, sentenceZhuyin, isCorrection = false, alwaysShowRuby = false, sentenceEditPayload = null }) {
       const onEdit = React.useContext(EditPhoneticContext);
       if (!text) return null;
 
@@ -2259,7 +2212,7 @@
       targetWords = [...new Set(targetWords)];
       targetWords.sort((a, b) => b.length - a.length);
 
-      if (effectiveScope !== 'full_text' && targetWords.length === 0 && !customHighlightStyle) {
+      if (effectiveScope !== 'full_text' && targetWords.length === 0) {
          return (
            <span className={`${isCorrection ? 'text-[#1B4D3E]' : 'text-slate-900'} relative group`} style={{ display: 'inline' }}>
              <WordBlock text={text} pinyinStr="" zhuyinStr="" showP={false} showZ={false} highlightStyle={{}} />
@@ -2316,14 +2269,7 @@
         let highlightStyle = {};
         let editPayload = null;
 
-        if (customHighlightStyle) {
-          showP = isTypePinyin;
-          showZ = isTypeZhuyin;
-          pyForBlock = partPyTokens.join(' ') || (matchedVocab ? matchedVocab.pinyin : '');
-          zyForBlock = partZyTokens.join(' ') || (matchedVocab ? matchedVocab.zhuyin : '');
-          highlightStyle = customHighlightStyle;
-          if (matchedVocab) editPayload = { type: 'vocab', id: matchedVocab.id, text: part, pinyin: matchedVocab.pinyin || '', zhuyin: matchedVocab.zhuyin || '' };
-        } else if (matchedVocab || matchedGrammar) {
+        if (matchedVocab || matchedGrammar) {
           showP = isTypePinyin;
           showZ = isTypeZhuyin;
           
