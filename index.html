@@ -1855,8 +1855,8 @@
                                   themeColor = '#7A7387'; lightBg = '#F3F1F5'; darkText = '#5C5666';
                                 }
 
-                                return (
-                                  <div key={v.id || `vocab-${i}`} className="avoid-break-inside flex p-6 bg-white items-start gap-5 rounded-[24px]" style={{ border: '2px solid #e2e8f0', borderBottom: `6px solid ${themeColor}`, borderRight: `4px solid ${themeColor}`, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                               return (
+                                  <div key={v.id || `vocab-${i}`} className="avoid-break-inside flex px-6 py-[22px] bg-white items-start gap-5 rounded-[24px]" style={{ border: '2px solid #e2e8f0', borderBottom: `6px solid ${themeColor}`, borderRight: `4px solid ${themeColor}`, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
                                     <div className="text-white w-14 h-14 rounded-full flex items-center justify-center font-black text-2xl shrink-0 mt-1 shadow-inner" style={{ backgroundColor: themeColor, WebkitPrintColorAdjust: 'exact' }}>{i + 1}</div>
                                     <div className="flex-1 space-y-2">
                                       <div className="flex items-start gap-4 flex-wrap">
@@ -1969,7 +1969,7 @@
                                 {(data.dialogues || []).map((d, i) => (
                                   <div key={d.id || `dialogue-${i}`} className="p-10 rounded-[40px] bg-white" style={{ border: '2px solid #E4E0EB', borderBottom: '6px solid #7A7387', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
                                     <h4 className="font-black text-2xl mb-8 inline-block px-8 py-3 rounded-full shadow-sm print-avoid-break-after" style={{ backgroundColor: '#ffffff', color: '#615A6B', border: '1px solid #E4E0EB', WebkitPrintColorAdjust: 'exact' }}>{d.title}</h4>
-                                    <div className="space-y-6">
+                                    <div className="space-y-[22px]">
                                       {(d.lines || []).map((l, j) => (
                                         <div key={l.id || `line-${j}`} className="flex gap-6 avoid-break-inside print-flex-row items-start">
                                           <span className="font-black w-14 shrink-0 text-3xl border-r-4 pt-1" style={{ color: '#7A7387', borderColor: '#D3CDD9' }}>{l.speaker}</span>
@@ -2001,11 +2001,11 @@
                                       <h4 className="text-2xl font-black mb-4 flex items-center gap-3 print-avoid-break-after" style={{ color: '#D95A50' }}><AlertCircle size={30}/>{rule.theme || "偏誤分析"}</h4>
                                       
                                       <div className="space-y-4 pb-2">
-                                        <div className="flex items-center justify-between gap-4 py-4 px-6 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #FDF1F0', WebkitPrintColorAdjust: 'exact' }}>
+                                        <div className="flex items-center justify-between gap-4 py-[15px] px-6 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #FDF1F0', WebkitPrintColorAdjust: 'exact' }}>
                                           <RenderMistakePDF rule={rule} text={rule.mistake} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} />
                                           <span className="font-black text-4xl px-2 font-sans shrink-0" style={{ color: '#F07167' }}>X</span>
                                         </div>
-                                        <div className="flex items-center justify-between gap-4 py-4 px-6 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #E6F7F2', WebkitPrintColorAdjust: 'exact' }}>
+                                        <div className="flex items-center justify-between gap-4 py-[15px] px-6 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #E6F7F2', WebkitPrintColorAdjust: 'exact' }}>
                                           <InlineRubyText text={rule.correction} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} isCorrection={true} sentencePinyin={rule.correctionPinyin} sentenceZhuyin={rule.correctionZhuyin} sentenceEditPayload={{ type: 'rule_correction', id: rule.id, text: rule.correction, pinyin: rule.correctionPinyin || '', zhuyin: rule.correctionZhuyin || '' }} />
                                           <span className="font-black text-4xl px-2 italic font-serif shrink-0" style={{ color: '#48C0A3' }}>O</span>
                                         </div>
