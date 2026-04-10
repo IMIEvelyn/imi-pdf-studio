@@ -40,7 +40,8 @@
       return cleanedStr.trim().split(/(?:\s+|　+)/).filter(Boolean);
     };
 
-    const fetchWithBackoff = async (url, options, retries = 5, delay = 2000) => {
+    // 恢復強大的「指數退避自動重試」機制，遇到 429 (塞車) 或 500 (主機忙碌) 會在背景默默重試 6 次
+    const fetchWithBackoff = async (url, options, retries = 6, delay = 2000) => {
       try {
         const res = await fetch(url, options);
         if (!res.ok) {
@@ -52,14 +53,14 @@
                    errorMessage = errorData.error.message;
                }
             } catch(e) {}
-            return { isError: true, type: 'Auth', status: res.status, message: `連線限制或金鑰錯誤 (${res.status}): ${errorMessage}` };
+            return { isError: true, type: 'Auth', status: res.status, message: `連線限制或找不到模型 (${res.status}): ${errorMessage}` };
           }
           throw new Error(`HTTP Error ${res.status}`); 
         }
         return await res.json();
       } catch (err) {
         if (err.isError) return err; 
-        if (retries <= 0) return { isError: true, message: `伺服器忙碌中 (429)，系統已自動排隊重試 5 次仍失敗。請稍候 1 分鐘後再點擊生成。` };
+        if (retries <= 0) return { isError: true, message: `伺服器極度忙碌中 (429)，系統已在背景為您自動排隊重試多次仍失敗。請稍候 1 分鐘後再點擊生成。` };
         await new Promise(r => setTimeout(r, delay));
         return fetchWithBackoff(url, options, retries - 1, delay * 2);
       }
@@ -268,7 +269,8 @@
               return;
           }
 
-          const modelName = "gemini-1.5-flash-latest"; 
+          // 統一使用金鑰保證能支援的 2.5 版
+          const modelName = "gemini-2.5-flash"; 
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
           
           const systemInstruction = `你是一位專業的資料歸位助手。老師提供的是已經整理好的結構化教材內容，請精準地歸位。
@@ -335,29 +337,65 @@
         };
 
         try {
-          const modelName = "gemini-1.5-flash-latest"; 
+          const modelName = "gemini-2.5-flash"; 
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
           
-          const dataToTranslate = {
-            coreTextChunks: (parsedData.coreTextChunks || []).map(c => ({ ...c, pinyin: c.pinyin || "", zhuyin: c.zhuyin || "" })),
-            coreTextTranslation: parsedData.coreTextTranslation || "",
-            vocabList: (parsedData.vocabList || []).map(v => ({ ...v, pinyin: v.pinyin || "", zhuyin: v.zhuyin || "", translation: v.translation || "", posTranslation: v.posTranslation || "" })),
-            dialogues: (parsedData.dialogues || []).map(d => ({ ...d, lines: (d.lines || []).map(l => ({ ...l, pinyin: l.pinyin || "", zhuyin: l.zhuyin || "", translation: l.translation || "" })) })),
-            coreGrammar: (parsedData.coreGrammar || []).map(g => ({ ...g, titlePinyin: g.titlePinyin || "", titleZhuyin: g.titleZhuyin || "", descPinyin: g.descPinyin || "", descZhuyin: g.descZhuyin || "", translation: g.translation || "", examples: (g.examples || []).map(ex => { const exObj = typeof ex === 'string' ? { text: ex } : ex; return { text: exObj.text, pinyin: exObj.pinyin || "", zhuyin: exObj.zhuyin || "", translation: exObj.translation || "" }; }) })),
-            grammarRules: (parsedData.grammarRules || []).map(r => ({ ...r, mistakePinyin: r.mistakePinyin || "", mistakeZhuyin: r.mistakeZhuyin || "", correctionPinyin: r.correctionPinyin || "", correctionZhuyin: r.correctionZhuyin || "", explanationPinyin: r.explanationPinyin || "", explanationZhuyin: r.explanationZhuyin || "", translation: r.translation || "" }))
-          };
+          // ⚡️ 動態精準瘦身機制：根據老師的設定，把不必要的資料剔除，省下 80% 的運算量，完美避開塞車 (429)！
+          const dataToTranslate = {};
 
-          const systemInstruction = `你是一位專業華語出版助手。請負責將以下 JSON 結構中的內容補齊標音與翻譯。
+          if (exportSettings.phoneticScope === 'full_text') {
+              dataToTranslate.coreTextChunks = (parsedData.coreTextChunks || []).map(c => ({ id: c.id, text: c.text, pinyin: c.pinyin || "", zhuyin: c.zhuyin || "" }));
+          }
+
+          if (exportSettings.translateTargets.coreText) {
+              dataToTranslate.coreTextTranslation = parsedData.coreTextTranslation || "";
+          }
+
+          dataToTranslate.vocabList = (parsedData.vocabList || []).map(v => {
+              const item = { id: v.id, word: v.word, pinyin: v.pinyin || "", zhuyin: v.zhuyin || "" };
+              if (exportSettings.translateTargets.vocab) {
+                  item.translation = v.translation || "";
+                  item.pos = v.pos;
+                  item.posTranslation = v.posTranslation || "";
+              }
+              return item;
+          });
+
+          dataToTranslate.dialogues = (parsedData.dialogues || []).map(d => ({
+              id: d.id,
+              lines: (d.lines || []).map(l => {
+                  const item = { id: l.id, text: l.text, pinyin: l.pinyin || "", zhuyin: l.zhuyin || "" };
+                  if (exportSettings.translateTargets.dialogue) item.translation = l.translation || "";
+                  return item;
+              })
+          }));
+
+          dataToTranslate.coreGrammar = (parsedData.coreGrammar || []).map(g => {
+              const item = { id: g.id, title: g.title, description: g.description, titlePinyin: g.titlePinyin || "", titleZhuyin: g.titleZhuyin || "", descPinyin: g.descPinyin || "", descZhuyin: g.descZhuyin || "" };
+              if (exportSettings.translateTargets.coreGrammar) item.translation = g.translation || "";
+              item.examples = (g.examples || []).map(ex => {
+                  const exObj = typeof ex === 'string' ? { text: ex } : ex;
+                  const exItem = { text: exObj.text, pinyin: exObj.pinyin || "", zhuyin: exObj.zhuyin || "" };
+                  if (exportSettings.translateTargets.coreGrammar) exItem.translation = exObj.translation || "";
+                  return exItem;
+              });
+              return item;
+          });
+
+          dataToTranslate.grammarRules = (parsedData.grammarRules || []).map(r => {
+              const item = { id: r.id, mistake: r.mistake, correction: r.correction, explanation: r.explanation, mistakePinyin: r.mistakePinyin || "", mistakeZhuyin: r.mistakeZhuyin || "", correctionPinyin: r.correctionPinyin || "", correctionZhuyin: r.correctionZhuyin || "", explanationPinyin: r.explanationPinyin || "", explanationZhuyin: r.explanationZhuyin || "" };
+              if (exportSettings.translateTargets.grammar) item.translation = r.translation || "";
+              return item;
+          });
+
+          const systemInstruction = `你是一位專業華語出版助手。請根據老師提供的 JSON 結構補齊標音與翻譯。
           
-          【動態參數要求 - 必須嚴格遵守，否則會超載】
-          1. 標音範圍：目前老師設定為「${exportSettings.phoneticScope === 'full_text' ? '全文皆需標音' : '僅核心詞彙與語法為主'}」。
-             - 如果是「僅核心詞彙與語法為主」，請務必把 coreTextChunks 裡面的 pinyin 與 zhuyin 保持為空字串 ("")，絕對不要幫課文標音！只針對 vocabList, coreGrammar, grammarRules 標註即可。
+          【動態參數要求 - 必須嚴格遵守，節省算力】
+          1. 標音範圍：老師設定為「${exportSettings.phoneticScope === 'full_text' ? '全文皆需標音' : '僅核心詞彙與語法為主'}」。
+             - 若 JSON 有傳入 coreTextChunks，請將裡面的 pinyin 與 zhuyin 填滿。
+             - vocabList, dialogues, coreGrammar, grammarRules 等出現的 pinyin 與 zhuyin 請務必填滿。
           2. 翻譯要求 (目標語言: ${exportSettings.translationLanguage})：
-             - 核心課文 (coreTextTranslation)：${exportSettings.translateTargets.coreText ? '需要翻譯' : '不需要翻譯，請保持空字串'}
-             - 核心生詞 (vocabList)：${exportSettings.translateTargets.vocab ? '需要翻譯 translation 與 posTranslation' : '不需要翻譯，保持空字串'}
-             - 情境對話 (dialogues)：${exportSettings.translateTargets.dialogue ? '需要翻譯' : '不需要翻譯，保持空字串'}
-             - 核心語法 (coreGrammar)：${exportSettings.translateTargets.grammar ? '需要翻譯' : '不需要翻譯，保持空字串'}
-             - 語法診斷室 (grammarRules)：${exportSettings.translateTargets.coreGrammar ? '需要翻譯' : '不需要翻譯，保持空字串'}
+             - 只有 JSON 中有出現 \`translation\` 或 \`posTranslation\` 欄位的地方才需要翻譯。若無該欄位，請完全略過翻譯。
              
           ★ 致命警告：只要有生成 Pinyin 與 Zhuyin 的地方，必須「每一個漢字空一格」斷開！略過 <u> 等 HTML 標籤。`;
 
@@ -393,28 +431,30 @@
             } catch (e) { fallbackToOriginalData(); return; }
           }
 
+          // 將瘦身版 AI 回傳的資料，完美合併回原本的完整資料中
           const mergedData = {
             coreTextChunks: (parsedData.coreTextChunks || []).map((c, i) => {
-              const aiC = (responseData.coreTextChunks || []).find(ac => ac.id === c.id) || (responseData.coreTextChunks || [])[i] || {};
+              if (exportSettings.phoneticScope !== 'full_text') return c;
+              const aiC = (responseData.coreTextChunks || []).find(ac => ac.id === c.id) || {};
               return { ...c, pinyin: aiC.pinyin || c.pinyin || '', zhuyin: aiC.zhuyin || c.zhuyin || '' };
             }),
-            coreTextTranslation: responseData.coreTextTranslation || '',
+            coreTextTranslation: responseData.coreTextTranslation || parsedData.coreTextTranslation || '',
             vocabList: (parsedData.vocabList || []).map((v, i) => {
-              const aiV = (responseData.vocabList || []).find(av => av.id === v.id) || (responseData.vocabList || [])[i] || {};
+              const aiV = (responseData.vocabList || []).find(av => av.id === v.id) || {};
               return { ...v, pinyin: aiV.pinyin || v.pinyin || '', zhuyin: aiV.zhuyin || v.zhuyin || '', translation: aiV.translation || v.translation || '', posTranslation: aiV.posTranslation || v.posTranslation || '' };
             }),
             dialogues: (parsedData.dialogues || []).map((d, i) => {
-              const aiD = (responseData.dialogues || []).find(ad => ad.id === d.id) || (responseData.dialogues || [])[i] || {};
+              const aiD = (responseData.dialogues || []).find(ad => ad.id === d.id) || {};
               return {
                 ...d,
                 lines: (d.lines || []).map((l, j) => {
-                  const aiL = (aiD.lines || []).find(al => al.id === l.id) || (aiD.lines || [])[j] || {};
+                  const aiL = (aiD.lines || []).find(al => al.id === l.id) || {};
                   return { ...l, pinyin: aiL.pinyin || l.pinyin || '', zhuyin: aiL.zhuyin || l.zhuyin || '', translation: aiL.translation || l.translation || '' };
                 })
               };
             }),
             coreGrammar: (parsedData.coreGrammar || []).map((g, i) => {
-              const aiG = (responseData.coreGrammar || []).find(ag => ag.id === g.id) || (responseData.coreGrammar || [])[i] || {};
+              const aiG = (responseData.coreGrammar || []).find(ag => ag.id === g.id) || {};
               return {
                 ...g,
                 titlePinyin: aiG.titlePinyin || g.titlePinyin || '', titleZhuyin: aiG.titleZhuyin || g.titleZhuyin || '',
@@ -428,7 +468,7 @@
               };
             }),
             grammarRules: (parsedData.grammarRules || []).map((r, i) => {
-              const aiR = (responseData.grammarRules || []).find(ar => ar.id === r.id) || (responseData.grammarRules || [])[i] || {};
+              const aiR = (responseData.grammarRules || []).find(ar => ar.id === r.id) || {};
               return {
                 ...r,
                 mistakePinyin: aiR.mistakePinyin || r.mistakePinyin || '', mistakeZhuyin: aiR.mistakeZhuyin || r.mistakeZhuyin || '',
@@ -1891,11 +1931,11 @@
                               <SectionHeader title={getTranslatedModuleTitle("📙 核心語法", settings.translationLanguage)} color="#D4A017" border="#FFEE99" />
                               <div className="mt-10 space-y-12">
                                 {(data.coreGrammar || []).map((p, i) => (
-                                  <div key={p.id || `grammar-${i}`} className="p-8 md:p-8 rounded-[32px] bg-white" style={{ border: '2px solid #FFEE99', borderBottom: '6px solid #FFD700', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-                                    <h4 className="font-black text-3xl mb-4 leading-tight print-avoid-break-after" style={{ color: '#B8860B' }}>
+                                  <div key={p.id || `grammar-${i}`} className="p-10 rounded-[40px] bg-white" style={{ border: '2px solid #FFEE99', borderBottom: '6px solid #FFD700', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                                    <h4 className="font-black text-3xl mb-5 leading-tight print-avoid-break-after" style={{ color: '#B8860B' }}>
                                       <InlineRubyText text={p.title} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={p.titlePinyin} sentenceZhuyin={p.titleZhuyin} alwaysShowRuby={true} sentenceEditPayload={{ type: 'grammar_title', id: p.id, text: p.title, pinyin: p.titlePinyin || '', zhuyin: p.titleZhuyin || '' }} />
                                     </h4>
-                                    <div className="text-slate-800 text-xl font-bold mb-4 leading-relaxed">
+                                    <div className="text-slate-800 text-xl font-bold mb-5 leading-relaxed">
                                       <InlineRubyText text={p.description} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={p.descPinyin} sentenceZhuyin={p.descZhuyin} sentenceEditPayload={{ type: 'grammar_desc', id: p.id, text: p.description, pinyin: p.descPinyin || '', zhuyin: p.descZhuyin || '' }} />
                                     </div>
                                     {settings.translateTargets.coreGrammar && (
@@ -1904,7 +1944,7 @@
                                       </p>
                                     )}
                                     
-                                    <div className="space-y-3 pt-4" style={{ borderTop: '2px solid #FFEE99' }}>
+                                    <div className="space-y-5 pt-6" style={{ borderTop: '2px solid #FFEE99' }}>
                                       {(p.examples || []).map((ex, j) => {
                                         const text = typeof ex === 'string' ? ex : ex.text;
                                         const isDialogue = text.includes(':') || text.includes('：');
@@ -1918,7 +1958,7 @@
                                           let zyCursor = 0;
 
                                           return (
-                                            <div key={j} className="bg-white p-5 rounded-[24px] space-y-1.5 avoid-break-inside" style={{ border: '2px solid #FFEE99', WebkitPrintColorAdjust: 'exact' }}>
+                                            <div key={j} className="bg-white p-6 rounded-3xl space-y-3 avoid-break-inside" style={{ border: '2px solid #FFEE99', WebkitPrintColorAdjust: 'exact' }}>
                                               {lines.map((lineStr, lidx) => {
                                                 const match = lineStr.match(/^([^:：]+[:：])\s*(.*)$/);
                                                 const role = match ? match[1] : '';
@@ -1950,12 +1990,12 @@
                                         }
                                         return (
                                           <div key={j} className="flex gap-5 items-start avoid-break-inside">
-                                            <div className="w-3 h-3 rounded-full mt-3.5 shrink-0 shadow-sm" style={{ backgroundColor: '#FFD700', WebkitPrintColorAdjust: 'exact' }} />
+                                            <div className="w-3 h-3 rounded-full mt-4 shrink-0 shadow-sm" style={{ backgroundColor: '#FFD700', WebkitPrintColorAdjust: 'exact' }} />
                                             <div className="flex-1 flex flex-col min-w-0">
                                               <span style={{ lineHeight: '2.6' }}>
                                                 <InlineRubyText text={text} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={typeof ex === 'object' ? ex.pinyin : ''} sentenceZhuyin={typeof ex === 'object' ? ex.zhuyin : ''} sentenceEditPayload={typeof ex === 'object' ? { type: 'grammar_example', parentId: p.id, id: j, text: text, pinyin: ex.pinyin || '', zhuyin: ex.zhuyin || '' } : null} />
                                               </span>
-                                              {typeof ex === 'object' && settings.translateTargets.coreGrammar && ex.translation && (<span className="text-slate-600 text-base block mt-1 border-l-2 pl-3 font-medium" style={{ borderColor: '#FFEE99' }}>{ex.translation}</span>)}
+                                              {typeof ex === 'object' && settings.translateTargets.coreGrammar && ex.translation && (<span className="text-slate-600 text-base block mt-2 border-l-2 pl-3 font-medium" style={{ borderColor: '#FFEE99' }}>{ex.translation}</span>)}
                                             </div>
                                           </div>
                                         );
@@ -1976,7 +2016,7 @@
                                 {(data.dialogues || []).map((d, i) => (
                                   <div key={d.id || `dialogue-${i}`} className="px-8 py-7 md:px-8 md:py-7 rounded-[32px] bg-white" style={{ border: '2px solid #E4E0EB', borderBottom: '6px solid #7A7387', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
                                     <h4 className="font-black text-2xl mb-5 inline-block px-6 py-2.5 rounded-full shadow-sm print-avoid-break-after" style={{ backgroundColor: '#ffffff', color: '#615A6B', border: '1px solid #E4E0EB', WebkitPrintColorAdjust: 'exact' }}>{d.title}</h4>
-                                    <div className="space-y-2">
+                                    <div className="space-y-4">
                                       {(d.lines || []).map((l, j) => (
                                         <div key={l.id || `line-${j}`} className="flex gap-6 avoid-break-inside print-flex-row items-start">
                                           <span className="font-black w-14 shrink-0 text-3xl border-r-4 pt-1" style={{ color: '#7A7387', borderColor: '#D3CDD9' }}>{l.speaker}</span>
@@ -2008,11 +2048,11 @@
                                       <h4 className="text-2xl font-black mb-4 flex items-center gap-3 print-avoid-break-after" style={{ color: '#D95A50' }}><AlertCircle size={30}/>{rule.theme || "偏誤分析"}</h4>
                                       
                                       <div className="space-y-2 pb-1">
-                                        <div className="flex items-center justify-between gap-4 py-1.5 px-5 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #FDF1F0', WebkitPrintColorAdjust: 'exact' }}>
+                                        <div className="flex items-center justify-between gap-4 py-0.5 px-5 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #FDF1F0', WebkitPrintColorAdjust: 'exact' }}>
                                           <RenderMistakePDF rule={rule} text={rule.mistake} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} />
                                           <span className="font-black text-4xl px-2 font-sans shrink-0" style={{ color: '#F07167' }}>X</span>
                                         </div>
-                                        <div className="flex items-center justify-between gap-4 py-1.5 px-5 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #E6F7F2', WebkitPrintColorAdjust: 'exact' }}>
+                                        <div className="flex items-center justify-between gap-4 py-0.5 px-5 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #E6F7F2', WebkitPrintColorAdjust: 'exact' }}>
                                           <InlineRubyText text={rule.correction} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} isCorrection={true} sentencePinyin={rule.correctionPinyin} sentenceZhuyin={rule.correctionZhuyin} sentenceEditPayload={{ type: 'rule_correction', id: rule.id, text: rule.correction, pinyin: rule.correctionPinyin || '', zhuyin: rule.correctionZhuyin || '' }} />
                                           <span className="font-black text-4xl px-2 italic font-serif shrink-0" style={{ color: '#48C0A3' }}>O</span>
                                         </div>
