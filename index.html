@@ -40,32 +40,26 @@
       return cleanedStr.trim().split(/(?:\s+|　+)/).filter(Boolean);
     };
 
-    const fetchWithBackoff = async (url, options, retries = 2, delay = 1500) => {
+    const fetchWithBackoff = async (url, options, retries = 5, delay = 2000) => {
       try {
         const res = await fetch(url, options);
         if (!res.ok) {
-          let errorMessage = `HTTP 錯誤狀態碼: ${res.status}`;
-          try {
-             const errorData = await res.json();
-             if (errorData.error && errorData.error.message) {
-                 errorMessage = errorData.error.message;
-             }
-          } catch(e) {}
-          
-          // 攔截 429 塞車錯誤，直接請老師等待，絕對不再背景偷偷重試干擾冷卻時間！
-          if (res.status === 429) {
-            return { isError: true, type: 'RateLimit', status: 429, message: `🚦 Google AI 額度冷卻中 (429)：\nAI 大腦一次處理太多翻譯，觸發了保護機制。\n\n💡 解決秘訣：請完全不要點擊按鈕，【靜待整整 60 秒】讓系統冷卻後，再按一次即可順利完成！（若連續點擊，60秒會被重新計算哦！）` };
-          }
-
           if (res.status === 400 || res.status === 401 || res.status === 403 || res.status === 404) {
+            let errorMessage = `HTTP 錯誤狀態碼: ${res.status}`;
+            try {
+               const errorData = await res.json();
+               if (errorData.error && errorData.error.message) {
+                   errorMessage = errorData.error.message;
+               }
+            } catch(e) {}
             return { isError: true, type: 'Auth', status: res.status, message: `連線限制或金鑰錯誤 (${res.status}): ${errorMessage}` };
           }
-          throw new Error(errorMessage);
+          throw new Error(`HTTP Error ${res.status}`); 
         }
         return await res.json();
       } catch (err) {
         if (err.isError) return err; 
-        if (retries <= 0) throw err;
+        if (retries <= 0) return { isError: true, message: `伺服器忙碌中 (429)，系統已自動排隊重試 5 次仍失敗。請稍候 1 分鐘後再點擊生成。` };
         await new Promise(r => setTimeout(r, delay));
         return fetchWithBackoff(url, options, retries - 1, delay * 2);
       }
@@ -269,12 +263,12 @@
 
           const activeKey = customApiKey.trim();
           if (!activeKey) {
-              setError("您匯入的資料格式與標準範本不同，系統嘗試呼叫 AI 分析，但您尚未輸入 API Key！");
+              setError("您匯入的資料格式與標準範本不同，系統嘗試呼叫 AI 分析，但您尚未輸入 API Key！(部署於 GitHub 必須使用您個人的金鑰)");
               setIsAnalyzing(false);
               return;
           }
 
-          const modelName = "gemini-2.5-flash"; 
+          const modelName = "gemini-1.5-flash-latest"; 
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
           
           const systemInstruction = `你是一位專業的資料歸位助手。老師提供的是已經整理好的結構化教材內容，請精準地歸位。
@@ -323,7 +317,7 @@
 
       const handleGeneratePreview = async () => {
         const activeKey = customApiKey.trim();
-        if (!activeKey) { setError("要生成翻譯與注音，請確認您已在第一步輸入了正確的 API Key！"); return; }
+        if (!activeKey) { setError("要生成翻譯與注音，請確認您已在第一步輸入了正確的 API Key！(部署於 GitHub 必須使用您個人的金鑰)"); return; }
         setError(null);
         setIsGeneratingPreview(true);
 
@@ -341,8 +335,7 @@
         };
 
         try {
-          // 強制鎖定在您的金鑰一定有權限的 gemini-2.5-flash
-          const modelName = "gemini-2.5-flash"; 
+          const modelName = "gemini-1.5-flash-latest"; 
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
           
           const dataToTranslate = {
@@ -355,10 +348,18 @@
           };
 
           const systemInstruction = `你是一位專業華語出版助手。請負責將以下 JSON 結構中的內容補齊標音與翻譯。
-          【極度重要任務：強制補齊，禁止留空！】
-          1. pinyin 與 zhuyin：只要有中文的地方，包含 coreTextChunks, vocabList, dialogues, coreGrammar, grammarRules，請務必將對應的 pinyin 與 zhuyin 欄位填滿！
-          ★ 致命警告：所有 Pinyin 與 Zhuyin 必須「每一個漢字空一格」斷開！略過 <u> 等 HTML 標籤。
-          2. translation (翻譯)：請依照設定的語言 ${exportSettings.translationLanguage}，為各模組填寫精確翻譯！`;
+          
+          【動態參數要求 - 必須嚴格遵守，否則會超載】
+          1. 標音範圍：目前老師設定為「${exportSettings.phoneticScope === 'full_text' ? '全文皆需標音' : '僅核心詞彙與語法為主'}」。
+             - 如果是「僅核心詞彙與語法為主」，請務必把 coreTextChunks 裡面的 pinyin 與 zhuyin 保持為空字串 ("")，絕對不要幫課文標音！只針對 vocabList, coreGrammar, grammarRules 標註即可。
+          2. 翻譯要求 (目標語言: ${exportSettings.translationLanguage})：
+             - 核心課文 (coreTextTranslation)：${exportSettings.translateTargets.coreText ? '需要翻譯' : '不需要翻譯，請保持空字串'}
+             - 核心生詞 (vocabList)：${exportSettings.translateTargets.vocab ? '需要翻譯 translation 與 posTranslation' : '不需要翻譯，保持空字串'}
+             - 情境對話 (dialogues)：${exportSettings.translateTargets.dialogue ? '需要翻譯' : '不需要翻譯，保持空字串'}
+             - 核心語法 (coreGrammar)：${exportSettings.translateTargets.grammar ? '需要翻譯' : '不需要翻譯，保持空字串'}
+             - 語法診斷室 (grammarRules)：${exportSettings.translateTargets.coreGrammar ? '需要翻譯' : '不需要翻譯，保持空字串'}
+             
+          ★ 致命警告：只要有生成 Pinyin 與 Zhuyin 的地方，必須「每一個漢字空一格」斷開！略過 <u> 等 HTML 標籤。`;
 
           const payload = {
             contents: [{ role: "user", parts: [{ text: JSON.stringify(dataToTranslate) }] }],
@@ -630,17 +631,17 @@
 
             <div className="mt-8 p-6 bg-rose-50 border border-rose-100 rounded-[24px]">
               <label className="flex items-center gap-2 text-rose-700 font-bold mb-3 text-lg">
-                <AlertCircle size={22} strokeWidth={2.5} /> 請輸入您的專屬 API Key（必填）
+                <AlertCircle size={22} strokeWidth={2.5} /> 請輸入您的專屬 Google API Key（必填）
               </label>
               <input 
                 type="password" 
-                className="w-full px-5 py-4 bg-white rounded-xl outline-none focus:border-rose-400 border-2 border-transparent shadow-sm text-lg font-mono" 
+                className="w-full px-5 py-4 bg-white rounded-xl outline-none focus:border-rose-400 border-2 border-transparent shadow-sm text-lg font-mono text-slate-700" 
                 placeholder="AIzaSy..." 
                 value={customApiKey} 
                 onChange={(e) => setCustomApiKey(e.target.value)} 
                 disabled={isAnalyzing} 
               />
-              <p className="text-rose-600/80 text-sm mt-3 font-medium">雖然第一步已支援本地秒解，但最後的注音與翻譯生成仍需使用此金鑰。</p>
+              <p className="text-rose-600/80 text-sm mt-3 font-medium">⚠️ 提醒：因為此系統部署於您的 GitHub，必須填寫您個人的 API 金鑰才能進行最後一步的注音與翻譯連線哦！</p>
             </div>
 
             <div className="mt-12 flex justify-end pt-8 border-t-2 border-dashed border-orange-100">
@@ -868,7 +869,7 @@
                   const newChunks = autoLink(data.coreTextChunks, newList, data.coreGrammar, data.grammarRules);
                   setData({ ...data, vocabList: newList, coreTextChunks: newChunks });
                 }} className="absolute top-6 right-6 text-slate-300 hover:text-rose-500 bg-white/50 p-2 rounded-full hover:bg-rose-50 transition-colors"><Trash2 size={20} strokeWidth={2.5}/></button>
-                <div className="flex items-center gap-5 mb-1"><span className={`${circleBg} text-white w-12 h-12 rounded-full flex items-center justify-center font-black text-xl shadow-inner`}>{idx + 1}</span><div className="flex-1"><span className="font-black text-3xl text-slate-800">{v.word}</span><span className={`text-sm ${posBg} ${posText} px-4 py-1.5 rounded-full font-bold ml-4 uppercase`}>{v.pos}</span></div></div>
+                <div className="flex items-center gap-5 mb-1"><span className={`${circleBg} text-white w-12 h-12 rounded-full flex items-center justify-center font-black text-xl shadow-inner`}>{idx + 1}</span><div className="flex-1"><span className="font-black text-3xl text-slate-800">{v.word}</span><span className={`text-sm ${posBg} ${posText} px-4 py-1.5 rounded-full font-bold ml-4 uppercase whitespace-nowrap`}>{v.pos}</span></div></div>
               </div>
             );
           })}</div>
@@ -1890,11 +1891,11 @@
                               <SectionHeader title={getTranslatedModuleTitle("📙 核心語法", settings.translationLanguage)} color="#D4A017" border="#FFEE99" />
                               <div className="mt-10 space-y-12">
                                 {(data.coreGrammar || []).map((p, i) => (
-                                  <div key={p.id || `grammar-${i}`} className="p-10 rounded-[40px] bg-white" style={{ border: '2px solid #FFEE99', borderBottom: '6px solid #FFD700', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-                                    <h4 className="font-black text-3xl mb-5 leading-tight print-avoid-break-after" style={{ color: '#B8860B' }}>
+                                  <div key={p.id || `grammar-${i}`} className="p-8 md:p-8 rounded-[32px] bg-white" style={{ border: '2px solid #FFEE99', borderBottom: '6px solid #FFD700', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                                    <h4 className="font-black text-3xl mb-4 leading-tight print-avoid-break-after" style={{ color: '#B8860B' }}>
                                       <InlineRubyText text={p.title} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={p.titlePinyin} sentenceZhuyin={p.titleZhuyin} alwaysShowRuby={true} sentenceEditPayload={{ type: 'grammar_title', id: p.id, text: p.title, pinyin: p.titlePinyin || '', zhuyin: p.titleZhuyin || '' }} />
                                     </h4>
-                                    <div className="text-slate-800 text-xl font-bold mb-5 leading-relaxed">
+                                    <div className="text-slate-800 text-xl font-bold mb-4 leading-relaxed">
                                       <InlineRubyText text={p.description} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={p.descPinyin} sentenceZhuyin={p.descZhuyin} sentenceEditPayload={{ type: 'grammar_desc', id: p.id, text: p.description, pinyin: p.descPinyin || '', zhuyin: p.descZhuyin || '' }} />
                                     </div>
                                     {settings.translateTargets.coreGrammar && (
@@ -1903,7 +1904,7 @@
                                       </p>
                                     )}
                                     
-                                    <div className="space-y-5 pt-6" style={{ borderTop: '2px solid #FFEE99' }}>
+                                    <div className="space-y-3 pt-4" style={{ borderTop: '2px solid #FFEE99' }}>
                                       {(p.examples || []).map((ex, j) => {
                                         const text = typeof ex === 'string' ? ex : ex.text;
                                         const isDialogue = text.includes(':') || text.includes('：');
@@ -1917,7 +1918,7 @@
                                           let zyCursor = 0;
 
                                           return (
-                                            <div key={j} className="bg-white p-6 rounded-3xl space-y-3 avoid-break-inside" style={{ border: '2px solid #FFEE99', WebkitPrintColorAdjust: 'exact' }}>
+                                            <div key={j} className="bg-white p-5 rounded-[24px] space-y-1.5 avoid-break-inside" style={{ border: '2px solid #FFEE99', WebkitPrintColorAdjust: 'exact' }}>
                                               {lines.map((lineStr, lidx) => {
                                                 const match = lineStr.match(/^([^:：]+[:：])\s*(.*)$/);
                                                 const role = match ? match[1] : '';
@@ -1949,12 +1950,12 @@
                                         }
                                         return (
                                           <div key={j} className="flex gap-5 items-start avoid-break-inside">
-                                            <div className="w-3 h-3 rounded-full mt-4 shrink-0 shadow-sm" style={{ backgroundColor: '#FFD700', WebkitPrintColorAdjust: 'exact' }} />
+                                            <div className="w-3 h-3 rounded-full mt-3.5 shrink-0 shadow-sm" style={{ backgroundColor: '#FFD700', WebkitPrintColorAdjust: 'exact' }} />
                                             <div className="flex-1 flex flex-col min-w-0">
                                               <span style={{ lineHeight: '2.6' }}>
                                                 <InlineRubyText text={text} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={typeof ex === 'object' ? ex.pinyin : ''} sentenceZhuyin={typeof ex === 'object' ? ex.zhuyin : ''} sentenceEditPayload={typeof ex === 'object' ? { type: 'grammar_example', parentId: p.id, id: j, text: text, pinyin: ex.pinyin || '', zhuyin: ex.zhuyin || '' } : null} />
                                               </span>
-                                              {typeof ex === 'object' && settings.translateTargets.coreGrammar && ex.translation && (<span className="text-slate-600 text-base block mt-2 border-l-2 pl-3 font-medium" style={{ borderColor: '#FFEE99' }}>{ex.translation}</span>)}
+                                              {typeof ex === 'object' && settings.translateTargets.coreGrammar && ex.translation && (<span className="text-slate-600 text-base block mt-1 border-l-2 pl-3 font-medium" style={{ borderColor: '#FFEE99' }}>{ex.translation}</span>)}
                                             </div>
                                           </div>
                                         );
@@ -1973,9 +1974,9 @@
                               <SectionHeader title={getTranslatedModuleTitle("💬 情境對話", settings.translationLanguage)} color="#615A6B" border="#7A7387" />
                               <div className="mt-10 space-y-12">
                                 {(data.dialogues || []).map((d, i) => (
-                                  <div key={d.id || `dialogue-${i}`} className="p-10 rounded-[40px] bg-white" style={{ border: '2px solid #E4E0EB', borderBottom: '6px solid #7A7387', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-                                    <h4 className="font-black text-2xl mb-8 inline-block px-8 py-3 rounded-full shadow-sm print-avoid-break-after" style={{ backgroundColor: '#ffffff', color: '#615A6B', border: '1px solid #E4E0EB', WebkitPrintColorAdjust: 'exact' }}>{d.title}</h4>
-                                    <div className="space-y-3">
+                                  <div key={d.id || `dialogue-${i}`} className="px-8 py-7 md:px-8 md:py-7 rounded-[32px] bg-white" style={{ border: '2px solid #E4E0EB', borderBottom: '6px solid #7A7387', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                                    <h4 className="font-black text-2xl mb-5 inline-block px-6 py-2.5 rounded-full shadow-sm print-avoid-break-after" style={{ backgroundColor: '#ffffff', color: '#615A6B', border: '1px solid #E4E0EB', WebkitPrintColorAdjust: 'exact' }}>{d.title}</h4>
+                                    <div className="space-y-2">
                                       {(d.lines || []).map((l, j) => (
                                         <div key={l.id || `line-${j}`} className="flex gap-6 avoid-break-inside print-flex-row items-start">
                                           <span className="font-black w-14 shrink-0 text-3xl border-r-4 pt-1" style={{ color: '#7A7387', borderColor: '#D3CDD9' }}>{l.speaker}</span>
@@ -1983,7 +1984,7 @@
                                             <span className="text-xl text-slate-800 font-bold" style={{ lineHeight: '2.6' }}>
                                               <InlineRubyText text={l.text} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={l.pinyin} sentenceZhuyin={l.zhuyin} sentenceEditPayload={{ type: 'dialogue_line', parentId: d.id, id: l.id, text: l.text, pinyin: l.pinyin || '', zhuyin: l.zhuyin || '' }} />
                                             </span>
-                                            {settings.translateTargets.dialogue && l.translation && <span className="text-slate-600 text-base block mt-1.5 opacity-90 font-medium">{l.translation}</span>}
+                                            {settings.translateTargets.dialogue && l.translation && <span className="text-slate-600 text-base block mt-0.5 opacity-90 font-medium">{l.translation}</span>}
                                           </div>
                                         </div>
                                       ))}
