@@ -1855,18 +1855,18 @@
                                   themeColor = '#7A7387'; lightBg = '#F3F1F5'; darkText = '#5C5666';
                                 }
 
-                               return (
-                                  <div key={v.id || `vocab-${i}`} className="avoid-break-inside flex px-6 py-[22px] bg-white items-start gap-5 rounded-[24px]" style={{ border: '2px solid #e2e8f0', borderBottom: `6px solid ${themeColor}`, borderRight: `4px solid ${themeColor}`, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+return (
+                                  <div key={v.id || `vocab-${i}`} className="avoid-break-inside flex px-6 py-4 bg-white items-start gap-5 rounded-[24px]" style={{ border: '2px solid #e2e8f0', borderBottom: `6px solid ${themeColor}`, borderRight: `4px solid ${themeColor}`, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
                                     <div className="text-white w-14 h-14 rounded-full flex items-center justify-center font-black text-2xl shrink-0 mt-1 shadow-inner" style={{ backgroundColor: themeColor, WebkitPrintColorAdjust: 'exact' }}>{i + 1}</div>
-                                    <div className="flex-1 space-y-2">
+                                    <div className="flex-1 space-y-0">
                                       <div className="flex items-start gap-4 flex-wrap">
                                         <span className="font-black text-slate-800 tracking-tight flex items-end">
                                           <WordBlock text={v.word} pinyinStr={v.pinyin} zhuyinStr={v.zhuyin} showP={showP} showZ={showZ} highlightStyle={{}} editPayload={{ type: 'vocab', id: v.id, text: v.word, pinyin: v.pinyin || '', zhuyin: v.zhuyin || '' }} />
                                         </span>
                                         <span className="text-sm px-3 py-1 font-extrabold rounded-full mt-1.5" style={{ backgroundColor: lightBg, color: darkText, WebkitPrintColorAdjust: 'exact' }}>{settings.translateTargets.vocab && v.posTranslation ? v.posTranslation : v.pos}</span>
                                       </div>
-                                  {settings.translateTargets.vocab && (
-                                      <p className="text-slate-700 font-extrabold text-base italic pt-1.5 mt-1 tracking-tight" style={{ borderTop: `2px dashed ${lightBg}` }}>
+                                    {settings.translateTargets.vocab && (
+                                      <p className="text-slate-700 font-extrabold text-base italic pt-1.5 -mt-2 tracking-tight" style={{ borderTop: `2px dashed ${lightBg}` }}>
                                         {v.translation || '(未生成翻譯)'}
                                       </p>
                                     )}
