@@ -80,9 +80,10 @@
         coreText: true,
         vocab: true,
         dialogue: false,
-        grammar: true,
+       grammar: true,
         coreGrammar: true 
-      }
+      },
+      explanationMode: 'dual'
     };
 
     function App() {
@@ -1055,6 +1056,8 @@
                     </select>
                   </div>
                   <div className="space-y-4"><label className="text-base font-black text-slate-500 ml-1">翻譯模組</label><div className="grid grid-cols-2 gap-4">{Object.entries({coreText: '核心課文', dialogue: '情境對話', coreGrammar: '核心語法', grammar: '語法診斷室'}).map(([key, label]) => (<label key={key} className={`flex items-center gap-4 p-5 border-2 rounded-2xl cursor-pointer transition-all ${settings.translateTargets[key] ? 'border-[#56D0A0] bg-[#EAFBF4] shadow-[0_4px_0_0_#34A879]' : 'border-slate-100 hover:bg-slate-50 shadow-sm'}`}><input type="checkbox" className="w-6 h-6 accent-[#56D0A0] shrink-0 rounded-md" checked={settings.translateTargets[key]} onChange={() => updateTarget(key)} /><span className="font-bold text-lg text-slate-700">{label}</span></label>))}</div></div>
+                <div className="space-y-4"><label className="text-base font-black text-slate-500 ml-1">翻譯模組</label><div className="grid grid-cols-2 gap-4">{Object.entries({coreText: '核心課文', dialogue: '情境對話', coreGrammar: '核心語法', grammar: '語法診斷室'}).map(([key, label]) => (<label key={key} className={`flex items-center gap-4 p-5 border-2 rounded-2xl cursor-pointer transition-all ${settings.translateTargets[key] ? 'border-[#56D0A0] bg-[#EAFBF4] shadow-[0_4px_0_0_#34A879]' : 'border-slate-100 hover:bg-slate-50 shadow-sm'}`}><input type="checkbox" className="w-6 h-6 accent-[#56D0A0] shrink-0 rounded-md" checked={settings.translateTargets[key]} onChange={() => updateTarget(key)} /><span className="font-bold text-lg text-slate-700">{label}</span></label>))}</div></div>
+                  <div className="space-y-4 pt-4 border-t-2 border-dashed border-slate-100"><label className="text-base font-black text-slate-500 ml-1">語法/診斷 說明顯示模式</label><div className="flex bg-[#f1f5f9] p-2 rounded-3xl shadow-inner"><button className={`flex-1 py-4 rounded-2xl font-black text-lg transition-all ${settings.explanationMode !== 'foreign_only' ? 'bg-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] text-[#56D0A0]' : 'text-slate-500'}`} onClick={() => updateSetting('explanationMode', 'dual')}>雙軌顯示 (中文+外語)</button><button className={`flex-1 py-4 rounded-2xl font-black text-lg transition-all ${settings.explanationMode === 'foreign_only' ? 'bg-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] text-[#56D0A0]' : 'text-slate-500'}`} onClick={() => updateSetting('explanationMode', 'foreign_only')}>極簡模式 (僅外語)</button></div></div>
                 </div>
               </div>
             </div>
@@ -1062,7 +1065,7 @@
           <div className="flex justify-between mt-12">
             <button onClick={onPrev} disabled={isGenerating} className="px-10 py-5 bg-[#F8F2EA] text-slate-600 rounded-[32px] font-black text-xl shadow-[0_6px_0_0_#E8DCCB] hover:translate-y-1 hover:shadow-[0_4px_0_0_#E8DCCB] active:translate-y-[6px] active:shadow-none transition-all">返回編輯</button>
             <button onClick={() => onNext()} disabled={isGenerating} className="group flex items-center gap-4 px-12 py-5 bg-[#A084E8] text-white rounded-[32px] font-black text-2xl shadow-[0_8px_0_0_#7D5EC4,0_16px_24px_rgba(160,132,232,0.3),inset_0_-4px_8px_rgba(0,0,0,0.1)] hover:translate-y-1 hover:shadow-[0_6px_0_0_#7D5EC4,0_12px_20px_rgba(160,132,232,0.3),inset_0_-4px_8px_rgba(0,0,0,0.1)] active:translate-y-[8px] active:shadow-[0_0px_0_0_#7D5EC4,inset_0_2px_4px_rgba(0,0,0,0.2)] disabled:opacity-70 transition-all">
-              {isGenerating ? <><div className="animate-spin rounded-full h-8 w-8 border-4 border-white border-t-transparent" />生成時間約需2分鐘</> : <>生成教材預覽 <ChevronRight size={28} strokeWidth={3}/></>}
+              {isGenerating ? <><div className="animate-spin rounded-full h-8 w-8 border-4 border-white border-t-transparent" />生成時間約需3分鐘</> : <>生成教材預覽 <ChevronRight size={28} strokeWidth={3}/></>}
             </button>
           </div>
         </div>
@@ -1855,7 +1858,7 @@
                                   themeColor = '#7A7387'; lightBg = '#F3F1F5'; darkText = '#5C5666';
                                 }
 
-return (
+                              return (
                                   <div key={v.id || `vocab-${i}`} className="avoid-break-inside flex px-6 py-4 bg-white items-start gap-5 rounded-[24px]" style={{ border: '2px solid #e2e8f0', borderBottom: `6px solid ${themeColor}`, borderRight: `4px solid ${themeColor}`, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
                                     <div className="text-white w-14 h-14 rounded-full flex items-center justify-center font-black text-2xl shrink-0 mt-1 shadow-inner" style={{ backgroundColor: themeColor, WebkitPrintColorAdjust: 'exact' }}>{i + 1}</div>
                                     <div className="flex-1 space-y-0">
@@ -1888,13 +1891,21 @@ return (
                                     <h4 className="font-black text-3xl mb-5 leading-tight print-avoid-break-after" style={{ color: '#B8860B' }}>
                                       <InlineRubyText text={p.title} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={p.titlePinyin} sentenceZhuyin={p.titleZhuyin} alwaysShowRuby={true} sentenceEditPayload={{ type: 'grammar_title', id: p.id, text: p.title, pinyin: p.titlePinyin || '', zhuyin: p.titleZhuyin || '' }} />
                                     </h4>
-                                    <div className="text-slate-800 text-xl font-bold mb-5 leading-relaxed">
-                                      <InlineRubyText text={p.description} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={p.descPinyin} sentenceZhuyin={p.descZhuyin} sentenceEditPayload={{ type: 'grammar_desc', id: p.id, text: p.description, pinyin: p.descPinyin || '', zhuyin: p.descZhuyin || '' }} />
-                                    </div>
+                                    {settings.explanationMode !== 'foreign_only' && (
+                                      <div className="text-slate-800 text-xl font-bold mb-5 leading-relaxed">
+                                        <InlineRubyText text={p.description} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={p.descPinyin} sentenceZhuyin={p.descZhuyin} sentenceEditPayload={{ type: 'grammar_desc', id: p.id, text: p.description, pinyin: p.descPinyin || '', zhuyin: p.descZhuyin || '' }} />
+                                      </div>
+                                    )}
                                     {settings.translateTargets.coreGrammar && (
-                                      <p className="text-slate-600 text-base italic mb-8 border-l-4 pl-4 font-medium" style={{ borderColor: '#FFD700' }}>
-                                        {p.translation || '(未生成翻譯)'}
-                                      </p>
+                                      settings.explanationMode === 'foreign_only' ? (
+                                        <p className="text-slate-800 text-2xl font-bold mb-8 leading-relaxed tracking-wide">
+                                          {p.translation || '(未生成翻譯)'}
+                                        </p>
+                                      ) : (
+                                        <p className="text-slate-600 text-base italic mb-8 border-l-4 pl-4 font-medium" style={{ borderColor: '#FFD700' }}>
+                                          {p.translation || '(未生成翻譯)'}
+                                        </p>
+                                      )
                                     )}
                                     
                                     <div className="space-y-5 pt-6" style={{ borderTop: '2px solid #FFEE99' }}>
@@ -2016,13 +2027,21 @@ return (
                                           <div className="w-2 h-6 rounded-full" style={{ backgroundColor: '#F07167', WebkitPrintColorAdjust: 'exact' }} />
                                           <strong className="text-slate-600 text-lg font-black uppercase tracking-widest">💡 語法/詞彙說明</strong>
                                         </div>
-                                        <div className="text-slate-800 text-lg font-bold mb-4 whitespace-pre-wrap sentence-block" style={{ lineHeight: '2.2' }}>
-                                          <InlineRubyText text={rule.explanation} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={rule.explanationPinyin} sentenceZhuyin={rule.explanationZhuyin} sentenceEditPayload={{ type: 'rule_explanation', id: rule.id, text: rule.explanation, pinyin: rule.explanationPinyin || '', zhuyin: rule.explanationZhuyin || '' }} />
-                                        </div>
+                                        {settings.explanationMode !== 'foreign_only' && (
+                                          <div className="text-slate-800 text-lg font-bold mb-4 whitespace-pre-wrap sentence-block" style={{ lineHeight: '2.2' }}>
+                                            <InlineRubyText text={rule.explanation} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={rule.explanationPinyin} sentenceZhuyin={rule.explanationZhuyin} sentenceEditPayload={{ type: 'rule_explanation', id: rule.id, text: rule.explanation, pinyin: rule.explanationPinyin || '', zhuyin: rule.explanationZhuyin || '' }} />
+                                          </div>
+                                        )}
                                         {settings.translateTargets.grammar && (
-                                          <p className="text-slate-600 text-sm font-bold border-t-2 pt-4 mt-2 opacity-90" style={{ borderColor: '#e2e8f0' }}>
-                                            {rule.translation || '(未生成翻譯)'}
-                                          </p>
+                                          settings.explanationMode === 'foreign_only' ? (
+                                            <p className="text-slate-800 text-xl font-bold whitespace-pre-wrap sentence-block tracking-wide" style={{ lineHeight: '2.2' }}>
+                                              {rule.translation || '(未生成翻譯)'}
+                                            </p>
+                                          ) : (
+                                            <p className="text-slate-600 text-sm font-bold border-t-2 pt-4 mt-2 opacity-90" style={{ borderColor: '#e2e8f0' }}>
+                                              {rule.translation || '(未生成翻譯)'}
+                                            </p>
+                                          )
                                         )}
                                       </div>
                                     </div>
