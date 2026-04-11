@@ -269,7 +269,7 @@
               return;
           }
 
-          const modelName = "gemini-2.5-flash"; 
+          const modelName = "gemini-2.0-flash"; 
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
           
           const systemInstruction = `你是一位專業的資料歸位助手。老師提供的是已經整理好的結構化教材內容，請精準地歸位。
@@ -336,7 +336,7 @@
         };
 
         try {
-          const modelName = "gemini-2.5-flash"; 
+          const modelName = "gemini-2.0-flash"; 
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
           
           const dataToTranslate = {
