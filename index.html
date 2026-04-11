@@ -1858,7 +1858,7 @@
                                 }
 
                               return (
-                                  <div key={v.id || `vocab-${i}`} className="avoid-break-inside flex px-6 py-4 bg-white items-start gap-5 rounded-[24px]" style={{ border: '2px solid #e2e8f0', borderBottom: `6px solid ${themeColor}`, borderRight: `4px solid ${themeColor}`, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                                 <div key={v.id || `vocab-${i}`} className="avoid-break-inside flex px-6 pt-4 pb-2 bg-white items-start gap-5 rounded-[24px]" style={{ border: '2px solid #e2e8f0', borderBottom: `6px solid ${themeColor}`, borderRight: `4px solid ${themeColor}`, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
                                     <div className="text-white w-14 h-14 rounded-full flex items-center justify-center font-black text-2xl shrink-0 mt-1 shadow-inner" style={{ backgroundColor: themeColor, WebkitPrintColorAdjust: 'exact' }}>{i + 1}</div>
                                     <div className="flex-1 space-y-0">
                                       <div className="flex items-start gap-4 flex-wrap">
@@ -1896,10 +1896,10 @@
                                       </div>
                                     )}
                                     {settings.translateTargets.coreGrammar && (
-                                      settings.explanationMode === 'foreign_only' ? (
-                                        <p className="text-slate-800 text-2xl font-bold mb-8 leading-relaxed tracking-wide">
-                                          {p.translation || '(未生成翻譯)'}
-                                        </p>
+                                     settings.explanationMode === 'foreign_only' ? (
+                                            <p className="text-slate-800 text-xl font-bold whitespace-pre-wrap tracking-wide" style={{ lineHeight: '1.5' }}>
+                                              {rule.translation || '(未生成翻譯)'}
+                                            </p>
                                       ) : (
                                         <p className="text-slate-600 text-base italic mb-8 border-l-4 pl-4 font-medium" style={{ borderColor: '#FFD700' }}>
                                           {p.translation || '(未生成翻譯)'}
@@ -2005,7 +2005,7 @@
                               <SectionHeader title={getTranslatedModuleTitle("🛠️ 語法診斷室", settings.translationLanguage)} color="#D95A50" border="#F07167" />
                               <div className="mt-10 space-y-10">
                                 {(data.grammarRules || []).map((rule, i) => (
-                                  <div key={rule.id || `rule-${i}`} className="p-8 md:p-8 relative overflow-hidden bg-white rounded-[32px]" style={{ border: '2px solid #FDF1F0', borderBottom: '6px solid #F07167', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                                <div key={rule.id || `rule-${k}`} className="bg-white rounded-[32px] px-8 pt-8 pb-4 shadow-sm print-break-inside-avoid" style={{ border: '2px solid #e2e8f0', borderBottom: '6px solid #e2e8f0', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
                                     <div className="absolute top-0 right-0 px-6 py-2 rounded-bl-2xl font-black text-sm uppercase tracking-widest shadow-sm text-white" style={{ backgroundColor: '#F07167', WebkitPrintColorAdjust: 'exact' }}>重點提醒</div>
                                     <div className="space-y-6 mt-1">
                                       <h4 className="text-2xl font-black mb-4 flex items-center gap-3 print-avoid-break-after" style={{ color: '#D95A50' }}><AlertCircle size={30}/>{rule.theme || "偏誤分析"}</h4>
@@ -2033,9 +2033,9 @@
                                         )}
                                         {settings.translateTargets.grammar && (
                                           settings.explanationMode === 'foreign_only' ? (
-                                            <p className="text-slate-800 text-xl font-bold whitespace-pre-wrap sentence-block tracking-wide" style={{ lineHeight: '2.2' }}>
-                                              {rule.translation || '(未生成翻譯)'}
-                                            </p>
+                                        <p className="text-slate-800 text-2xl font-bold mb-8 tracking-wide" style={{ lineHeight: '1.5' }}>
+                                          {p.translation || '(未生成翻譯)'}
+                                        </p>
                                           ) : (
                                             <p className="text-slate-600 text-sm font-bold border-t-2 pt-4 mt-2 opacity-90" style={{ borderColor: '#e2e8f0' }}>
                                               {rule.translation || '(未生成翻譯)'}
