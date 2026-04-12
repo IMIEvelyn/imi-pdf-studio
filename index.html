@@ -1896,10 +1896,10 @@
                                       </div>
                                     )}
                                     {settings.translateTargets.coreGrammar && (
-                                     settings.explanationMode === 'foreign_only' ? (
-                                            <p className="text-slate-800 text-xl font-bold whitespace-pre-wrap tracking-wide" style={{ lineHeight: '1.5' }}>
-                                              {rule.translation || '(未生成翻譯)'}
-                                            </p>
+                                      settings.explanationMode === 'foreign_only' ? (
+                                        <p className="text-slate-800 text-2xl font-bold mb-8 tracking-wide" style={{ lineHeight: '1.5' }}>
+                                          {p.translation || '(未生成翻譯)'}
+                                        </p>
                                       ) : (
                                         <p className="text-slate-600 text-base italic mb-8 border-l-4 pl-4 font-medium" style={{ borderColor: '#FFD700' }}>
                                           {p.translation || '(未生成翻譯)'}
@@ -2031,11 +2031,11 @@
                                             <InlineRubyText text={rule.explanation} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={rule.explanationPinyin} sentenceZhuyin={rule.explanationZhuyin} sentenceEditPayload={{ type: 'rule_explanation', id: rule.id, text: rule.explanation, pinyin: rule.explanationPinyin || '', zhuyin: rule.explanationZhuyin || '' }} />
                                           </div>
                                         )}
-                                        {settings.translateTargets.grammar && (
+                                       {settings.translateTargets.grammar && (
                                           settings.explanationMode === 'foreign_only' ? (
-                                        <p className="text-slate-800 text-2xl font-bold mb-8 tracking-wide" style={{ lineHeight: '1.5' }}>
-                                          {p.translation || '(未生成翻譯)'}
-                                        </p>
+                                            <p className="text-slate-800 text-xl font-bold whitespace-pre-wrap tracking-wide" style={{ lineHeight: '1.5' }}>
+                                              {rule.translation || '(未生成翻譯)'}
+                                            </p>
                                           ) : (
                                             <p className="text-slate-600 text-sm font-bold border-t-2 pt-4 mt-2 opacity-90" style={{ borderColor: '#e2e8f0' }}>
                                               {rule.translation || '(未生成翻譯)'}
