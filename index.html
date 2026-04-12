@@ -1887,11 +1887,11 @@
                               <div className="mt-10 space-y-12">
                                 {(data.coreGrammar || []).map((p, i) => (
                                   <div key={p.id || `grammar-${i}`} className="p-10 rounded-[40px] bg-white" style={{ border: '2px solid #FFEE99', borderBottom: '6px solid #FFD700', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-                                    <h4 className="font-black text-3xl mb-5 leading-tight print-avoid-break-after" style={{ color: '#B8860B' }}>
+                                    <h4 className="font-black text-3xl mb-1 leading-tight print-avoid-break-after" style={{ color: '#B8860B' }}>
                                       <InlineRubyText text={p.title} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={p.titlePinyin} sentenceZhuyin={p.titleZhuyin} alwaysShowRuby={true} sentenceEditPayload={{ type: 'grammar_title', id: p.id, text: p.title, pinyin: p.titlePinyin || '', zhuyin: p.titleZhuyin || '' }} />
                                     </h4>
                                     {settings.explanationMode !== 'foreign_only' && (
-                                      <div className="text-slate-800 text-xl font-bold mb-1 leading-relaxed">
+                                     <div className="text-slate-800 text-xl font-bold mb-1 leading-relaxed break-keep">
                                         <InlineRubyText text={p.description} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={p.descPinyin} sentenceZhuyin={p.descZhuyin} sentenceEditPayload={{ type: 'grammar_desc', id: p.id, text: p.description, pinyin: p.descPinyin || '', zhuyin: p.descZhuyin || '' }} />
                                       </div>
                                     )}
@@ -1907,7 +1907,7 @@
                                       )
                                     )}
                                     
-                                    <div className="space-y-5 pt-6" style={{ borderTop: '2px solid #FFEE99' }}>
+                                    <div className="space-y-2 pt-6" style={{ borderTop: '2px solid #FFEE99' }}>
                                       {(p.examples || []).map((ex, j) => {
                                         const text = typeof ex === 'string' ? ex : ex.text;
                                         const isDialogue = text.includes(':') || text.includes('：');
@@ -1921,7 +1921,7 @@
                                           let zyCursor = 0;
 
                                           return (
-                                            <div key={j} className="bg-white p-6 rounded-3xl space-y-3 avoid-break-inside" style={{ border: '2px solid #FFEE99', WebkitPrintColorAdjust: 'exact' }}>
+                                            <div key={j} className="bg-white px-6 pt-6 pb-2 rounded-3xl space-y-3 avoid-break-inside" style={{ border: '2px solid #FFEE99', WebkitPrintColorAdjust: 'exact' }}>
                                               {lines.map((lineStr, lidx) => {
                                                 const match = lineStr.match(/^([^:：]+[:：])\s*(.*)$/);
                                                 const role = match ? match[1] : '';
@@ -1953,7 +1953,7 @@
                                         }
                                         return (
                                           <div key={j} className="flex gap-5 items-start avoid-break-inside">
-                                            <div className="w-3 h-3 rounded-full mt-4 shrink-0 shadow-sm" style={{ backgroundColor: '#FFD700', WebkitPrintColorAdjust: 'exact' }} />
+                                            <div className="w-3 h-3 rounded-full mt-1 shrink-0 shadow-sm" style={{ backgroundColor: '#FFD700', WebkitPrintColorAdjust: 'exact' }} />
                                             <div className="flex-1 flex flex-col min-w-0">
                                               <span style={{ lineHeight: '2.6' }}>
                                                 <InlineRubyText text={text} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={typeof ex === 'object' ? ex.pinyin : ''} sentenceZhuyin={typeof ex === 'object' ? ex.zhuyin : ''} sentenceEditPayload={typeof ex === 'object' ? { type: 'grammar_example', parentId: p.id, id: j, text: text, pinyin: ex.pinyin || '', zhuyin: ex.zhuyin || '' } : null} />
@@ -1984,7 +1984,7 @@
                                         <div key={l.id || `line-${j}`} className="flex gap-6 avoid-break-inside print-flex-row items-start">
                                           <span className="font-black w-14 shrink-0 text-3xl border-r-4 pt-1" style={{ color: '#7A7387', borderColor: '#D3CDD9' }}>{l.speaker}</span>
                                           <div className="flex-1 flex flex-col min-w-0">
-                                            <span className="text-xl text-slate-800 font-bold" style={{ lineHeight: '2.6' }}>
+                                            <span className="text-xl text-slate-800 font-bold break-keep" style={{ lineHeight: '2.6' }}>
                                               <InlineRubyText text={l.text} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={l.pinyin} sentenceZhuyin={l.zhuyin} sentenceEditPayload={{ type: 'dialogue_line', parentId: d.id, id: l.id, text: l.text, pinyin: l.pinyin || '', zhuyin: l.zhuyin || '' }} />
                                             </span>
                                             {settings.translateTargets.dialogue && l.translation && <span className="text-slate-600 text-base block mt-2 opacity-90 font-medium">{l.translation}</span>}
@@ -2007,7 +2007,7 @@
                                 {(data.grammarRules || []).map((rule, i) => (
                                 <div key={rule.id || `rule-${k}`} className="bg-white rounded-[32px] px-8 pt-8 pb-4 shadow-sm print-break-inside-avoid" style={{ border: '2px solid #e2e8f0', borderBottom: '6px solid #e2e8f0', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
                                     <div className="space-y-6 mt-1">
-                                      <h4 className="text-2xl font-black mb-4 flex items-center gap-3 print-avoid-break-after" style={{ color: '#D95A50' }}><AlertCircle size={30}/>{rule.theme || "偏誤分析"}</h4>
+                                      <h4 className="text-2xl font-black mb-1 flex items-center gap-3 print-avoid-break-after" style={{ color: '#D95A50' }}><AlertCircle size={30}/>{rule.theme || "偏誤分析"}</h4>
                                       
                                       <div className="space-y-4 pb-2">
                                         <div className="flex items-center justify-between gap-4 py-[15px] px-6 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #FDF1F0', WebkitPrintColorAdjust: 'exact' }}>
@@ -2026,7 +2026,7 @@
                                           <strong className="text-slate-600 text-lg font-black uppercase tracking-widest">💡 語法/詞彙說明</strong>
                                         </div>
                                        {settings.explanationMode !== 'foreign_only' && (
-                                          <div className="text-slate-800 text-lg font-bold mb-1 whitespace-pre-wrap sentence-block" style={{ lineHeight: '2.2' }}>
+                                         <div className="text-slate-800 text-lg font-bold mb-1 whitespace-pre-wrap sentence-block break-keep" style={{ lineHeight: '2.2' }}>
                                             <InlineRubyText text={rule.explanation} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={rule.explanationPinyin} sentenceZhuyin={rule.explanationZhuyin} sentenceEditPayload={{ type: 'rule_explanation', id: rule.id, text: rule.explanation, pinyin: rule.explanationPinyin || '', zhuyin: rule.explanationZhuyin || '' }} />
                                           </div>
                                         )}
