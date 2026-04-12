@@ -1858,14 +1858,14 @@
                                 }
 
                               return (
-                                 <div key={v.id || `vocab-${i}`} className="avoid-break-inside flex px-6 pt-4 pb-2 bg-white items-start gap-5 rounded-[24px]" style={{ border: '2px solid #e2e8f0', borderBottom: `6px solid ${themeColor}`, borderRight: `4px solid ${themeColor}`, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                                  <div key={v.id || `vocab-${i}`} className="avoid-break-inside flex px-6 pt-4 pb-0 bg-white items-start gap-5 rounded-[24px]" style={{ border: '2px solid #e2e8f0', borderBottom: `6px solid ${themeColor}`, borderRight: `4px solid ${themeColor}`, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
                                     <div className="text-white w-14 h-14 rounded-full flex items-center justify-center font-black text-2xl shrink-0 mt-1 shadow-inner" style={{ backgroundColor: themeColor, WebkitPrintColorAdjust: 'exact' }}>{i + 1}</div>
                                     <div className="flex-1 space-y-0">
-                                      <div className="flex items-start gap-4 flex-wrap">
+                                      <div className="flex items-start justify-between gap-2 w-full">
                                         <span className="font-black text-slate-800 tracking-tight flex items-end">
                                           <WordBlock text={v.word} pinyinStr={v.pinyin} zhuyinStr={v.zhuyin} showP={showP} showZ={showZ} highlightStyle={{}} editPayload={{ type: 'vocab', id: v.id, text: v.word, pinyin: v.pinyin || '', zhuyin: v.zhuyin || '' }} />
                                         </span>
-                                        <span className="text-sm px-3 py-1 font-extrabold rounded-full mt-1.5" style={{ backgroundColor: lightBg, color: darkText, WebkitPrintColorAdjust: 'exact' }}>{settings.translateTargets.vocab && v.posTranslation ? v.posTranslation : v.pos}</span>
+                                        <span className="text-[11px] px-2.5 py-0.5 font-extrabold rounded-full mt-1.5 whitespace-nowrap shrink-0 ml-auto" style={{ backgroundColor: lightBg, color: darkText, WebkitPrintColorAdjust: 'exact' }}>{settings.translateTargets.vocab && v.posTranslation ? v.posTranslation : v.pos}</span>
                                       </div>
                                     {settings.translateTargets.vocab && (
                                       <p className="text-slate-700 font-extrabold text-base italic pt-1.5 -mt-2 tracking-tight" style={{ borderTop: `2px dashed ${lightBg}` }}>
@@ -1891,7 +1891,7 @@
                                       <InlineRubyText text={p.title} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={p.titlePinyin} sentenceZhuyin={p.titleZhuyin} alwaysShowRuby={true} sentenceEditPayload={{ type: 'grammar_title', id: p.id, text: p.title, pinyin: p.titlePinyin || '', zhuyin: p.titleZhuyin || '' }} />
                                     </h4>
                                     {settings.explanationMode !== 'foreign_only' && (
-                                      <div className="text-slate-800 text-xl font-bold mb-5 leading-relaxed">
+                                      <div className="text-slate-800 text-xl font-bold mb-1 leading-relaxed">
                                         <InlineRubyText text={p.description} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={p.descPinyin} sentenceZhuyin={p.descZhuyin} sentenceEditPayload={{ type: 'grammar_desc', id: p.id, text: p.description, pinyin: p.descPinyin || '', zhuyin: p.descZhuyin || '' }} />
                                       </div>
                                     )}
@@ -2006,7 +2006,6 @@
                               <div className="mt-10 space-y-10">
                                 {(data.grammarRules || []).map((rule, i) => (
                                 <div key={rule.id || `rule-${k}`} className="bg-white rounded-[32px] px-8 pt-8 pb-4 shadow-sm print-break-inside-avoid" style={{ border: '2px solid #e2e8f0', borderBottom: '6px solid #e2e8f0', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-                                    <div className="absolute top-0 right-0 px-6 py-2 rounded-bl-2xl font-black text-sm uppercase tracking-widest shadow-sm text-white" style={{ backgroundColor: '#F07167', WebkitPrintColorAdjust: 'exact' }}>重點提醒</div>
                                     <div className="space-y-6 mt-1">
                                       <h4 className="text-2xl font-black mb-4 flex items-center gap-3 print-avoid-break-after" style={{ color: '#D95A50' }}><AlertCircle size={30}/>{rule.theme || "偏誤分析"}</h4>
                                       
@@ -2026,8 +2025,8 @@
                                           <div className="w-2 h-6 rounded-full" style={{ backgroundColor: '#F07167', WebkitPrintColorAdjust: 'exact' }} />
                                           <strong className="text-slate-600 text-lg font-black uppercase tracking-widest">💡 語法/詞彙說明</strong>
                                         </div>
-                                        {settings.explanationMode !== 'foreign_only' && (
-                                          <div className="text-slate-800 text-lg font-bold mb-4 whitespace-pre-wrap sentence-block" style={{ lineHeight: '2.2' }}>
+                                       {settings.explanationMode !== 'foreign_only' && (
+                                          <div className="text-slate-800 text-lg font-bold mb-1 whitespace-pre-wrap sentence-block" style={{ lineHeight: '2.2' }}>
                                             <InlineRubyText text={rule.explanation} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={rule.explanationPinyin} sentenceZhuyin={rule.explanationZhuyin} sentenceEditPayload={{ type: 'rule_explanation', id: rule.id, text: rule.explanation, pinyin: rule.explanationPinyin || '', zhuyin: rule.explanationZhuyin || '' }} />
                                           </div>
                                         )}
