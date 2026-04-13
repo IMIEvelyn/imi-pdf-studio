@@ -246,6 +246,39 @@
 
           const localParsedData = tryLocalParse(combinedText);
           if (localParsedData && localParsedData.coreTextChunks.length > 0) {
+              
+              // === 高效雙引擎：微量 AI 詞性判定 ===
+              if (localParsedData.vocabList && localParsedData.vocabList.length > 0) {
+                  try {
+                      // 1. 單獨抽出生詞，組成極短的 Prompt
+                      const wordsStr = localParsedData.vocabList.map(v => v.word).join(', ');
+                      const miniPrompt = `你是一位華語語言學專家。請判斷以下生詞的詞性（如：名詞、動詞、形容詞、副詞等）。請直接回傳 JSON 陣列格式（例：["名詞", "動詞"]），不要有任何其他文字。生詞：${wordsStr}`;
+
+                      // 2. 進行超輕量 AI 呼叫 (消耗極低)
+                      // （此處假設您的 API 金鑰變數名稱為 apiKey，若您的變數名稱不同，請微調）
+                      const currentApiKey = typeof apiKey !== 'undefined' ? apiKey : (exportSettings?.apiKey || '');
+                      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${currentApiKey}`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ contents: [{ parts: [{ text: miniPrompt }] }] })
+                      });
+                      
+                      const data = await response.json();
+                      const textOutput = data.candidates[0].content.parts[0].text;
+                      const posArray = JSON.parse(textOutput.replace(/```json|```/g, '').trim());
+
+                      // 3. 將 AI 精準判斷的詞性，替換掉原本的 '生詞'
+                      localParsedData.vocabList = localParsedData.vocabList.map((v, i) => ({
+                          ...v,
+                          pos: posArray[i] || '生詞'
+                      }));
+                  } catch (err) {
+                      console.error("微量 AI 詞性判斷失敗:", err);
+                  }
+              }
+              // ==========================================
+
+              // 下方為原有的完美資料流，100% 零干擾保留
               const linkedChunks = autoLinkChunks(localParsedData.coreTextChunks, localParsedData.vocabList, localParsedData.coreGrammar, localParsedData.grammarRules);
               setParsedData({
                   textLevel: localParsedData.textLevel || exportSettings.textLevel,
