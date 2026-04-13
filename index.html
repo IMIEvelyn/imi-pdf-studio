@@ -244,42 +244,50 @@
             }
           }
 
-          const localParsedData = tryLocalParse(combinedText);
+         const localParsedData = tryLocalParse(combinedText);
           if (localParsedData && localParsedData.coreTextChunks.length > 0) {
               
-              // === 高效雙引擎：微量 AI 詞性判定 ===
+              // === 高效雙引擎：微量 AI 詞性判定 (終極裝甲版) ===
               if (localParsedData.vocabList && localParsedData.vocabList.length > 0) {
-                  try {
-                      // 1. 單獨抽出生詞，組成極短的 Prompt
-                      const wordsStr = localParsedData.vocabList.map(v => v.word).join(', ');
-                      const miniPrompt = `你是一位華語語言學專家。請判斷以下生詞的詞性（如：名詞、動詞、形容詞、副詞等）。請直接回傳 JSON 陣列格式（例：["名詞", "動詞"]），不要有任何其他文字。生詞：${wordsStr}`;
+                  const activeKey = customApiKey.trim();
+                  if (activeKey) {
+                      try {
+                          const wordsStr = localParsedData.vocabList.map(v => v.word).join(', ');
+                          const miniPrompt = `你是一位華語語言學專家。請判斷以下生詞的詞性（如：名詞、動詞、形容詞、副詞等）。請直接回傳 JSON 陣列格式（例：["名詞", "動詞"]），不要有任何其他文字。生詞：${wordsStr}`;
 
-                      // 2. 進行超輕量 AI 呼叫 (消耗極低)
-                     // 精準對齊專案變數 customApiKey！
-                      const currentApiKey = customApiKey.trim();
-                      if (!currentApiKey) throw new Error("尚未填寫 API Key");
-                      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${currentApiKey}`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ contents: [{ parts: [{ text: miniPrompt }] }] })
-                      });
-                      
-                      const data = await response.json();
-                      const textOutput = data.candidates[0].content.parts[0].text;
-                      const posArray = JSON.parse(textOutput.replace(/```json|```/g, '').trim());
+                          // 1. 精準對齊您的專案設定，使用 gemini-2.5-flash
+                          const modelName = "gemini-2.5-flash"; 
+                          const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
+                          const payload = {
+                              contents: [{ role: "user", parts: [{ text: miniPrompt }] }],
+                              generationConfig: { responseMimeType: "application/json" }
+                          };
 
-                      // 3. 將 AI 精準判斷的詞性，替換掉原本的 '生詞'
-                      localParsedData.vocabList = localParsedData.vocabList.map((v, i) => ({
-                          ...v,
-                          pos: posArray[i] || '生詞'
-                      }));
-                  } catch (err) {
-                      console.error("微量 AI 詞性判斷失敗:", err);
+                          // 2. 呼叫您系統內建的高級防護 fetchWithBackoff
+                          const result = await fetchWithBackoff(url, { 
+                              method: 'POST', 
+                              headers: { 'Content-Type': 'application/json' }, 
+                              body: JSON.stringify(payload) 
+                          });
+
+                          // 3. 安全解析，防當機機制
+                          if (result && !result.isError && result.candidates && result.candidates[0]) {
+                              const textOutput = result.candidates[0].content.parts[0].text;
+                              const posArray = JSON.parse(textOutput.trim());
+                              
+                              localParsedData.vocabList = localParsedData.vocabList.map((v, i) => ({
+                                  ...v,
+                                  pos: posArray[i] || '生詞'
+                              }));
+                          }
+                      } catch (err) {
+                          console.error("微量 AI 詞性判斷發生例外錯誤:", err);
+                      }
                   }
               }
               // ==========================================
 
-              // 下方為原有的完美資料流，100% 零干擾保留
+              // 下方為您原有的完美資料流，100% 零干擾保留
               const linkedChunks = autoLinkChunks(localParsedData.coreTextChunks, localParsedData.vocabList, localParsedData.coreGrammar, localParsedData.grammarRules);
               setParsedData({
                   textLevel: localParsedData.textLevel || exportSettings.textLevel,
@@ -294,9 +302,8 @@
               }
               setIsAnalyzing(false);
               setCurrentStep(2);
-              return; 
+              return;
           }
-
           const activeKey = customApiKey.trim();
           if (!activeKey) {
               setError("您匯入的資料格式與標準範本不同，系統嘗試呼叫 AI 分析，但您尚未輸入 API Key！");
