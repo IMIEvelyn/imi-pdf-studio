@@ -1921,7 +1921,7 @@
                                           let zyCursor = 0;
 
                                           return (
-                                            <div key={j} className="bg-white px-6 pt-6 pb-2 rounded-3xl space-y-3 avoid-break-inside" style={{ border: '2px solid #FFEE99', WebkitPrintColorAdjust: 'exact' }}>
+                                            <div key={j} className="bg-white px-6 pt-6 pb-2 -mb-3 rounded-3xl space-y-3 avoid-break-inside" style={{ border: '2px solid #FFEE99', WebkitPrintColorAdjust: 'exact' }}>
                                               {lines.map((lineStr, lidx) => {
                                                 const match = lineStr.match(/^([^:：]+[:：])\s*(.*)$/);
                                                 const role = match ? match[1] : '';
@@ -1987,7 +1987,7 @@
                                             <span className="text-xl text-slate-800 font-bold break-keep" style={{ lineHeight: '2.6' }}>
                                               <InlineRubyText text={l.text} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={l.pinyin} sentenceZhuyin={l.zhuyin} sentenceEditPayload={{ type: 'dialogue_line', parentId: d.id, id: l.id, text: l.text, pinyin: l.pinyin || '', zhuyin: l.zhuyin || '' }} />
                                             </span>
-                                            {settings.translateTargets.dialogue && l.translation && <span className="text-slate-600 text-base block mt-2 opacity-90 font-medium">{l.translation}</span>}
+                                            {settings.translateTargets.dialogue && l.translation && <span className="text-slate-600 text-base block -mt-3 relative z-10 opacity-90 font-medium">{l.translation}</span>}
                                           </div>
                                         </div>
                                       ))}
@@ -2286,19 +2286,27 @@
         let highlightStyle = {};
         let editPayload = null;
 
-        if (matchedVocab || matchedGrammar) {
-          showP = isTypePinyin;
-          showZ = isTypeZhuyin;
-          
-          if (matchedVocab) {
-              pyForBlock = effectiveScope === 'full_text' ? (partPyTokens.join(' ') || matchedVocab.pinyin) : matchedVocab.pinyin;
-              zyForBlock = effectiveScope === 'full_text' ? (partZyTokens.join(' ') || matchedVocab.zhuyin) : matchedVocab.zhuyin;
-              editPayload = { type: 'vocab', id: matchedVocab.id, text: part, pinyin: matchedVocab.pinyin || '', zhuyin: matchedVocab.zhuyin || '' };
-          } else {
-              pyForBlock = partPyTokens.join(' ');
-              zyForBlock = partZyTokens.join(' ');
-              editPayload = null; 
-          }
+       if (matchedVocab || matchedGrammar) {
+              showP = isTypePinyin;
+              showZ = isTypeZhuyin;
+
+              if (matchedVocab) {
+                const isException = part === '一' || part === '不';
+                if (!isException && matchedVocab.pinyin) {
+                  // 最高權重：直接強制使用核心詞彙的拼音 (不受整句編輯干擾)
+                  pyForBlock = matchedVocab.pinyin;
+                  zyForBlock = matchedVocab.zhuyin || partZyTokens.join(' ');
+                } else {
+                  // 一般權重：有整句編輯優先，沒有才用詞彙的
+                  pyForBlock = effectiveScope === 'full_text' ? (partPyTokens.join(' ') || matchedVocab.pinyin) : matchedVocab.pinyin;
+                  zyForBlock = effectiveScope === 'full_text' ? (partZyTokens.join(' ') || matchedVocab.zhuyin) : matchedVocab.zhuyin;
+                }
+                editPayload = { type: 'vocab', id: matchedVocab.id, text: part, pinyin: matchedVocab.pinyin || '', zhuyin: matchedVocab.zhuyin || '' };
+              } else {
+                pyForBlock = partPyTokens.join(' ');
+                zyForBlock = partZyTokens.join(' ');
+                editPayload = null;
+              }
           
           const wType = getWordType(part);
           if (wType === 'keyword') {
@@ -2317,7 +2325,10 @@
           }
         }
 
-        return <WordBlock key={i} text={part} pinyinStr={pyForBlock} zhuyinStr={zyForBlock} showP={showP} showZ={showZ} highlightStyle={highlightStyle} editPayload={editPayload} />;
+       // 判斷是否為標點符號，給予向左靠攏的負邊距磁力
+            const isPunc = /^[。，、！？；：”’）\]]+$/.test(part);
+            const block = <WordBlock key={i} text={part} pinyinStr={pyForBlock} zhuyinStr={zyForBlock} showP={showP} showZ={showZ} highlightStyle={highlightStyle} editPayload={editPayload} />;
+            return isPunc ? <span key={i} className="-ml-1.5 inline-block">{block}</span> : block;
       });
 
       return (
