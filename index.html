@@ -1886,7 +1886,7 @@
                               <SectionHeader title={getTranslatedModuleTitle("📙 核心語法", settings.translationLanguage)} color="#D4A017" border="#FFEE99" />
                               <div className="mt-10 space-y-12">
                                 {(data.coreGrammar || []).map((p, i) => (
-                                  <div key={p.id || `grammar-${i}`} className="p-10 rounded-[40px] bg-white" style={{ border: '2px solid #FFEE99', borderBottom: '6px solid #FFD700', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                                  <div key={p.id || `grammar-${i}`} className="px-10 pt-10 pb-4 rounded-[40px] bg-white" style={{ border: '2px solid #FFEE99', borderBottom: '6px solid #FFD700', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
                                     <h4 className="font-black text-3xl mb-1 leading-tight print-avoid-break-after" style={{ color: '#B8860B' }}>
                                       <InlineRubyText text={p.title} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={p.titlePinyin} sentenceZhuyin={p.titleZhuyin} alwaysShowRuby={true} sentenceEditPayload={{ type: 'grammar_title', id: p.id, text: p.title, pinyin: p.titlePinyin || '', zhuyin: p.titleZhuyin || '' }} />
                                     </h4>
@@ -1897,17 +1897,17 @@
                                     )}
                                     {settings.translateTargets.coreGrammar && (
                                       settings.explanationMode === 'foreign_only' ? (
-                                        <p className="text-slate-800 text-2xl font-bold mb-8 tracking-wide" style={{ lineHeight: '1.5' }}>
+                                        <p className="text-slate-800 text-2xl font-bold mb-3 tracking-wide" style={{ lineHeight: '1.5' }}>
                                          { (p.translation || '(未生成翻譯)').replace(/\s*\([a-zA-Zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü\s]+\)/g, '') }
                                         </p>
                                       ) : (
-                                        <p className="text-slate-600 text-base italic mb-8 border-l-4 pl-4 font-medium" style={{ borderColor: '#FFD700' }}>
+                                        <p className="text-slate-600 text-base italic mb-3 border-l-4 pl-4 font-medium" style={{ borderColor: '#FFD700' }}>
                                          { (p.translation || '(未生成翻譯)').replace(/\s*\([a-zA-Zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü\s]+\)/g, '') }
                                         </p>
                                       )
                                     )}
                                     
-                                    <div className="space-y-2 pt-6" style={{ borderTop: '2px solid #FFEE99' }}>
+                                    <div className="space-y-2 pt-2" style={{ borderTop: '2px solid #FFEE99' }}>
                                       {(p.examples || []).map((ex, j) => {
                                         const text = typeof ex === 'string' ? ex : ex.text;
                                         const isDialogue = text.includes(':') || text.includes('：');
@@ -2190,12 +2190,12 @@
                paddingBottom: '0px'
             } : {};
 
-           if (!isHz) {
-              // 黃金比例微調：縮小 10%，左側吃掉 15%，右側吃掉 35%
+          if (!isHz) {
+              // 黃金比例 2.1：保持標點符號原尺寸，左側推開 5% 建立聲調防護區，右側強壓 45% 消除多餘留白
               const isPunc = /^[。，、！？；：”’）\]]$/.test(char);
               return (
-                <span key={index} className="punc-text" style={isPunc ? { fontSize: '0.9em', marginLeft: '-0.15em', marginRight: '-0.35em' } : {}}>
-                  {/* 保留原本的 \u2060 防斷行字元，加上黃金比例負邊距，將句號死死吸附在前一個字上 */}
+                <span key={index} className="punc-text" style={isPunc ? { marginLeft: '0.05em', marginRight: '-0.45em' } : {}}>
+                  {/* 保留原本的 \u2060 防斷行字元，利用右側負邊距達到緊湊效果，同時保護注音聲調 */}
                   {'\u2060'}{char}
                 </span>
               );
