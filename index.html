@@ -1898,11 +1898,11 @@
                                     {settings.translateTargets.coreGrammar && (
                                       settings.explanationMode === 'foreign_only' ? (
                                         <p className="text-slate-800 text-2xl font-bold mb-8 tracking-wide" style={{ lineHeight: '1.5' }}>
-                                          {p.translation || '(未生成翻譯)'}
+                                         { (p.translation || '(未生成翻譯)').replace(/\s*\([a-zA-Zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü\s]+\)/g, '') }
                                         </p>
                                       ) : (
                                         <p className="text-slate-600 text-base italic mb-8 border-l-4 pl-4 font-medium" style={{ borderColor: '#FFD700' }}>
-                                          {p.translation || '(未生成翻譯)'}
+                                         { (p.translation || '(未生成翻譯)').replace(/\s*\([a-zA-Zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü\s]+\)/g, '') }
                                         </p>
                                       )
                                     )}
@@ -2033,11 +2033,11 @@
                                        {settings.translateTargets.grammar && (
                                           settings.explanationMode === 'foreign_only' ? (
                                             <p className="text-slate-800 text-xl font-bold whitespace-pre-wrap tracking-wide" style={{ lineHeight: '1.5' }}>
-                                              {rule.translation || '(未生成翻譯)'}
+                                             { (rule.translation || '(未生成翻譯)').replace(/\s*\([a-zA-Zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü\s]+\)/g, '') }
                                             </p>
                                           ) : (
                                             <p className="text-slate-600 text-sm font-bold border-t-2 pt-4 mt-2 opacity-90" style={{ borderColor: '#e2e8f0' }}>
-                                              {rule.translation || '(未生成翻譯)'}
+                                             { (rule.translation || '(未生成翻譯)').replace(/\s*\([a-zA-Zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü\s]+\)/g, '') }
                                             </p>
                                           )
                                         )}
@@ -2190,12 +2190,15 @@
                paddingBottom: '0px'
             } : {};
 
-            if (!isHz) {
-               return (
-                 <span key={index} className="punc-text">
-                   {'\u2060'}{char}
-                 </span>
-               );
+           if (!isHz) {
+              // 黃金比例微調：縮小 10%，左側吃掉 15%，右側吃掉 35%
+              const isPunc = /^[。，、！？；：”’）\]]$/.test(char);
+              return (
+                <span key={index} className="punc-text" style={isPunc ? { fontSize: '0.9em', marginLeft: '-0.15em', marginRight: '-0.35em' } : {}}>
+                  {/* 保留原本的 \u2060 防斷行字元，加上黃金比例負邊距，將句號死死吸附在前一個字上 */}
+                  {'\u2060'}{char}
+                </span>
+              );
             }
 
             return (
