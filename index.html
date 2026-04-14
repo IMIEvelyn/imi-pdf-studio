@@ -1122,6 +1122,45 @@
 function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLayoutTitleSize, layoutLegendSize, setLayoutLegendSize, layoutContentSize, setLayoutContentSize, layoutTransSize, setLayoutTransSize, layoutSpacing, setLayoutSpacing }) {
   const [editingWord, setEditingWord] = React.useState(null);
   
+  // 🌟 [新增] 萬用翻譯編輯器專用狀態
+  const [transModalOpen, setTransModalOpen] = React.useState(false);
+  const [editPayload, setEditPayload] = React.useState(null); // { type, id, text, parentId }
+
+  // 🌟 [新增] 儲存翻譯的處理神經
+  const handleSaveTranslation = () => {
+    if (!editPayload) return;
+    const newData = { ...data };
+    const { type, id, text, parentId } = editPayload;
+
+    if (type === 'coreText') {
+      newData.coreTextTranslation = text;
+    } else if (type === 'vocab') {
+      const idx = newData.vocabList.findIndex(v => v.id === id);
+      if (idx > -1) newData.vocabList[idx].translation = text;
+    } else if (type === 'grammar_desc') {
+      const idx = newData.coreGrammar.findIndex(g => g.id === id);
+      if (idx > -1) newData.coreGrammar[idx].description = text;
+    } else if (type === 'grammar_trans') {
+      const idx = newData.coreGrammar.findIndex(g => g.id === id);
+      if (idx > -1) newData.coreGrammar[idx].translation = text;
+    } else if (type === 'dialogue') {
+      const dIdx = newData.dialogues.findIndex(d => d.id === parentId);
+      if (dIdx > -1) {
+        const lIdx = newData.dialogues[dIdx].lines.findIndex(l => l.id === id);
+        if (lIdx > -1) newData.dialogues[dIdx].lines[lIdx].translation = text;
+      }
+    } else if (type === 'diagnosis_exp') {
+      const idx = newData.grammarRules.findIndex(r => r.id === id);
+      if (idx > -1) newData.grammarRules[idx].explanation = text;
+    } else if (type === 'diagnosis_trans') {
+      const idx = newData.grammarRules.findIndex(r => r.id === id);
+      if (idx > -1) newData.grammarRules[idx].translation = text;
+    }
+
+    setData(newData); // 儲存回大腦
+    setTransModalOpen(false); // 關閉視窗
+  };
+  
   // === 摺疊式控制台狀態 ===
   const [expandedSection, setExpandedSection] = React.useState(null); 
   const toggleSection = (sectionName) => {
@@ -1967,8 +2006,20 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                                 return <WordBlock key={chunk.id || `chunk-${i}`} text={textStr} pinyinStr={finalPinyin} zhuyinStr={finalZhuyin} showP={showP} showZ={showZ} highlightStyle={highlightStyle} editPayload={editPayload} />;
                               })}
                             </div>
-                            {settings.translateTargets.coreText && data.coreTextTranslation && <div className="mt-10 p-6 rounded-[24px] text-slate-600 italic font-medium leading-relaxed bg-white avoid-break-inside" style={{ border: '2px solid #E4E0EB', WebkitPrintColorAdjust: 'exact', fontSize: `${layoutTransSize}px` }}>{data.coreTextTranslation}</div>}
-                          </section>
+                           {settings.translateTargets.coreText && data.coreTextTranslation && (
+  <div 
+    onClick={() => {
+      setEditPayload({ type: 'coreText', id: 'coreText', text: data.coreTextTranslation });
+      setTransModalOpen(true);
+    }}
+    className="mt-10 p-6 rounded-[24px] text-slate-600 italic font-medium leading-relaxed bg-white avoid-break-inside cursor-pointer hover:bg-slate-50 hover:ring-2 hover:ring-[#56D0A0] transition-all relative group print:hover:ring-0" 
+    style={{ border: '2px solid #E4E0EB', WebkitPrintColorAdjust: 'exact', fontSize: `${layoutTransSize}px` }}
+    title="點擊修改外語翻譯"
+  >
+    {data.coreTextTranslation}
+    <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity text-[#56D0A0] font-bold text-sm bg-white/80 px-2 py-1 rounded-lg print:hidden">✏️ 編輯</div>
+  </div>
+)}
                           
                           <ModuleDivider />
 
@@ -2031,21 +2082,28 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                                       <InlineRubyText text={p.title} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={p.titlePinyin} sentenceZhuyin={p.titleZhuyin} alwaysShowRuby={true} sentenceEditPayload={{ type: 'grammar_title', id: p.id, text: p.title, pinyin: p.titlePinyin || '', zhuyin: p.titleZhuyin || '' }} />
                                     </h4>
                                     {settings.explanationMode !== 'foreign_only' && (
-<div className="text-slate-800 font-bold mb-1 leading-relaxed break-keep" style={{ fontSize: `${layoutContentSize}px` }}>
-                                        <InlineRubyText text={p.description} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={p.descPinyin} sentenceZhuyin={p.descZhuyin} sentenceEditPayload={{ type: 'grammar_desc', id: p.id, text: p.description, pinyin: p.descPinyin || '', zhuyin: p.descZhuyin || '' }} />
-                                      </div>
+                                 <div className="text-slate-800 font-bold mb-1 leading-relaxed break-keep cursor-pointer hover:bg-slate-50 transition-all rounded-lg p-1" 
+     style={{ fontSize: `${layoutContentSize}px` }}
+     onClick={() => {
+       setEditPayload({ type: 'grammar_desc', id: p.id, text: p.description });
+       setTransModalOpen(true);
+     }}>
+  <InlineRubyText text={p.description} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={p.descPinyin} sentenceZhuyin={p.descZhuyin} hidePinyin={true} />
+</div>
                                     )}
                                     {settings.translateTargets.coreGrammar && (
-                                      settings.explanationMode === 'foreign_only' ? (
-                                       <p className="text-slate-800 font-bold mb-1 tracking-wide" style={{ lineHeight: '1.5', fontSize: `${layoutTransSize}px` }}>
-                                         { (p.translation || '(未生成翻譯)').replace(/\s*\([a-zA-Zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü\s]+\)/g, '') }
-                                        </p>
-                                      ) : (
-                                      <p className="text-slate-600 italic mb-1 border-l-4 pl-4 font-medium" style={{ borderColor: '#FFD700', fontSize: `${layoutTransSize}px` }}>
-                                         { (p.translation || '(未生成翻譯)').replace(/\s*\([a-zA-Zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü\s]+\)/g, '') }
-                                        </p>
-                                      )
-                                    )}
+  <div className="cursor-pointer hover:bg-slate-50 transition-all rounded-lg p-1 group relative"
+       onClick={() => {
+         setEditPayload({ type: 'grammar_trans', id: p.id, text: p.translation });
+         setTransModalOpen(true);
+       }}>
+    <p className={settings.explanationMode === 'foreign_only' ? "text-slate-800 font-bold mb-1 tracking-wide" : "text-slate-600 italic mb-1 border-l-4 pl-4 font-medium"} 
+       style={{ fontSize: `${layoutTransSize}px`, borderColor: '#FFD700' }}>
+      { (p.translation || '(未生成翻譯)').replace(/\s*\([a-zA-Záǎàéěèíǐìóǒòúǔùüǖǘǚǜ\s]+\)/g, '') }
+      <span className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity text-[#56D0A0] text-sm print:hidden">✏️ 編輯</span>
+    </p>
+  </div>
+)}
                                     
                                     <div className="space-y-2 pt-1" style={{ borderTop: '2px solid #FFEE99' }}>
                                       {(p.examples || []).map((ex, j) => {
@@ -2128,7 +2186,17 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
 
                                               <InlineRubyText text={l.text} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={l.pinyin} sentenceZhuyin={l.zhuyin} sentenceEditPayload={{ type: 'dialogue_line', parentId: d.id, id: l.id, text: l.text, pinyin: l.pinyin || '', zhuyin: l.zhuyin || '' }} />
                                             </span>
-                                            {settings.translateTargets.dialogue && l.translation && <span className="text-slate-600 text-base block -mt-3 relative z-10 opacity-90 font-medium">{l.translation}</span>}
+                                           {settings.translateTargets.dialogue && l.translation && (
+  <span className="text-slate-600 text-base block mt-1 italic cursor-pointer hover:text-[#56D0A0] transition-colors group" 
+        style={{ fontSize: `${layoutTransSize}px` }}
+        onClick={() => {
+          setEditPayload({ type: 'dialogue', id: l.id, parentId: d.id, text: l.translation });
+          setTransModalOpen(true);
+        }}>
+    {l.translation.replace(/\s*\([a-zA-Záǎàéěèíǐìóǒòúǔùüǖǘǚǜ\s]+\)/g, '')}
+    <span className="ml-2 opacity-0 group-hover:opacity-100 text-sm print:hidden">✏️</span>
+  </span>
+)}
                                           </div>
                                         </div>
                                       ))}
@@ -2167,21 +2235,28 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                                           <strong className="text-slate-600 text-lg font-black uppercase tracking-widest">💡 語法/詞彙說明</strong>
                                         </div>
                                        {settings.explanationMode !== 'foreign_only' && (
-                                         <div className="text-slate-800 font-bold mb-1 whitespace-pre-wrap sentence-block break-keep" style={{ lineHeight: '2.2', fontSize: `${layoutContentSize}px` }}>
-                                            <InlineRubyText text={rule.explanation} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={rule.explanationPinyin} sentenceZhuyin={rule.explanationZhuyin} sentenceEditPayload={{ type: 'rule_explanation', id: rule.id, text: rule.explanation, pinyin: rule.explanationPinyin || '', zhuyin: rule.explanationZhuyin || '' }} />
-                                          </div>
-                                        )}
-                                       {settings.translateTargets.grammar && (
-                                          settings.explanationMode === 'foreign_only' ? (
-                                            <p className="text-slate-800 text-xl font-bold whitespace-pre-wrap tracking-wide" style={{ lineHeight: '1.5' }}>
-                                             { (rule.translation || '(未生成翻譯)').replace(/\s*\([a-zA-Zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü\s]+\)/g, '') }
-                                            </p>
-                                          ) : (
-                                            <p className="text-slate-600 text-sm font-bold border-t-2 pt-4 mt-2 opacity-90" style={{ borderColor: '#e2e8f0' }}>
-                                             { (rule.translation || '(未生成翻譯)').replace(/\s*\([a-zA-Zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü\s]+\)/g, '') }
-                                            </p>
-                                          )
-                                        )}
+  <div className="text-slate-800 font-bold mb-1 whitespace-pre-wrap sentence-block break-keep cursor-pointer hover:bg-slate-50 transition-all rounded-lg p-1" 
+       style={{ lineHeight: '2.2', fontSize: `${layoutContentSize}px` }}
+       onClick={() => {
+         setEditPayload({ type: 'diagnosis_exp', id: rule.id, text: rule.explanation });
+         setTransModalOpen(true);
+       }}>
+    <InlineRubyText text={rule.explanation} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} hidePinyin={true} />
+  </div>
+)}
+                                      {settings.translateTargets.grammar && (
+  <div className="cursor-pointer hover:bg-slate-50 transition-all rounded-lg p-1 group relative"
+       onClick={() => {
+         setEditPayload({ type: 'diagnosis_trans', id: rule.id, text: rule.translation });
+         setTransModalOpen(true);
+       }}>
+    <p className={settings.explanationMode === 'foreign_only' ? "text-slate-800 font-bold mb-1 tracking-wide" : "text-slate-600 font-bold border-t-2 pt-4 mt-2 opacity-90"} 
+       style={{ fontSize: `${layoutTransSize}px`, borderColor: '#e2e8f0' }}>
+      { (rule.translation || '(未生成翻譯)').replace(/\s*\([a-zA-Záǎàéěèíǐìóǒòúǔùüǖǘǚǜ\s]+\)/g, '') }
+      <span className="ml-2 opacity-0 group-hover:opacity-100 text-[#56D0A0] text-sm print:hidden">✏️ 編輯</span>
+    </p>
+  </div>
+)}
                                       </div>
                                     </div>
                                   </div>
@@ -2240,6 +2315,44 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
             </div>
           )}
         </div>
+{/* 🌟 [新增] 第二步：萬用翻譯編輯器 Modal 🌟 */}
+      {transModalOpen && editPayload && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm p-4 animate-in fade-in duration-200 print:hidden">
+          <div className="bg-white rounded-[40px] p-10 max-w-2xl w-full shadow-[0_24px_48px_rgba(0,0,0,0.2)] border-2 border-[#56D0A0]">
+            <h4 className="text-2xl font-black text-slate-700 mb-8 flex items-center gap-3">
+              <span className="text-[#56D0A0]">✏️</span> 編輯外語說明與翻譯
+            </h4>
+            <div className="space-y-6">
+              <div>
+                <label className="block text-base font-bold text-slate-500 mb-2 ml-1">修改內容 (可自由調整文字或刪除拼音)</label>
+                <textarea
+                  autoFocus
+                  rows={6}
+                  className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-200 rounded-2xl text-lg font-medium text-slate-700 focus:outline-none focus:border-[#56D0A0] focus:ring-4 focus:ring-[#56D0A0]/20 transition-all resize-none"
+                  value={editPayload.text}
+                  onChange={(e) => setEditPayload({ ...editPayload, text: e.target.value })}
+                />
+              </div>
+              <div className="flex gap-4 pt-6">
+                <button
+                  onClick={() => setTransModalOpen(false)}
+                  className="flex-1 py-4 bg-slate-100 text-slate-600 font-black rounded-2xl hover:bg-slate-200 transition-colors text-lg"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleSaveTranslation}
+                  className="flex-1 py-4 bg-[#56D0A0] text-white font-black rounded-2xl hover:bg-[#48C0A3] transition-colors shadow-lg shadow-[#56D0A0]/30 text-lg"
+                >
+                  儲存修改
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* 🌟 Modal 程式碼結束 🌟 */}
+          
         </EditPhoneticContext.Provider>
       );
     }
