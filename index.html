@@ -2207,77 +2207,71 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                             </section>
                           )}
 
-                     {((data.grammarRules || []).length > 0) && (
-  <>
-    <ModuleDivider />
-    <section className="print-section-break">
-      <SectionHeader 
-        title={getTranslatedModuleTitle("🛠️ 語法診斷室", settings.translationLanguage)} 
-        color="#D95A50" 
-        border="#F07167" 
-        layoutSpacing={layoutSpacing} 
-        layoutTitleSize={layoutTitleSize} 
-      />
-      <div className="mt-10 space-y-10">
-        {(data.grammarRules || []).map((rule, i) => (
-          <div key={rule.id || `rule-${i}`} className="bg-white rounded-[32px] px-8 pt-8 pb-4 shadow-sm print-break-inside-avoid" style={{ border: '2px solid #e2e8f0', borderBottom: '6px solid #e2e8f0', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-            <div className="space-y-6 mt-1">
-              <h4 className="text-2xl font-black mb-1 flex items-center gap-3 print-avoid-break-after" style={{ color: '#D95A50' }}>
-                <AlertCircle size={30}/>
-                {rule.theme || "偏誤分析"}
-              </h4>
-              
-              <div className="space-y-4 pb-2">
-                <div className="flex items-center justify-between gap-4 py-[15px] px-6 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #FDF1F0', WebkitPrintColorAdjust: 'exact' }}>
-                  <RenderMistakePDF rule={rule} text={rule.mistake} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} />
-                  <span className="font-black text-4xl px-2 font-sans shrink-0" style={{ color: '#F07167' }}>X</span>
-                </div>
-                <div className="flex items-center justify-between gap-4 py-[15px] px-6 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #E6F7F2', WebkitPrintColorAdjust: 'exact' }}>
-                  <InlineRubyText text={rule.correction} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} isCorrection={true} sentencePinyin={rule.correctionPinyin} sentenceZhuyin={rule.correctionZhuyin} sentenceEditPayload={{ type: 'rule_correction', id: rule.id, text: rule.correction, pinyin: rule.correctionPinyin || '', zhuyin: rule.correctionZhuyin || '' }} />
-                  <span className="font-black text-4xl px-2 italic font-serif shrink-0" style={{ color: '#48C0A3' }}>O</span>
-                </div>
+{((data.grammarRules || []).length > 0) && <ModuleDivider />}
+
+{((data.grammarRules || []).length > 0) && (
+  <section className="print-section-break">
+    <SectionHeader 
+      title={getTranslatedModuleTitle("🛠️ 語法診斷室", settings.translationLanguage)} 
+      color="#D95A50" border="#F07167" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize} 
+    />
+    <div className="mt-10 space-y-10">
+      {(data.grammarRules || []).map((rule, i) => (
+        <div key={rule.id || `rule-${i}`} className="bg-white rounded-[32px] px-8 pt-8 pb-4 shadow-sm print-break-inside-avoid" style={{ border: '2px solid #e2e8f0', borderBottom: '6px solid #e2e8f0', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+          <div className="space-y-6 mt-1">
+            <h4 className="text-2xl font-black mb-1 flex items-center gap-3 print-avoid-break-after" style={{ color: '#D95A50' }}>
+              <AlertCircle size={30}/>{rule.theme || "偏誤分析"}
+            </h4>
+            <div className="space-y-4 pb-2">
+              <div className="flex items-center justify-between gap-4 py-[15px] px-6 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #FDF1F0', WebkitPrintColorAdjust: 'exact' }}>
+                <RenderMistakePDF rule={rule} text={rule.mistake} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} />
+                <span className="font-black text-4xl px-2 font-sans shrink-0" style={{ color: '#F07167' }}>X</span>
+              </div>
+              <div className="flex items-center justify-between gap-4 py-[15px] px-6 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #E6F7F2', WebkitPrintColorAdjust: 'exact' }}>
+                <InlineRubyText text={rule.correction} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} isCorrection={true} sentencePinyin={rule.correctionPinyin} sentenceZhuyin={rule.correctionZhuyin} />
+                <span className="font-black text-4xl px-2 italic font-serif shrink-0" style={{ color: '#48C0A3' }}>O</span>
+              </div>
+            </div>
+            <div className="p-6 rounded-[24px] mt-4 bg-white avoid-break-inside" style={{ border: '2px solid #e2e8f0', WebkitPrintColorAdjust: 'exact' }}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-2 h-6 rounded-full" style={{ backgroundColor: '#F07167', WebkitPrintColorAdjust: 'exact' }} />
+                <strong className="text-slate-600 text-lg font-black uppercase tracking-widest">💡 語法/詞彙說明</strong>
               </div>
 
-             <div className="p-6 rounded-[24px] mt-4 bg-white avoid-break-inside" style={{ border: '2px solid #e2e8f0', WebkitPrintColorAdjust: 'exact' }}>
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-2 h-6 rounded-full" style={{ backgroundColor: '#F07167', WebkitPrintColorAdjust: 'exact' }} />
-                  <strong className="text-slate-600 text-lg font-black uppercase tracking-widest">💡 語法/詞彙說明</strong>
+              {/* 雙軌模式 1：中文說明 */}
+              {settings.explanationMode !== 'foreign_only' && (
+                <div className="text-slate-800 font-bold mb-1 whitespace-pre-wrap sentence-block break-keep cursor-pointer hover:bg-slate-50 transition-all rounded-lg p-1"
+                     style={{ lineHeight: '2.2', fontSize: `${layoutContentSize}px` }}
+                     onClick={() => { setEditPayload({ type: 'diagnosis_exp', id: rule.id, text: rule.explanation }); setTransModalOpen(true); }}>
+                  <InlineRubyText text={rule.explanation} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} hidePinyin={true} />
                 </div>
-
-                {/* 軌道一：中文說明 (僅在非極簡模式顯示，且解鎖字體與編輯) */}
-                {settings.explanationMode !== 'foreign_only' && (
-                  <div className="text-slate-800 font-bold mb-1 whitespace-pre-wrap sentence-block break-keep cursor-pointer hover:bg-slate-50 transition-all rounded-lg p-1" 
-                       style={{ lineHeight: '2.2', fontSize: `${layoutContentSize}px` }}
-                       onClick={() => {
-                         setEditPayload({ type: 'diagnosis_exp', id: rule.id, text: rule.explanation });
-                         setTransModalOpen(true);
-                       }}>
-                    <InlineRubyText text={rule.explanation} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} hidePinyin={true} />
-                  </div>
-                )}
-
-                {/* 軌道二：外語翻譯 (根據模式切換樣式，且解鎖字體與編輯) */}
-                {settings.translateTargets.grammar && (
-                  <div className="cursor-pointer hover:bg-slate-50 transition-all rounded-lg p-1 group relative"
-                       onClick={() => {
-                         setEditPayload({ type: 'diagnosis_trans', id: rule.id, text: rule.translation });
-                         setTransModalOpen(true);
-                       }}>
-                    <p className={settings.explanationMode === 'foreign_only' ? "text-slate-800 font-bold mb-1 tracking-wide" : "text-slate-600 font-bold border-t-2 pt-4 mt-2 opacity-90"} 
-                       style={{ fontSize: `${layoutTransSize}px`, borderColor: '#e2e8f0' }}>
+              )}
+              {/* 雙軌模式 2：外語翻譯 (還原原始的 ? : 三元判斷結構) */}
+              {settings.translateTargets.grammar && (
+                <div className="cursor-pointer hover:bg-slate-50 transition-all rounded-lg p-1 group relative"
+                     onClick={() => { setEditPayload({ type: 'diagnosis_trans', id: rule.id, text: rule.translation }); setTransModalOpen(true); }}>
+                  {settings.explanationMode === 'foreign_only' ? (
+                    <p className="text-slate-800 font-bold whitespace-pre-wrap tracking-wide" style={{ lineHeight: '1.5', fontSize: `${layoutTransSize}px` }}>
                       { (rule.translation || '(未生成翻譯)').replace(/\s*\([a-zA-Záǎàéěèíǐìóǒòúǔùüǖǘǚǜ\s]+\)/g, '') }
                       <span className="ml-2 opacity-0 group-hover:opacity-100 text-[#56D0A0] text-sm print:hidden">✏️ 編輯</span>
                     </p>
-                  </div>
-                )}
-              </div>
+                  ) : (
+                    <p className="text-slate-600 font-bold border-t-2 pt-4 mt-2 opacity-90" style={{ borderColor: '#e2e8f0', fontSize: `${layoutTransSize}px` }}>
+                      { (rule.translation || '(未生成翻譯)').replace(/\s*\([a-zA-Záǎàéěèíǐìóǒòúǔùüǖǘǚǜ\s]+\)/g, '') }
+                      <span className="ml-2 opacity-0 group-hover:opacity-100 text-[#56D0A0] text-sm print:hidden">✏️ 編輯</span>
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
-        ))}
-      </div>
-    </section>
-  </>
+          </div>
+      ))}
+    </div>
+  </section>
 )}
+
+                            
                         </div>
                       </div>
                     </div>
