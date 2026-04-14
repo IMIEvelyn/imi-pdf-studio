@@ -653,7 +653,7 @@
 
           <div className="bg-white p-10 rounded-[40px] shadow-[0_8px_0_0_#F0E5D8,0_16px_32px_rgba(0,0,0,0.04),inset_0_4px_8px_rgba(255,255,255,0.8),inset_0_-4px_8px_rgba(0,0,0,0.02)] border border-orange-50">
             <h2 className="text-3xl font-black mb-4 flex items-center gap-3 text-slate-700 drop-shadow-sm"><Zap className="text-[#FF9B82]" size={32} strokeWidth={2.5}/>請貼上您的教材內容</h2>
-            <p className="text-slate-500 mb-8 text-xl font-medium">只要按照「### 1. 核心課文」等格式，系統將為您瞬間秒解！</p>
+            <p className="text-slate-500 mb-8 text-xl font-medium">請匯入專屬GEM內容，系統將為您開始製作精美PDF！</p>
             
             <textarea className="w-full h-72 p-6 bg-[#FFFcf9] border-2 border-orange-50 rounded-[32px] shadow-[inset_0_4px_8px_rgba(0,0,0,0.03)] focus:border-[#FF9B82] outline-none mb-6 text-xl font-medium text-slate-700 transition-all resize-none" placeholder="請貼上內容..." value={rawInput} onChange={(e) => setRawInput(e.target.value)} disabled={isAnalyzing} />
             
@@ -1932,7 +1932,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                         
                         <div className="content-bg-transparent px-6 py-6 md:px-8 md:py-8 bg-white">
                           <section>
-                            <SectionHeader title={getTranslatedModuleTitle("📖 核心課文", settings.translationLanguage)} color="#7A7387" border="#7A7387" />
+                           <SectionHeader title={getTranslatedModuleTitle("📖 核心課文", settings.translationLanguage)} color="#7A7387" border="#7A7387" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize} />
                             <div className="mt-10 sentence-block">
                               {(data.coreTextChunks || []).map((chunk, i) => {
                                 const textStr = (chunk.text || '').replace(/ /g, ''); 
@@ -1973,7 +1973,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                           <ModuleDivider />
 
                           <section className="print-section-break">
-                         <SectionHeader title={getTranslatedModuleTitle("📝 核心生詞", settings.translationLanguage)} color="#38A385" border="#48C0A3">
+                       <SectionHeader title={getTranslatedModuleTitle("📝 核心生詞", settings.translationLanguage)} color="#38A385" border="#48C0A3" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize}>
   <div className="flex items-center gap-4 font-bold text-slate-500 tracking-wider whitespace-nowrap mb-1" style={{ fontSize: `${layoutLegendSize}px` }}>
     <span className="flex items-center gap-1.5"><span className="rounded-full shrink-0 shadow-sm" style={{ width: `${layoutLegendSize}px`, height: `${layoutLegendSize}px`, backgroundColor: '#FFCD57', WebkitPrintColorAdjust: 'exact' }}></span>{kwStr}</span>
     <span className="flex items-center gap-1.5"><span className="rounded-full shrink-0 shadow-sm" style={{ width: `${layoutLegendSize}px`, height: `${layoutLegendSize}px`, backgroundColor: '#48C0A3', WebkitPrintColorAdjust: 'exact' }}></span>{vbStr}</span>
@@ -2023,7 +2023,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
 
                           {(data.coreGrammar || []).length > 0 && (
                             <section className="print-section-break">
-                              <SectionHeader title={getTranslatedModuleTitle("📙 核心語法", settings.translationLanguage)} color="#D4A017" border="#FFEE99" />
+                             <SectionHeader title={getTranslatedModuleTitle("📙 核心語法", settings.translationLanguage)} color="#D4A017" border="#FFEE99" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize} />
                               <div className="mt-10 space-y-12">
                                 {(data.coreGrammar || []).map((p, i) => (
                                   <div key={p.id || `grammar-${i}`} className="px-8 pt-5 pb-2 rounded-[32px] bg-white" style={{ border: '2px solid #FFEE99', borderBottom: '6px solid #FFD700', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
@@ -2114,7 +2114,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
 
                           {(data.dialogues || []).length > 0 && (
                             <section className="print-section-break">
-                              <SectionHeader title={getTranslatedModuleTitle("💬 情境對話", settings.translationLanguage)} color="#615A6B" border="#7A7387" />
+                              <SectionHeader title={getTranslatedModuleTitle("💬 情境對話", settings.translationLanguage)} color="#615A6B" border="#7A7387" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize} />
                               <div className="mt-10 space-y-12">
                                 {(data.dialogues || []).map((d, i) => (
                                   <div key={d.id || `dialogue-${i}`} className="p-10 rounded-[40px] bg-white" style={{ border: '2px solid #E4E0EB', borderBottom: '6px solid #7A7387', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
@@ -2142,7 +2142,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
 
                           {(data.grammarRules || []).length > 0 && (
                             <section className="print-section-break">
-                              <SectionHeader title={getTranslatedModuleTitle("🛠️ 語法診斷室", settings.translationLanguage)} color="#D95A50" border="#F07167" />
+                           <SectionHeader title={getTranslatedModuleTitle("🛠️ 語法診斷室", settings.translationLanguage)} color="#D95A50" border="#F07167" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize} />
                               <div className="mt-10 space-y-10">
                                 {(data.grammarRules || []).map((rule, i) => (
                                 <div key={rule.id || `rule-${k}`} className="bg-white rounded-[32px] px-8 pt-8 pb-4 shadow-sm print-break-inside-avoid" style={{ border: '2px solid #e2e8f0', borderBottom: '6px solid #e2e8f0', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
@@ -2253,7 +2253,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
       );
     }
 
-    function SectionHeader({ title, color, border, children }) { 
+function SectionHeader({ title, color, border, children, layoutSpacing, layoutTitleSize }) {
       return (
         <div className="pb-3 mb-2 print-avoid-break-after flex flex-wrap items-end justify-start gap-x-6 gap-y-3" style={{ borderBottom: `4px solid ${border}`, WebkitPrintColorAdjust: 'exact', marginTop: `${layoutSpacing}px` }}>
           <h3 className="font-black tracking-tight leading-none shrink-0" style={{ color: color, fontSize: `${layoutTitleSize}px` }}>{title}</h3>
