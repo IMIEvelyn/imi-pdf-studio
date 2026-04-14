@@ -1933,7 +1933,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                         <div className="content-bg-transparent px-6 py-6 md:px-8 md:py-8 bg-white">
                           <section>
                            <SectionHeader title={getTranslatedModuleTitle("📖 核心課文", settings.translationLanguage)} color="#7A7387" border="#7A7387" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize} />
-                            <div className="mt-10 sentence-block" style={{ fontSize: ${layoutContentSize}px }}>
+                           <div className="mt-10 sentence-block" style={{ fontSize: `${layoutContentSize}px` }}>
                               {(data.coreTextChunks || []).map((chunk, i) => {
                                 const textStr = (chunk.text || '').replace(/ /g, ''); 
                                 const isPunc = chunk.type === 'punctuation' || /^[，。！？；：「」『』、\(\)（）\s"'.?!:;]+$/.test(textStr);
