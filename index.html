@@ -562,7 +562,7 @@
           <main className="max-w-6xl mx-auto px-4 py-4 pb-24 print:max-w-none print:px-0 print:py-0 print:pb-0">
             {currentStep === 1 && <Step1Input rawInput={rawInput} setRawInput={setRawInput} selectedFiles={selectedFiles} setSelectedFiles={setSelectedFiles} handleAnalyze={handleAnalyze} isAnalyzing={isAnalyzing} customApiKey={customApiKey} setCustomApiKey={setCustomApiKey} />}
             {currentStep === 2 && <Step2Editor data={parsedData} setData={setParsedData} onNext={() => setCurrentStep(3)} onPrev={() => setCurrentStep(1)} renderMistake={renderMistake} autoLink={autoLinkChunks} />}
-            {currentStep === 3 && <Step3Settings settings={exportSettings} setSettings={setExportSettings} onNext={handleGeneratePreview} onPrev={() => setCurrentStep(2)} isGenerating={isGeneratingPreview} />}
+         {currentStep === 3 && <Step3Settings settings={exportSettings} setSettings={setExportSettings} onNext={() => setCurrentStep(4)} onPrev={() => setCurrentStep(2)} isGenerating={isGenerating} layoutTitleSize={layoutTitleSize} setLayoutTitleSize={setLayoutTitleSize} layoutLegendSize={layoutLegendSize} setLayoutLegendSize={setLayoutLegendSize} layoutContentSize={layoutContentSize} setLayoutContentSize={setLayoutContentSize} layoutTransSize={layoutTransSize} setLayoutTransSize={setLayoutTransSize} layoutSpacing={layoutSpacing} setLayoutSpacing={setLayoutSpacing} />}
            {currentStep === 4 && finalPreviewData && <Step4Preview data={finalPreviewData} setData={setFinalPreviewData} settings={exportSettings} layoutTitleSize={layoutTitleSize} layoutLegendSize={layoutLegendSize} layoutContentSize={layoutContentSize} layoutTransSize={layoutTransSize} layoutSpacing={layoutSpacing} />}
             
             <div className="mt-20 text-center print:hidden">
@@ -1058,7 +1058,7 @@
       );
     }
 
-    function Step3Settings({ settings, setSettings, onNext, onPrev, isGenerating }) {
+    function Step3Settings({ settings, setSettings, onNext, onPrev, isGenerating, layoutTitleSize, setLayoutTitleSize, layoutLegendSize, setLayoutLegendSize, layoutContentSize, setLayoutContentSize, layoutTransSize, setLayoutTransSize, layoutSpacing, setLayoutSpacing }) {
       const fileInputRef = useRef(null);
       const updateSetting = (key, value) => setSettings(prev => ({ ...prev, [key]: value }));
       const updateTarget = (key) => setSettings(prev => ({ ...prev, translateTargets: { ...prev.translateTargets, [key]: !prev.translateTargets[key] } }));
