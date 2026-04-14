@@ -2244,7 +2244,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
     <InlineRubyText text={rule.explanation} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} hidePinyin={true} />
   </div>
 )}
-                                      {settings.translateTargets.grammar && (
+                                   {settings.translateTargets.grammar && (
   <div className="cursor-pointer hover:bg-slate-50 transition-all rounded-lg p-1 group relative"
        onClick={() => {
          setEditPayload({ type: 'diagnosis_trans', id: rule.id, text: rule.translation });
@@ -2257,13 +2257,12 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
     </p>
   </div>
 )}
-                                      </div>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </section>
-                          )}
+        </div>
+      </div>
+    ))}
+    </div>
+  </section>
+)}
                         </div>
                       </div>
                     </div>
