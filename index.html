@@ -2207,11 +2207,17 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                             </section>
                           )}
 
-                       {((data.grammarRules || []).length > 0) && (
+                     {((data.grammarRules || []).length > 0) && (
   <>
     <ModuleDivider />
     <section className="print-section-break">
-      <SectionHeader title={getTranslatedModuleTitle("🛠️ 語法診斷室", settings.translationLanguage)} color="#D95A50" border="#F07167" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize} />
+      <SectionHeader 
+        title={getTranslatedModuleTitle("🛠️ 語法診斷室", settings.translationLanguage)} 
+        color="#D95A50" 
+        border="#F07167" 
+        layoutSpacing={layoutSpacing} 
+        layoutTitleSize={layoutTitleSize} 
+      />
       <div className="mt-10 space-y-10">
         {(data.grammarRules || []).map((rule, i) => (
           <div key={rule.id || `rule-${i}`} className="bg-white rounded-[32px] px-8 pt-8 pb-4 shadow-sm print-break-inside-avoid" style={{ border: '2px solid #e2e8f0', borderBottom: '6px solid #e2e8f0', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
@@ -2232,12 +2238,13 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                 </div>
               </div>
 
-              <div className="p-6 rounded-[24px] mt-4 bg-white avoid-break-inside" style={{ border: '2px solid #e2e8f0', WebkitPrintColorAdjust: 'exact' }}>
+             <div className="p-6 rounded-[24px] mt-4 bg-white avoid-break-inside" style={{ border: '2px solid #e2e8f0', WebkitPrintColorAdjust: 'exact' }}>
                 <div className="flex items-center gap-3 mb-3">
                   <div className="w-2 h-6 rounded-full" style={{ backgroundColor: '#F07167', WebkitPrintColorAdjust: 'exact' }} />
                   <strong className="text-slate-600 text-lg font-black uppercase tracking-widest">💡 語法/詞彙說明</strong>
                 </div>
 
+                {/* 軌道一：中文說明 (僅在非極簡模式顯示，且解鎖字體與編輯) */}
                 {settings.explanationMode !== 'foreign_only' && (
                   <div className="text-slate-800 font-bold mb-1 whitespace-pre-wrap sentence-block break-keep cursor-pointer hover:bg-slate-50 transition-all rounded-lg p-1" 
                        style={{ lineHeight: '2.2', fontSize: `${layoutContentSize}px` }}
@@ -2249,6 +2256,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                   </div>
                 )}
 
+                {/* 軌道二：外語翻譯 (根據模式切換樣式，且解鎖字體與編輯) */}
                 {settings.translateTargets.grammar && (
                   <div className="cursor-pointer hover:bg-slate-50 transition-all rounded-lg p-1 group relative"
                        onClick={() => {
