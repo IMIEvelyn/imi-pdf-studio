@@ -2040,7 +2040,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                                          { (p.translation || '(未生成翻譯)').replace(/\s*\([a-zA-Zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü\s]+\)/g, '') }
                                         </p>
                                       ) : (
-                                      <p className="text-slate-600 italic mb-1 border-l-4 pl-4 font-medium" style={{ borderColor: '#FFD700', fontSize: ${layoutTransSize}px }}>
+                                      <p className="text-slate-600 italic mb-1 border-l-4 pl-4 font-medium" style={{ borderColor: '#FFD700', fontSize: `${layoutTransSize}px` }}>
                                          { (p.translation || '(未生成翻譯)').replace(/\s*\([a-zA-Zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü\s]+\)/g, '') }
                                         </p>
                                       )
