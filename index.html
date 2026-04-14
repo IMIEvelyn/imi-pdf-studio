@@ -1933,7 +1933,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                         <div className="content-bg-transparent px-6 py-6 md:px-8 md:py-8 bg-white">
                           <section>
                            <SectionHeader title={getTranslatedModuleTitle("📖 核心課文", settings.translationLanguage)} color="#7A7387" border="#7A7387" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize} />
-                            <div className="mt-10 sentence-block">
+                            <div className="mt-10 sentence-block" style={{ fontSize: ${layoutContentSize}px }}>
                               {(data.coreTextChunks || []).map((chunk, i) => {
                                 const textStr = (chunk.text || '').replace(/ /g, ''); 
                                 const isPunc = chunk.type === 'punctuation' || /^[，。！？；：「」『』、\(\)（）\s"'.?!:;]+$/.test(textStr);
@@ -1967,8 +1967,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                                 return <WordBlock key={chunk.id || `chunk-${i}`} text={textStr} pinyinStr={finalPinyin} zhuyinStr={finalZhuyin} showP={showP} showZ={showZ} highlightStyle={highlightStyle} editPayload={editPayload} />;
                               })}
                             </div>
-                            {settings.translateTargets.coreText && data.coreTextTranslation && <div className="mt-10 p-6 rounded-[24px] text-slate-600 text-base italic font-medium leading-relaxed bg-white avoid-break-inside" style={{ border: '2px solid #E4E0EB', WebkitPrintColorAdjust: 'exact' }}>{data.coreTextTranslation}</div>}
-                          </section>
+                            {settings.translateTargets.coreText && data.coreTextTranslation && <div className="mt-10 p-6 rounded-[24px] text-slate-600 italic font-medium leading-relaxed bg-white avoid-break-inside" style={{ border: '2px solid #E4E0EB', WebkitPrintColorAdjust: 'exact', fontSize: ${layoutTransSize}px }}>
                           
                           <ModuleDivider />
 
@@ -2031,17 +2030,17 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                                       <InlineRubyText text={p.title} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={p.titlePinyin} sentenceZhuyin={p.titleZhuyin} alwaysShowRuby={true} sentenceEditPayload={{ type: 'grammar_title', id: p.id, text: p.title, pinyin: p.titlePinyin || '', zhuyin: p.titleZhuyin || '' }} />
                                     </h4>
                                     {settings.explanationMode !== 'foreign_only' && (
-                                     <div className="text-slate-800 text-xl font-bold mb-1 leading-relaxed break-keep">
+<div className="text-slate-800 font-bold mb-1 leading-relaxed break-keep" style={{ fontSize: `${layoutContentSize}px` }}>
                                         <InlineRubyText text={p.description} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={p.descPinyin} sentenceZhuyin={p.descZhuyin} sentenceEditPayload={{ type: 'grammar_desc', id: p.id, text: p.description, pinyin: p.descPinyin || '', zhuyin: p.descZhuyin || '' }} />
                                       </div>
                                     )}
                                     {settings.translateTargets.coreGrammar && (
                                       settings.explanationMode === 'foreign_only' ? (
-                                        <p className="text-slate-800 text-2xl font-bold mb-1 tracking-wide" style={{ lineHeight: '1.5' }}>
+                                       <p className="text-slate-800 font-bold mb-1 tracking-wide" style={{ lineHeight: '1.5', fontSize: `${layoutTransSize}px` }}>
                                          { (p.translation || '(未生成翻譯)').replace(/\s*\([a-zA-Zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü\s]+\)/g, '') }
                                         </p>
                                       ) : (
-                                        <p className="text-slate-600 text-base italic mb-1 border-l-4 pl-4 font-medium" style={{ borderColor: '#FFD700' }}>
+                                      <p className="text-slate-600 italic mb-1 border-l-4 pl-4 font-medium" style={{ borderColor: '#FFD700', fontSize: ${layoutTransSize}px }}>
                                          { (p.translation || '(未生成翻譯)').replace(/\s*\([a-zA-Zāáǎàēéěèīíǐìōóǒòūúǔùǖǘǚǜü\s]+\)/g, '') }
                                         </p>
                                       )
@@ -2124,7 +2123,8 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                                         <div key={l.id || `line-${j}`} className="flex gap-6 avoid-break-inside print-flex-row items-start">
                                           <span className="font-black w-14 shrink-0 text-3xl border-r-4 pt-1" style={{ color: '#7A7387', borderColor: '#D3CDD9' }}>{l.speaker}</span>
                                           <div className="flex-1 flex flex-col min-w-0">
-                                            <span className="text-xl text-slate-800 font-bold break-keep" style={{ lineHeight: '2.6' }}>
+                                           <span className="text-slate-800 font-bold break-keep" style={{ lineHeight: '2.6', fontSize: ${layoutContentSize}px }}>
+
                                               <InlineRubyText text={l.text} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={l.pinyin} sentenceZhuyin={l.zhuyin} sentenceEditPayload={{ type: 'dialogue_line', parentId: d.id, id: l.id, text: l.text, pinyin: l.pinyin || '', zhuyin: l.zhuyin || '' }} />
                                             </span>
                                             {settings.translateTargets.dialogue && l.translation && <span className="text-slate-600 text-base block -mt-3 relative z-10 opacity-90 font-medium">{l.translation}</span>}
@@ -2166,7 +2166,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                                           <strong className="text-slate-600 text-lg font-black uppercase tracking-widest">💡 語法/詞彙說明</strong>
                                         </div>
                                        {settings.explanationMode !== 'foreign_only' && (
-                                         <div className="text-slate-800 text-lg font-bold mb-1 whitespace-pre-wrap sentence-block break-keep" style={{ lineHeight: '2.2' }}>
+                                         <div className="text-slate-800 font-bold mb-1 whitespace-pre-wrap sentence-block break-keep" style={{ lineHeight: '2.2', fontSize: ${layoutContentSize}px }}>
                                             <InlineRubyText text={rule.explanation} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={rule.explanationPinyin} sentenceZhuyin={rule.explanationZhuyin} sentenceEditPayload={{ type: 'rule_explanation', id: rule.id, text: rule.explanation, pinyin: rule.explanationPinyin || '', zhuyin: rule.explanationZhuyin || '' }} />
                                           </div>
                                         )}
