@@ -1057,7 +1057,7 @@
       );
     }
 
-    function Step3Settings({ settings, setSettings, onNext, onPrev, isGenerating, layoutTitleSize, setLayoutTitleSize, layoutLegendSize, setLayoutLegendSize, layoutContentSize, setLayoutContentSize, layoutTransSize, setLayoutTransSize, layoutSpacing, setLayoutSpacing }) {
+    function Step3Settings({ settings, setSettings, onNext, onPrev }) {
       const fileInputRef = useRef(null);
       const updateSetting = (key, value) => setSettings(prev => ({ ...prev, [key]: value }));
       const updateTarget = (key) => setSettings(prev => ({ ...prev, translateTargets: { ...prev.translateTargets, [key]: !prev.translateTargets[key] } }));
@@ -1119,7 +1119,7 @@
       );
     }
 
- function Step3Settings({ settings, setSettings, onNext, onPrev }) {
+function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLayoutTitleSize, layoutLegendSize, setLayoutLegendSize, layoutContentSize, setLayoutContentSize, layoutTransSize, setLayoutTransSize, layoutSpacing, setLayoutSpacing }) {
   const [editingWord, setEditingWord] = React.useState(null);
   
   // === 摺疊式控制台狀態 ===
