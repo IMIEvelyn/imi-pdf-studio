@@ -1155,6 +1155,10 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
     } else if (type === 'diagnosis_trans') {
       const idx = newData.grammarRules.findIndex(r => r.id === id);
       if (idx > -1) newData.grammarRules[idx].translation = text;
+   } else if (type === 'grammar_ex') {
+      if (newData.coreGrammar[parentId] && newData.coreGrammar[parentId].examples[id]) {
+        newData.coreGrammar[parentId].examples[id].translation = text;
+      }
     }
 
     setData(newData); // 儲存回大腦
@@ -1344,7 +1348,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
           .hz-font { 
               display: inline-block;
               vertical-align: middle;
-              font-size: calc(24px * var(--base-scale)); 
+              font-size: var(--hz-size, calc(24px * var(--base-scale)));
               font-weight: bold; 
               color: #333 !important; 
               line-height: 1.2; 
@@ -1352,7 +1356,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
           }
           .punc-text { 
               display: inline !important;
-              font-size: calc(24px * var(--base-scale)); 
+              font-size: var(--hz-size, calc(24px * var(--base-scale)));
               font-weight: bold; 
               color: #333 !important; 
               line-height: 1.2; 
@@ -1566,7 +1570,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
             .hz-font { 
                 display: inline-block;
                 vertical-align: middle;
-                font-size: calc(24px * var(--base-scale)); 
+                font-size: var(--hz-size, calc(24px * var(--base-scale)));
                 font-weight: bold; 
                 color: #333 !important; 
                 line-height: 1.2; 
@@ -1574,7 +1578,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
             }
             .punc-text { 
                 display: inline !important;
-                font-size: calc(24px * var(--base-scale)); 
+                font-size: var(--hz-size, calc(24px * var(--base-scale)));
                 font-weight: bold; 
                 color: #333 !important; 
                 line-height: 1.2; 
@@ -1861,7 +1865,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
             
           </div>
         </div>
-          <div id="imi-print-area" className="bg-white shadow-[0_8px_0_0_#F0E5D8,0_16px_32px_rgba(0,0,0,0.04)] max-w-4xl mx-auto rounded-[40px] relative print:shadow-none print:border-none print:w-full print:rounded-none" style={{ padding: '0px', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+          <div id="imi-print-area" className="bg-white shadow-[0_8px_0_0_#F0E5D8,0_16px_32px_rgba(0,0,0,0.04)] max-w-4xl mx-auto rounded-[40px] relative print:shadow-none print:border-none print:w-full print:rounded-none" style={{ padding: '0px', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact', '--hz-size': `${layoutContentSize}px` }}>
             
             <div className="eastern-border-layer absolute inset-3 pointer-events-none" style={{ zIndex: 10 }}>
               <div className="absolute top-0 left-[58px] right-[58px] h-[2px] bg-[#A89CC7]" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}></div>
@@ -1958,10 +1962,10 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                                   </div>
                                 )}
                               </div>
-                              <div className="space-y-2"><h1 className="text-5xl font-black tracking-tighter">{settings.themeTitle || '課後複習講義'}</h1></div>
+                              <div className="space-y-2"><h1 className="text-3xl font-black tracking-tighter">{settings.themeTitle || '課後複習講義'}</h1></div>
                             </div>
                             <div className="text-right flex flex-col items-end shrink-0 z-10 relative">
-                              <span className="bg-white/20 text-white px-4 py-1.5 rounded-xl font-black text-sm mb-2 tracking-widest border border-white/40 shadow-sm" style={{ WebkitPrintColorAdjust: 'exact' }}>教材等級：{settings.textLevel}</span>
+                             <span className="bg-white/20 text-white px-4 py-1.5 rounded-xl font-black text-sm mb-2 tracking-widest border border-white/40 shadow-sm" style={{ WebkitPrintColorAdjust: 'exact' }}>{settings.textLevel}</span>
                               <p className="text-2xl font-black opacity-95">{settings.className || '班級/學生'}</p>
                               <p className="text-xl font-bold opacity-90">{settings.teacherName ? `${settings.teacherName} 老師` : '老師'}</p>
                               <p className="text-lg font-medium opacity-85">{settings.date}</p>
@@ -2058,11 +2062,14 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                 {/* 詞性標記也微調對齊圖例尺寸 */}
                 <span className="px-2.5 py-0.5 font-extrabold rounded-full mt-1.5 whitespace-nowrap shrink-0 ml-auto" style={{ backgroundColor: lightBg, color: darkText, fontSize: `${layoutLegendSize - 2}px` }}>{v.pos || wType}</span>
             </div>
-            {settings.translateTargets.vocab && (
-                <p className="text-slate-700 font-extrabold italic pt-1.5 tracking-tight" style={{ borderTop: `2px dashed ${lightBg}`, fontSize: `${layoutTransSize}px` }}>
-                  {v.translation || '(未生成翻譯)'}
-                </p>
-            )}
+           {settings.translateTargets.vocab && (
+  <div className="cursor-pointer hover:bg-slate-50 transition-all rounded-lg px-1 pb-1 group relative mt-1" onClick={() => { setEditPayload({ type: 'vocab', id: v.id, text: v.translation }); setTransModalOpen(true); }}>
+    <p className="text-slate-700 font-extrabold italic pt-1.5 tracking-tight" style={{ borderTop: `2px dashed ${lightBg}`, fontSize: `${layoutTransSize}px` }}>
+      {v.translation || '(未生成翻譯)'}
+      <span className="ml-2 opacity-0 group-hover:opacity-100 text-[#56D0A0] text-sm font-normal print:hidden">✏️ 編輯</span>
+    </p>
+  </div>
+)}
                                     </div>
                                   </div>
                                 );
@@ -2156,9 +2163,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                                               <span style={{ lineHeight: '2.6' }}>
                                                 <InlineRubyText text={text} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={typeof ex === 'object' ? ex.pinyin : ''} sentenceZhuyin={typeof ex === 'object' ? ex.zhuyin : ''} sentenceEditPayload={typeof ex === 'object' ? { type: 'grammar_example', parentId: p.id, id: j, text: text, pinyin: ex.pinyin || '', zhuyin: ex.zhuyin || '' } : null} />
                                               </span>
-                                              {typeof ex === 'object' && settings.translateTargets.coreGrammar && ex.translation && (<span className="text-slate-600 text-base block mt-2 border-l-2 pl-3 font-medium" style={{ borderColor: '#FFEE99' }}>{ex.translation}</span>)}
-                                            </div>
-                                          </div>
+                                              {typeof ex === 'object' && settings.translateTargets.coreGrammar && ex.translation && (<span className="text-slate-600 text-base block mt-2 border-l-2 pl-3 font-medium cursor-pointer hover:text-[#56D0A0] transition-colors group relative" style={{ borderColor: '#FFEE99', fontSize: `${layoutTransSize}px` }} onClick={() => { setEditPayload({ type: 'grammar_ex', id: idx, parentId: i, text: ex.translation }); setTransModalOpen(true); }}>{ex.translation}<span className="ml-1 opacity-0 group-hover:opacity-100 text-[#56D0A0] text-[10px] print:hidden">✏️</span></span>))
                                         );
                                       })}
                                     </div>
@@ -2188,7 +2193,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                                             </span>
                                            {settings.translateTargets.dialogue && l.translation && (
   <span className="text-slate-600 text-base block mt-1 italic cursor-pointer hover:text-[#56D0A0] transition-colors group" 
-        style={{ fontSize: `${layoutTransSize}px` }}
+       style={{ fontSize: `${layoutTransSize}px` }}
         onClick={() => {
           setEditPayload({ type: 'dialogue', id: l.id, parentId: d.id, text: l.translation });
           setTransModalOpen(true);
