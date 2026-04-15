@@ -1354,14 +1354,14 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
               line-height: 1.2; 
               margin-right: calc(-1px * var(--base-scale)); 
           }
-         .punc-text {
-    display: inline-block !important;
-    vertical-align: middle;
-    font-size: var(--hz-size, calc(24px * var(--base-scale)));
-    font-weight: bold;
-    color: #333 !important;
-    line-height: 1.2;
-}
+       .punc-text {
+        display: inline-block !important;
+        vertical-align: top;
+        font-size: var(--hz-size, calc(24px * var(--base-scale)));
+        font-weight: bold;
+        color: #333 !important;
+        line-height: 1.2;
+    }
          .z-char {
         font-size: calc(var(--hz-size, 24px) * 12 / 24);
         color: #777;
@@ -1576,14 +1576,14 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                 line-height: 1.2; 
                 margin-right: calc(-1px * var(--base-scale)); 
             }
-            .punc-text {
-    display: inline-block !important;
-    vertical-align: middle;
-    font-size: var(--hz-size, calc(24px * var(--base-scale)));
-    font-weight: bold;
-    color: #333 !important;
-    line-height: 1.2;
-}
+           .punc-text {
+        display: inline-block !important;
+        vertical-align: top;
+        font-size: var(--hz-size, calc(24px * var(--base-scale)));
+        font-weight: bold;
+        color: #333 !important;
+        line-height: 1.2;
+    }
             .z-char {
         font-size: calc(var(--hz-size, 24px) * 12 / 24);
         color: #777;
@@ -1857,7 +1857,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                 <div className="p-5 pt-3 border-t border-slate-200 space-y-4">
                     <div className="space-y-2">
                       <label className="flex justify-between text-sm font-bold text-slate-600"><span>區塊上下間距</span><span className="text-indigo-500">{layoutSpacing}px</span></label>
-                      <input type="range" min="16" max="80" value={layoutSpacing} onChange={(e) => setLayoutSpacing(Number(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-400" />
+                    <input type="range" min="12" max="80" value={layoutSpacing} onChange={(e) => setLayoutSpacing(Number(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-400" />
                     </div>
                 </div>
               )}
