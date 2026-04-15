@@ -2163,8 +2163,9 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                                               <span style={{ lineHeight: '2.6' }}>
                                                 <InlineRubyText text={text} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={typeof ex === 'object' ? ex.pinyin : ''} sentenceZhuyin={typeof ex === 'object' ? ex.zhuyin : ''} sentenceEditPayload={typeof ex === 'object' ? { type: 'grammar_example', parentId: p.id, id: j, text: text, pinyin: ex.pinyin || '', zhuyin: ex.zhuyin || '' } : null} />
                                               </span>
-                                              {typeof ex === 'object' && settings.translateTargets.coreGrammar && ex.translation && (<span className="text-slate-600 text-base block mt-2 border-l-2 pl-3 font-medium cursor-pointer hover:text-[#56D0A0] transition-colors group relative" style={{ borderColor: '#FFEE99', fontSize: `${layoutTransSize}px` }} onClick={() => { setEditPayload({ type: 'grammar_ex', id: idx, parentId: i, text: ex.translation }); setTransModalOpen(true); }}>{ex.translation}<span className="ml-1 opacity-0 group-hover:opacity-100 text-[#56D0A0] text-[10px] print:hidden">✏️</span></span>))
-                                        );
+                                              {typeof ex === 'object' && settings.translateTargets.coreGrammar && ex.translation && (<span className="text-slate-600 text-base block mt-2 border-l-2 pl-3 font-medium cursor-pointer hover:text-[#56D0A0] transition-colors group relative" style={{ borderColor: '#FFEE99', fontSize: `${layoutTransSize}px` }} onClick={() => { setEditPayload({ type: 'grammar_ex', id: j, parentId: i, text: ex.translation }); setTransModalOpen(true); }}>{ex.translation}<span className="ml-1 opacity-0 group-hover:opacity-100 text-[#56D0A0] text-[10px] print:hidden">✏️</span></span>)}
+                                        
+                                              );
                                       })}
                                     </div>
                                   </div>
