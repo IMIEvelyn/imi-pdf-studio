@@ -1354,13 +1354,14 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
               line-height: 1.2; 
               margin-right: calc(-1px * var(--base-scale)); 
           }
-          .punc-text { 
-              display: inline !important;
-              font-size: var(--hz-size, calc(24px * var(--base-scale)));
-              font-weight: bold; 
-              color: #333 !important; 
-              line-height: 1.2; 
-          }
+         .punc-text {
+    display: inline-block !important;
+    vertical-align: middle;
+    font-size: var(--hz-size, calc(24px * var(--base-scale)));
+    font-weight: bold;
+    color: #333 !important;
+    line-height: 1.2;
+}
           .z-char { 
               font-size: calc(12px * var(--base-scale)); 
               color: #777; 
@@ -1576,13 +1577,14 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                 line-height: 1.2; 
                 margin-right: calc(-1px * var(--base-scale)); 
             }
-            .punc-text { 
-                display: inline !important;
-                font-size: var(--hz-size, calc(24px * var(--base-scale)));
-                font-weight: bold; 
-                color: #333 !important; 
-                line-height: 1.2; 
-            }
+            .punc-text {
+    display: inline-block !important;
+    vertical-align: middle;
+    font-size: var(--hz-size, calc(24px * var(--base-scale)));
+    font-weight: bold;
+    color: #333 !important;
+    line-height: 1.2;
+}
             .z-char { 
                 font-size: calc(12px * var(--base-scale)); 
                 color: #777; 
