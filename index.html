@@ -1975,8 +1975,22 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                         
                         <div className="content-bg-transparent px-6 py-6 md:px-8 md:py-8 bg-white">
                           <section>
-                           <SectionHeader title={getTranslatedModuleTitle("📖 核心課文", settings.translationLanguage)} color="#7A7387" border="#7A7387" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize} />
-                           <div className="mt-10 sentence-block" style={{ fontSize: `${layoutContentSize}px` }}>
+                          <SectionHeader title={getTranslatedModuleTitle("📖 核心課文", settings.translationLanguage)} color="#7A7387" border="#7A7387" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize} />
+
+{/* 核心課文：多重標記圖例說明 */}
+<div className="flex flex-wrap items-center gap-x-6 gap-y-2 mt-4 mb-2 px-2 print:mt-2">
+  <div className="flex items-center gap-2 text-slate-500 font-bold text-[13px] tracking-wide">
+    <span className="text-[#FFB020] text-lg leading-none mb-[2px]">☆</span> <span>重點詞彙 (Keyword)</span>
+  </div>
+  <div className="flex items-center gap-2 text-slate-500 font-bold text-[13px] tracking-wide">
+    <span className="border-[1.5px] border-[#56D0A0] rounded-full w-3.5 h-3.5 inline-block"></span> <span>一般詞彙 (Vocabulary)</span>
+  </div>
+  <div className="flex items-center gap-2 text-slate-500 font-bold text-[13px] tracking-wide">
+    <span className="w-5 border-b-[2px] border-dashed border-[#7A7387] inline-block mb-1"></span> <span>語法標記 (Grammar)</span>
+  </div>
+</div>
+
+<div className="mt-8 sentence-block" style={{ fontSize: `${layoutContentSize}px` }}>
                               {(data.coreTextChunks || []).map((chunk, i) => {
                                 const textStr = (chunk.text || '').replace(/ /g, ''); 
                                 const isPunc = chunk.type === 'punctuation' || /^[，。！？；：「」『』、\(\)（）\s"'.?!:;]+$/.test(textStr);
@@ -2000,14 +2014,20 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                                 const showP = shouldShow && isTypePinyin; 
                                 const showZ = shouldShow && isTypeZhuyin;
                                 
-                                const highlightStyle = chunk.type === 'keyword' ? { borderBottom: '4px solid #FFCD57', color: '#B8860B', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' }
-                                              : chunk.type === 'vocab' ? { borderBottom: '4px solid #56D0A0', color: '#1B6B47', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' }
+                               const highlightStyle = chunk.type === 'keyword' ? { color: '#B8860B', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' }
+                                              : chunk.type === 'vocab' ? { color: '#1B6B47', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' }
                                               : chunk.type === 'grammar' ? { borderBottom: '4px dashed #7A7387', color: '#5C5666', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' }
                                               : {};
 
                                 const editPayload = { type: 'chunk', id: chunk.id, text: textStr, pinyin: finalPinyin, zhuyin: finalZhuyin };
+                                
+                                let vocabNum = null;
+                                if (chunk.type === 'keyword' || chunk.type === 'vocab') {
+                                    const vIdx = (data.vocabList || []).findIndex(v => v.word === textStr);
+                                    if (vIdx !== -1) vocabNum = vIdx + 1;
+                                }
 
-                                return <WordBlock key={chunk.id || `chunk-${i}`} text={textStr} pinyinStr={finalPinyin} zhuyinStr={finalZhuyin} showP={showP} showZ={showZ} highlightStyle={highlightStyle} editPayload={editPayload} />;
+                                return <WordBlock key={chunk.id || `chunk-${i}`} text={textStr} pinyinStr={finalPinyin} zhuyinStr={finalZhuyin} showP={showP} showZ={showZ} highlightStyle={highlightStyle} editPayload={editPayload} wordType={chunk.type} vocabNumber={vocabNum} />;
                               })}
                             </div>
                            {settings.translateTargets.coreText && data.coreTextTranslation && (
@@ -2229,12 +2249,12 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
             <h4 className="text-2xl font-black mb-1 flex items-center gap-3 print-avoid-break-after" style={{ color: '#D95A50' }}>
               <AlertCircle size={30}/>{rule.theme || "偏誤分析"}
             </h4>
-            <div className="space-y-4 pb-2">
-              <div className="flex items-center justify-between gap-4 py-[15px] px-6 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #FDF1F0', WebkitPrintColorAdjust: 'exact' }}>
+           <div className="space-y-4 pb-2">
+              <div className="flex items-center justify-between gap-4 pt-[15px] pb-1 px-6 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #FDF1F0', WebkitPrintColorAdjust: 'exact' }}>
                 <RenderMistakePDF rule={rule} text={rule.mistake} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} />
                 <span className="font-black text-4xl px-2 font-sans shrink-0" style={{ color: '#F07167' }}>X</span>
               </div>
-              <div className="flex items-center justify-between gap-4 py-[15px] px-6 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #E6F7F2', WebkitPrintColorAdjust: 'exact' }}>
+              <div className="flex items-center justify-between gap-4 pt-[15px] pb-1 px-6 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #E6F7F2', WebkitPrintColorAdjust: 'exact' }}>
                 <InlineRubyText text={rule.correction} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} isCorrection={true} sentencePinyin={rule.correctionPinyin} sentenceZhuyin={rule.correctionZhuyin} />
                 <span className="font-black text-4xl px-2 italic font-serif shrink-0" style={{ color: '#48C0A3' }}>O</span>
               </div>
@@ -2416,7 +2436,7 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
       );
     }
 
-    function WordBlock({ text, pinyinStr, zhuyinStr, showP, showZ, highlightStyle, editPayload }) {
+   function WordBlock({ text, pinyinStr, zhuyinStr, showP, showZ, highlightStyle, editPayload, wordType, vocabNumber }) {
       const onEdit = React.useContext(EditPhoneticContext);
       const hanziChars = text.split('');
       const isHanzi = (char) => /[\u4e00-\u9fa5]/.test(char);
@@ -2471,11 +2491,28 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
               );
             }
 
+            const isLastChar = index === hanziChars.length - 1;
+            const showTag = isLastChar && vocabNumber;
+
             return (
               <span key={index} className="hz-wrapper">
                 <span className="char-unit" style={{ ...charHighlightStyle, position: 'relative' }}>
                   <span className="hz-font">{char}</span>
                   {showZ && zy && <ZhuyinBlock syllable={zy} />}
+                  
+                  {/* 方案 D：空心編號標籤 */}
+                  {showTag && wordType === 'keyword' && (
+                    <div style={{ position: 'absolute', top: '-0.3em', right: '-0.3em', width: '1.1em', height: '1.1em', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
+                      <svg width="100%" height="100%" viewBox="0 0 24 24" fill="white" stroke="#FFB020" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{position: 'absolute'}}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                      <span style={{ fontSize: '0.55em', fontWeight: '900', color: '#FFB020', zIndex: 1, marginTop: '1px', fontFamily: 'Arial, sans-serif' }}>{vocabNumber}</span>
+                    </div>
+                  )}
+                  {showTag && wordType === 'vocab' && (
+                    <div style={{ position: 'absolute', top: '-0.25em', right: '-0.25em', width: '1em', height: '1em', borderRadius: '50%', border: '1.5px solid #56D0A0', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'white', zIndex: 10 }}>
+                      <span style={{ fontSize: '0.6em', fontWeight: '900', color: '#56D0A0', fontFamily: 'Arial, sans-serif' }}>{vocabNumber}</span>
+                    </div>
+                  )}
+
                 </span>
                 {showP && <span className="res-py">{py || '\u00A0'}</span>}
               </span>
