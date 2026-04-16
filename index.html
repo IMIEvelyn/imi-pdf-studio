@@ -796,17 +796,19 @@
           }
         }
         
-        newChunks[idx].text = newText;
-        newChunks = newChunks.map(chunk => (chunk.text === newText ? { ...chunk, type: newType } : chunk));
-        
-        if (newType === 'keyword' || newType === 'vocab') {
-           const existingIdx = newVocabList.findIndex(v => v.word === newText);
-           if (existingIdx === -1) {
-               newVocabList.push({ id: Date.now(), word: newText, pos: '名詞', type: newType });
-           } else {
-               newVocabList[existingIdx] = { ...newVocabList[existingIdx], type: newType };
-           }
+       newChunks[idx].text = newText;
+    newChunks = newChunks.map(chunk => (chunk.text === newText ? { ...chunk, type: newType, isGrammar: editingChunk.isGrammar } : chunk));
+
+    if (newType === 'keyword' || newType === 'vocab') {
+        const existingIdx = newVocabList.findIndex(v => v.word === newText);
+        if (existingIdx === -1) {
+            newVocabList.push({ id: Date.now(), word: newText, pos: '名詞', type: newType, isGrammar: editingChunk.isGrammar });
+        } else {
+            newVocabList[existingIdx] = { ...newVocabList[existingIdx], type: newType, isGrammar: editingChunk.isGrammar };
         }
+    } else {
+        newVocabList = newVocabList.filter(v => v.word !== newText);
+    }
 
         const finalChunks = autoLink(newChunks, newVocabList, data.coreGrammar, data.grammarRules);
         setData({ ...data, coreTextChunks: finalChunks, vocabList: newVocabList });
@@ -883,13 +885,16 @@
       };
 
       const handleSaveEdit = () => {
-        if (editingItem && editingItem.word.trim()) {
-          const newList = data.vocabList.map(v => v.id === editingItem.id ? editingItem : v);
-          const newChunks = autoLink(data.coreTextChunks, newList, data.coreGrammar, data.grammarRules);
-          setData({ ...data, vocabList: newList, coreTextChunks: newChunks });
-          setEditingItem(null);
-        }
-      };
+  if (editingItem && editingItem.word.trim()) {
+    const newList = data.vocabList.map(v => v.id === editingItem.id ? editingItem : v);
+    const syncedChunks = (data.coreTextChunks || []).map(chunk => 
+      chunk.text === editingItem.word ? { ...chunk, type: editingItem.type, isGrammar: editingItem.isGrammar } : chunk
+    );
+    const newChunks = autoLink(syncedChunks, newList, data.coreGrammar, data.grammarRules);
+    setData({ ...data, vocabList: newList, coreTextChunks: newChunks });
+    setEditingItem(null);
+  }
+};
 
       return (
         <div className="space-y-8">
@@ -947,11 +952,12 @@
                   <div><label className="block text-base font-bold text-slate-500 mb-2 ml-1">詞彙內容</label><input autoFocus type="text" className="w-full px-5 py-4 bg-[#f8fafc] border-2 border-slate-100 rounded-2xl text-2xl font-bold outline-none focus:border-[#56D0A0] shadow-inner" value={editingItem.word} onChange={(e) => setEditingItem({...editingItem, word: e.target.value})} /></div>
                   <div><label className="block text-base font-bold text-slate-500 mb-2 ml-1">詞性 (可由老師修正)</label><input type="text" className="w-full px-5 py-4 bg-[#f8fafc] border-2 border-slate-100 rounded-2xl outline-none focus:border-[#56D0A0] text-lg font-bold shadow-inner" value={editingItem.pos} onChange={(e) => setEditingItem({...editingItem, pos: e.target.value})} placeholder="例如：noun" /></div>
                   <div>
-                    <label className="block text-base font-bold text-slate-500 mb-3 ml-1">標記等級</label>
-                    <div className="grid grid-cols-2 gap-4">
-                      <TypeButton type="keyword" label="重點詞彙" colorClass="bg-[#ffec99] text-yellow-900" borderClass="border-yellow-400" current={editingItem.type} onClick={() => setEditingItem({...editingItem, type: 'keyword'})} />
-                      <TypeButton type="vocab" label="一般詞彙" colorClass="bg-[#d1f4df] text-[#1e6138]" borderClass="border-[#48C0A3]" current={editingItem.type} onClick={() => setEditingItem({...editingItem, type: 'vocab'})} />
+                    <label className="block text-base font-bold text-slate-500 mb-3 ml-1">詞彙屬性設定</label>
+                    <div className="grid grid-cols-2 gap-4 mb-4">
+                      <button type="button" onClick={() => setEditingItem({...editingItem, type: 'keyword'})} className={`py-4 rounded-2xl font-black text-lg transition-all duration-200 border-2 ${editingItem.type === 'keyword' ? 'bg-[#ffec99] text-yellow-900 border-yellow-400 shadow-[0_4px_0_0_#facc15] -translate-y-1' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'}`}>重點詞彙</button>
+                      <button type="button" onClick={() => setEditingItem({...editingItem, type: 'vocab'})} className={`py-4 rounded-2xl font-black text-lg transition-all duration-200 border-2 ${editingItem.type === 'vocab' ? 'bg-[#d1f4df] text-[#1e6138] border-[#48C0A3] shadow-[0_4px_0_0_#34A879] -translate-y-1' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'}`}>一般詞彙</button>
                     </div>
+                    <button type="button" onClick={() => setEditingItem({...editingItem, isGrammar: !editingItem.isGrammar})} className={`w-full py-4 rounded-2xl font-black text-lg transition-all duration-200 border-2 flex items-center justify-center gap-2 mb-4 ${editingItem.isGrammar ? 'bg-[#ffe4e1] text-[#c92a2a] border-[#F07167] shadow-[0_4px_0_0_#e03131] -translate-y-1' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100 border-dashed'}`}><span className="text-xl">{editingItem.isGrammar ? '✓' : '＋'}</span> 語法標記</button>
                   </div>
                   <div className="flex gap-4 pt-6"><button onClick={() => setEditingItem(null)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-lg shadow-[0_4px_0_0_#cbd5e1] active:translate-y-[4px] active:shadow-none transition-all">取消</button><button onClick={handleSaveEdit} className="flex-1 py-4 bg-[#56D0A0] text-white rounded-2xl font-black text-lg shadow-[0_4px_0_0_#34A879] active:translate-y-[4px] active:shadow-none transition-all">儲存修改</button></div>
                 </div>
