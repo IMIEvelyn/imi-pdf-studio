@@ -260,7 +260,7 @@
                   if (activeKey) {
                       try {
                           const wordsStr = localParsedData.vocabList.map(v => v.word).join(', ');
-                          const miniPrompt = `你是一位華語語言學專家。請判斷以下生詞的詞性（如：名詞、動詞、形容詞、副詞等）。請直接回傳 JSON 陣列格式（例：["名詞", "動詞"]），不要有任何其他文字。生詞：${wordsStr}`;
+                          const miniPrompt = `你是一位專業的華語語言學專家。請判斷以下生詞的詞性（如：名詞、動詞、形容詞、副詞等）。請直接回傳 JSON 陣列格式（例：["名詞", "動詞"]），不要有任何其他文字。生詞：${wordsStr}`;
 
                           // 1. 精準對齊您的專案設定，使用 gemini-2.5-flash
                           const modelName = "gemini-2.5-flash"; 
@@ -398,11 +398,11 @@
           };
 
           const systemInstruction = `你是一位專業華語出版助手。請負責將以下 JSON 結構中的內容補齊標音與翻譯。
-          【極度重要任務：強制補齊，禁止留空！】
-          1. pinyin 與 zhuyin：只要有中文的地方，包含 coreTextChunks, vocabList, dialogues, coreGrammar, grammarRules，請務必將對應的 pinyin 與 zhuyin 欄位填滿！
-          ★ 致命警告：所有 Pinyin 與 Zhuyin 必須「每一個漢字空一格」斷開！略過 <u> 等 HTML 標籤。
-          2. translation (翻譯)：請依照設定的語言 ${exportSettings.translationLanguage}，為各模組填寫精確翻譯！
-          3. 詞性翻譯 (pos)：請務必將 vocabList 中的中文詞性，根據 ${exportSettings.translationLanguage} 翻譯成該語言的「完整詞性全名」。嚴格禁止使用任何縮寫（如 N, V, Adj），例如：英文必須輸出 Noun, Verb。`;
+【極度重要任務：強制補齊，禁止留空！】
+1. pinyin 與 zhuyin：只要有中文的地方，包含 coreTextChunks, vocabList, dialogues, coreGrammar, grammarRules，請務必將對應的 pinyin 與 zhuyin 欄位填滿！
+★ 致命警告：所有 Pinyin 與 Zhuyin 必須「每一個漢字空一格」斷開！略過 <u> 等 HTML 標籤。
+2. translation (翻譯)：請依照設定的語言 ${exportSettings.translationLanguage}，為各模組填寫精確翻譯！
+3. 詞性翻譯 (pos)：請務必將 vocabList 中的中文詞性，根據 ${exportSettings.translationLanguage} 翻譯成該語言的「完整詞性全名」。嚴格禁止使用任何縮寫（如 N, V, Adj），例如：英文必須輸出 Noun, Verb。`;
           
           const payload = {
             contents: [{ role: "user", parts: [{ text: JSON.stringify(dataToTranslate) }] }],
@@ -836,12 +836,15 @@
                         <div className="flex justify-between items-end mb-3"><label className="text-base font-bold text-slate-500 ml-1">詞彙內容</label><button onClick={() => { setIsSplitting(true); setSplitText(editingChunk.text || ''); }} className="text-sm font-bold text-[#FFAC59] bg-[#FFF9F2] hover:bg-[#FFE8CC] px-3 py-1.5 rounded-xl transition-colors">✂️ 拆分此詞塊</button></div>
                         <input type="text" value={editingChunk.text || ''} onChange={(e) => setEditingChunk({...editingChunk, text: e.target.value})} className="w-full px-5 py-4 bg-[#FFFcf9] border-2 border-orange-50 rounded-2xl text-2xl font-bold outline-none focus:border-[#FFAC59] shadow-inner" />
                       </div>
-                      <div><label className="block text-base font-bold text-slate-500 mb-3 ml-1">標記等級分類</label><div className="grid grid-cols-2 gap-4">
-                        <TypeButton type="keyword" label="重點詞彙" colorClass="bg-[#ffec99] text-yellow-900" borderClass="border-yellow-400" current={editingChunk.type} onClick={() => setEditingChunk({...editingChunk, type: 'keyword'})} />
-                        <TypeButton type="vocab" label="一般詞彙" colorClass="bg-[#d1f4df] text-[#1e6138]" borderClass="border-[#48C0A3]" current={editingChunk.type} onClick={() => setEditingChunk({...editingChunk, type: 'vocab'})} />
-                        <TypeButton type="grammar" label="語法標記" colorClass="bg-[#eef3ff] text-indigo-800" borderClass="border-indigo-400" current={editingChunk.type} onClick={() => setEditingChunk({...editingChunk, type: 'grammar'})} />
-                        <TypeButton type="normal" label="無標記" colorClass="bg-[#f1f5f9] text-slate-600" borderClass="border-slate-300" current={editingChunk.type} onClick={() => setEditingChunk({...editingChunk, type: 'normal'})} />
-                      </div></div>
+                     <div>
+  <label className="block text-base font-bold text-slate-500 mb-3 ml-1">詞彙屬性設定</label>
+  <div className="grid grid-cols-2 gap-4 mb-4">
+    <button type="button" onClick={() => setEditingChunk({...editingChunk, type: 'keyword'})} className={`py-4 rounded-2xl font-black text-lg transition-all duration-200 border-2 ${editingChunk.type === 'keyword' ? 'bg-[#ffec99] text-yellow-900 border-yellow-400 shadow-[0_4px_0_0_#facc15] -translate-y-1' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'}`}>重點詞彙</button>
+    <button type="button" onClick={() => setEditingChunk({...editingChunk, type: 'vocab'})} className={`py-4 rounded-2xl font-black text-lg transition-all duration-200 border-2 ${editingChunk.type === 'vocab' ? 'bg-[#d1f4df] text-[#1e6138] border-[#48C0A3] shadow-[0_4px_0_0_#34A879] -translate-y-1' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'}`}>一般詞彙</button>
+  </div>
+  <button type="button" onClick={() => setEditingChunk({...editingChunk, isGrammar: !editingChunk.isGrammar})} className={`w-full py-4 rounded-2xl font-black text-lg transition-all duration-200 border-2 flex items-center justify-center gap-2 mb-4 ${editingChunk.isGrammar ? 'bg-[#ffe4e1] text-[#c92a2a] border-[#F07167] shadow-[0_4px_0_0_#e03131] -translate-y-1' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100 border-dashed'}`}><span className="text-xl">{editingChunk.isGrammar ? '✓' : '＋'}</span> 語法標記</button>
+  <button type="button" onClick={() => setEditingChunk({...editingChunk, type: 'normal', isGrammar: false})} className="w-full py-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl font-bold text-base transition-colors flex items-center justify-center gap-2">🗑️ 移除此詞塊的所有標記</button>
+</div>
                     </>
                   ) : (
                     <div className="animate-in fade-in duration-300">
@@ -2330,7 +2333,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
             </table>
           </div>
           <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-2xl p-4 rounded-full shadow-[0_16px_32px_rgba(0,0,0,0.1),inset_0_4px_8px_rgba(255,255,255,1)] border border-slate-200 flex items-center gap-6 z-20 print:hidden relative">
-           <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); onPrev(); }} className="px-10 py-5 text-slate-600 font-black text-xl hover:bg-[#FFF6E9] rounded-[32px] transition-colors relative z-50 cursor-pointer">返回設定</button>
+        <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); setIsGeneratingPreview(false); setCurrentStep(3); }} className="px-10 py-5 text-slate-600 font-black text-xl hover:bg-[#FFF6E9] rounded-[32px] transition-colors relative z-50 cursor-pointer">返回設定</button>
             <button onClick={handleDownload} className="px-12 py-5 bg-[#FF9B82] text-white rounded-[32px] font-black text-2xl shadow-[0_8px_0_0_#E2755D] hover:translate-y-1 hover:shadow-[0_4px_0_0_#E2755D] active:translate-y-[8px] active:shadow-none transition-all flex items-center gap-3"><Download size={28} strokeWidth={3}/>下載 HTML 教材</button>
           </div>
           
