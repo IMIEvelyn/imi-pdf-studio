@@ -1988,7 +1988,9 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
   {/* 核心課文：多語標記圖例說明 (參考生詞卡邏輯) */}
   <div className="flex items-center gap-6 font-bold text-slate-500 tracking-wider whitespace-nowrap mb-1" style={{ fontSize: `${layoutLegendSize}px` }}>
     <span className="flex items-center gap-1.5">
-      <span className="text-[#FFB020] text-xl leading-none mb-[2px] font-normal">☆</span>
+     <svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="#FFB020" strokeWidth="1" className="mb-[2px]">
+  <path d="M12 2l8.66 5v10L12 22l-8.66-5V7L12 2z" strokeLinejoin="round" />
+</svg>
       {getLegendTranslations(settings.translationLanguage)[0]}
     </span>
     <span className="flex items-center gap-1.5">
@@ -2061,13 +2063,13 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
 
                           <section className="print-section-break">
                        <SectionHeader title={getTranslatedModuleTitle("📝 核心生詞", settings.translationLanguage)} color="#38A385" border="#48C0A3" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize}>
-  <div className="flex items-center gap-4 font-bold text-slate-500 tracking-wider whitespace-nowrap mb-1" style={{ fontSize: `${layoutLegendSize}px` }}>
+  <div className="flex items-center justify-end ml-auto gap-4 font-bold text-slate-500 tracking-wider whitespace-nowrap mb-1 w-full" style={{ fontSize: `${layoutLegendSize}px` }}>
     <span className="flex items-center gap-1.5"><span className="rounded-full shrink-0 shadow-sm" style={{ width: `${layoutLegendSize}px`, height: `${layoutLegendSize}px`, backgroundColor: '#FFCD57', WebkitPrintColorAdjust: 'exact' }}></span>{kwStr}</span>
     <span className="flex items-center gap-1.5"><span className="rounded-full shrink-0 shadow-sm" style={{ width: `${layoutLegendSize}px`, height: `${layoutLegendSize}px`, backgroundColor: '#48C0A3', WebkitPrintColorAdjust: 'exact' }}></span>{vbStr}</span>
     <span className="flex items-center gap-1.5"><span className="rounded-full shrink-0 shadow-sm" style={{ width: `${layoutLegendSize}px`, height: `${layoutLegendSize}px`, backgroundColor: '#7A7387', WebkitPrintColorAdjust: 'exact' }}></span>{grStr}</span>
   </div>
 </SectionHeader>
-<div className="mt-8 grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-8 print:gap-4">
+<div className="mt-8 grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-8 print:gap-4 mx-3">
                               {(data.vocabList || []).map((v, i) => {
                                 const showP = isTypePinyin;
                                 const showZ = isTypeZhuyin;
@@ -2274,7 +2276,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
             <div className="px-6 pt-6 pb-0 rounded-[24px] mt-4 bg-white avoid-break-inside" style={{ border: '2px solid #e2e8f0', WebkitPrintColorAdjust: 'exact' }}>
               <div className="flex items-center gap-3 mb-3">
                 <div className="w-2 h-6 rounded-full" style={{ backgroundColor: '#F07167', WebkitPrintColorAdjust: 'exact' }} />
-                <strong className="text-slate-600 text-lg font-black uppercase tracking-widest">💡 語法/詞彙說明</strong>
+                <strong className="text-slate-600 text-lg font-black uppercase tracking-widest">💡 {rule.theme}</strong>
               </div>
 
               {/* 雙軌模式 1：中文說明 */}
@@ -2514,7 +2516,7 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
                 {/* 方案 D：行內跟隨標籤 (避讓注音與拼音版) */}
 {showTag && wordType === 'keyword' && (
   <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '0.75em', height: '0.75em', verticalAlign: 'top', marginLeft: '2px', position: 'relative' }}>
-    <svg width="100%" height="100%" viewBox="0 0 24 24" fill="white" stroke="#FFB020" strokeWidth="1.5" style={{position: 'absolute'}}>
+    <svg width="100%" height="100%" viewBox="0 0 24 24" fill="white" stroke="#FFB020" strokeWidth="1" style={{position: 'absolute'}}>
       <path d="M12 2l8.66 5v10L12 22l-8.66-5V7L12 2z" strokeLinejoin="round" />
     </svg>
     <span style={{ fontSize: '0.45em', fontWeight: '900', color: '#FFB020', zIndex: 1, marginTop: '1px', fontFamily: 'Arial, sans-serif' }}>{vocabNumber}</span>
