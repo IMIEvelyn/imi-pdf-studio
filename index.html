@@ -2525,6 +2525,14 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
     <span style={{ fontSize: '0.5em', fontWeight: '900', color: '#56D0A0', fontFamily: 'Arial, sans-serif' }}>{vocabNumber}</span>
   </div>
 )}
+                  </span>
+                  {showP && <span className="res-py">{py || '\u00A0'}</span>}
+                </span>
+              );
+            })}
+          </span>
+        );
+      }
     function InlineRubyText({ text, settings, vocabList, coreTextChunks, coreGrammar, grammarRules, sentencePinyin, sentenceZhuyin, isCorrection = false, alwaysShowRuby = false, sentenceEditPayload = null }) {
       const onEdit = React.useContext(EditPhoneticContext);
       if (!text) return null;
