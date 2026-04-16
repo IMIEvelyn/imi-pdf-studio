@@ -1973,26 +1973,36 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                           </div>
                         </div>
                          <section> 
-                       <div className="flex flex-wrap items-end justify-between gap-4 w-full">
+                       {/* 核心課文：標題與圖例並排區塊 */}
+<div className="flex flex-wrap items-end justify-between gap-4 w-full border-b-[3px] pb-2 mb-8" style={{ borderColor: '#7A7387', WebkitPrintColorAdjust: 'exact' }}>
   <div className="shrink-0">
-    <SectionHeader title={getTranslatedModuleTitle("📖 核心課文", settings.translationLanguage)} color="#7A7387" border="#7A7387" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize} />
+    <SectionHeader 
+      title={getTranslatedModuleTitle("📖 核心課文", settings.translationLanguage)} 
+      color="#7A7387" 
+      border="none" 
+      layoutSpacing={layoutSpacing} 
+      layoutTitleSize={layoutTitleSize} 
+    />
   </div>
   
-  {/* 核心課文：多重標記圖例說明 */}
-  <div className="flex flex-wrap items-center gap-x-6 gap-y-2 mb-2 px-2 print:mb-0">
-    <div className="flex items-center gap-1.5 text-slate-500 font-bold text-[14px] tracking-wide">
-      <span className="text-[#FFB020] text-xl leading-none mb-[2px] font-normal">☆</span> <span>{getLegendTranslations(settings.translationLanguage)[0]}</span>
-    </div>
-    <div className="flex items-center gap-1.5 text-slate-500 font-bold text-[14px] tracking-wide">
-      <span className="border-[1px] border-[#56D0A0] rounded-full w-3 h-3 inline-block"></span> <span>{getLegendTranslations(settings.translationLanguage)[1]}</span>
-    </div>
-    <div className="flex items-center gap-1.5 text-slate-500 font-bold text-[14px] tracking-wide">
-      <span className="w-5 border-b-[2px] border-dashed border-[#7A7387] inline-block mb-1"></span> <span>{getLegendTranslations(settings.translationLanguage)[2]}</span>
-    </div>
+  {/* 核心課文：多語標記圖例說明 (參考生詞卡邏輯) */}
+  <div className="flex items-center gap-6 font-bold text-slate-500 tracking-wider whitespace-nowrap mb-1" style={{ fontSize: `${layoutLegendSize}px` }}>
+    <span className="flex items-center gap-1.5">
+      <span className="text-[#FFB020] text-xl leading-none mb-[2px] font-normal">☆</span>
+      {getLegendTranslations(settings.translationLanguage)[0]}
+    </span>
+    <span className="flex items-center gap-1.5">
+      <span className="rounded-full shrink-0 border-[1px] border-[#56D0A0] bg-white" style={{ width: '12px', height: '12px' }}></span>
+      {getLegendTranslations(settings.translationLanguage)[1]}
+    </span>
+    <span className="flex items-center gap-1.5">
+      <span className="w-5 border-b-[2px] border-dashed border-[#7A7387] mb-1"></span>
+      {getLegendTranslations(settings.translationLanguage)[2]}
+    </span>
   </div>
 </div>
 
-<div className="mt-8 sentence-block" style={{ fontSize: `${layoutContentSize}px`, lineHeight: '3.8' }}>
+<div className="mt-8 sentence-block mx-3" style={{ fontSize: `${layoutContentSize}px`, lineHeight: '3.8' }}>
                               {(data.coreTextChunks || []).map((chunk, i) => {
                                 const textStr = (chunk.text || '').replace(/ /g, ''); 
                                 const isPunc = chunk.type === 'punctuation' || /^[，。！？；：「」『』、\(\)（）\s"'.?!:;]+$/.test(textStr);
@@ -2038,7 +2048,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
       setEditPayload({ type: 'coreText', id: 'coreText', text: data.coreTextTranslation });
       setTransModalOpen(true);
     }}
-    className="mt-10 p-6 rounded-[24px] text-slate-600 italic font-medium leading-relaxed bg-white avoid-break-inside cursor-pointer hover:bg-slate-50 hover:ring-2 hover:ring-[#56D0A0] transition-all relative group print:hover:ring-0" 
+    className="mt-10 p-6 mx-3 rounded-[24px] text-slate-600 italic font-medium leading-relaxed bg-white avoid-break-inside cursor-pointer hover:bg-slate-50 hover:ring-2 hover:ring-[#56D0A0] transition-all relative group print:hover:ring-0" 
     style={{ border: '2px solid #E4E0EB', WebkitPrintColorAdjust: 'exact', fontSize: `${layoutTransSize}px` }}
     title="點擊修改外語翻譯"
   >
@@ -2106,7 +2116,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                              <SectionHeader title={getTranslatedModuleTitle("📙 核心語法", settings.translationLanguage)} color="#D4A017" border="#FFEE99" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize} />
                               <div className="mt-10 space-y-12">
                                 {(data.coreGrammar || []).map((p, i) => (
-                                 <div key={p.id || `grammar-${i}`} className="px-8 pt-5 pb-0 rounded-[32px] bg-white" style={{ border: '2px solid #E2E8F0', WebkitPrintColorAdjust: 'exact' }}>
+                                 <div key={p.id || `grammar-${i}`} className="px-8 pt-5 pb-0 mx-3 rounded-[32px] bg-white" style={{ border: '2px solid #E2E8F0', WebkitPrintColorAdjust: 'exact' }}>
                                     <h4 className="font-black text-3xl mb-1 leading-tight print-avoid-break-after" style={{ color: '#B8860B' }}>
                                       <InlineRubyText text={p.title} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={p.titlePinyin} sentenceZhuyin={p.titleZhuyin} alwaysShowRuby={true} sentenceEditPayload={{ type: 'grammar_title', id: p.id, text: p.title, pinyin: p.titlePinyin || '', zhuyin: p.titleZhuyin || '' }} />
                                     </h4>
@@ -2204,7 +2214,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                               <SectionHeader title={getTranslatedModuleTitle("💬 情境對話", settings.translationLanguage)} color="#615A6B" border="#7A7387" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize} />
                               <div className="mt-10 space-y-12">
                                 {(data.dialogues || []).map((d, i) => (
-                                  <div key={d.id || `dialogue-${i}`} className="px-10 pt-5 pb-0 rounded-[40px] bg-white" style={{ border: '2px solid #E4E0EB', borderBottom: '6px solid #7A7387', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                                  <div key={d.id || `dialogue-${i}`} className="px-10 pt-5 pb-0 mx-3 rounded-[40px] bg-white" style={{ border: '2px solid #E4E0EB', borderBottom: '6px solid #7A7387', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
                                     <h4 className="font-black text-2xl mb-8 inline-block px-8 py-3 rounded-full shadow-sm print-avoid-break-after" style={{ backgroundColor: '#ffffff', color: '#615A6B', border: '1px solid #E4E0EB', WebkitPrintColorAdjust: 'exact' }}>{d.title}</h4>
                                    <div className="-space-y-6">
                                       {(d.lines || []).map((l, j) => (
@@ -2246,7 +2256,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
     />
     <div className="mt-10 space-y-10">
       {(data.grammarRules || []).map((rule, i) => (
-       <div key={rule.id || `rule-${i}`} className="bg-white rounded-[32px] px-8 pt-8 pb-3 shadow-sm print-break-inside-avoid" style={{ border: '2px solid #e2e8f0', borderBottom: '6px solid #e2e8f0', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+       <div key={rule.id || `rule-${i}`} className="bg-white rounded-[32px] px-8 pt-8 pb-3 mx-3 shadow-sm print-break-inside-avoid" style={{ border: '2px solid #e2e8f0', borderBottom: '6px solid #e2e8f0', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
           <div className="space-y-6 mt-1">
             <h4 className="text-2xl font-black mb-1 flex items-center gap-3 print-avoid-break-after" style={{ color: '#D95A50' }}>
               <AlertCircle size={30}/>{rule.theme || "偏誤分析"}
@@ -2502,27 +2512,19 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
                   {showZ && zy && <ZhuyinBlock syllable={zy} />}
                   
                 {/* 方案 D：行內跟隨標籤 (避讓注音與拼音版) */}
-                  {showTag && wordType === 'keyword' && (
-                    <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '0.75em', height: '0.75em', verticalAlign: 'top', marginLeft: '2px', position: 'relative' }}>
-                      <svg width="100%" height="100%" viewBox="0 0 24 24" fill="white" stroke="#FFB020" strokeWidth="1.5" style={{position: 'absolute'}}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                      <span style={{ fontSize: '0.45em', fontWeight: '900', color: '#FFB020', zIndex: 1, marginTop: '1px', fontFamily: 'Arial, sans-serif' }}>{vocabNumber}</span>
-                    </div>
-                  )}
-                  {showTag && wordType === 'vocab' && (
-                    <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '0.7em', height: '0.7em', borderRadius: '50%', border: '1px solid #56D0A0', backgroundColor: 'white', verticalAlign: 'top', marginLeft: '2px', position: 'relative' }}>
-                      <span style={{ fontSize: '0.5em', fontWeight: '900', color: '#56D0A0', fontFamily: 'Arial, sans-serif' }}>{vocabNumber}</span>
-                    </div>
-                  )}
-
-                </span>
-                {showP && <span className="res-py">{py || '\u00A0'}</span>}
-              </span>
-            );
-          })}
-        </span>
-      );
-    }
-
+{showTag && wordType === 'keyword' && (
+  <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '0.75em', height: '0.75em', verticalAlign: 'top', marginLeft: '2px', position: 'relative' }}>
+    <svg width="100%" height="100%" viewBox="0 0 24 24" fill="white" stroke="#FFB020" strokeWidth="1.5" style={{position: 'absolute'}}>
+      <path d="M12 2l8.66 5v10L12 22l-8.66-5V7L12 2z" strokeLinejoin="round" />
+    </svg>
+    <span style={{ fontSize: '0.45em', fontWeight: '900', color: '#FFB020', zIndex: 1, marginTop: '1px', fontFamily: 'Arial, sans-serif' }}>{vocabNumber}</span>
+  </div>
+)}
+{showTag && wordType === 'vocab' && (
+  <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '0.7em', height: '0.7em', borderRadius: '50%', border: '1px solid #56D0A0', backgroundColor: 'white', verticalAlign: 'top', marginLeft: '2px', position: 'relative' }}>
+    <span style={{ fontSize: '0.5em', fontWeight: '900', color: '#56D0A0', fontFamily: 'Arial, sans-serif' }}>{vocabNumber}</span>
+  </div>
+)}
     function InlineRubyText({ text, settings, vocabList, coreTextChunks, coreGrammar, grammarRules, sentencePinyin, sentenceZhuyin, isCorrection = false, alwaysShowRuby = false, sentenceEditPayload = null }) {
       const onEdit = React.useContext(EditPhoneticContext);
       if (!text) return null;
