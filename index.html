@@ -462,7 +462,13 @@
             coreTextTranslation: responseData.coreTextTranslation || '',
             vocabList: (parsedData.vocabList || []).map((v, i) => {
               const aiV = (responseData.vocabList || []).find(av => av.id === v.id) || (responseData.vocabList || [])[i] || {};
-              return { ...v, pinyin: aiV.pinyin || v.pinyin || '', zhuyin: aiV.zhuyin || v.zhuyin || '', translation: aiV.translation || v.translation || '', posTranslation: aiV.posTranslation || v.posTranslation || '' };
+             return { 
+                ...v, 
+                pinyin: aiV.pinyin || v.pinyin || '', 
+                zhuyin: aiV.zhuyin || v.zhuyin || '', 
+                translation: aiV.translation || v.translation || '',
+                posTranslation: aiV.posTranslation || v.posTranslation || ''
+              };
             }),
             dialogues: (parsedData.dialogues || []).map((d, i) => {
               const aiD = (responseData.dialogues || []).find(ad => ad.id === d.id) || (responseData.dialogues || [])[i] || {};
@@ -933,11 +939,14 @@
                    className={`p-6 ${cardBg} rounded-[24px] relative group cursor-pointer shadow-[0_6px_0_0_#F0E5D8] border-2 ${cardBorder} hover:translate-y-[2px] ${cardShadowHover} ${cardBorderHover} transition-all`}>
                 <button onClick={(e) => {
                   e.stopPropagation();
-                  const newList = data.vocabList.filter(item => item.id !== v.id);
-                  const newChunks = autoLink(data.coreTextChunks, newList, data.coreGrammar, data.grammarRules);
+                 const newList = data.vocabList.filter(item => item.id !== v.id);
+                  const cleanedChunks = (data.coreTextChunks || []).map(c => 
+                    c.text === v.word ? { ...c, type: 'normal', isGrammar: false } : c
+                  );
+                  const newChunks = autoLink(cleanedChunks, newList, data.coreGrammar, data.grammarRules);
                   setData({ ...data, vocabList: newList, coreTextChunks: newChunks });
                 }} className="absolute top-6 right-6 text-slate-300 hover:text-rose-500 bg-white/50 p-2 rounded-full hover:bg-rose-50 transition-colors"><Trash2 size={20} strokeWidth={2.5}/></button>
-                <div className="flex items-center gap-5 mb-1"><span className={`${circleBg} text-white w-12 h-12 rounded-full flex items-center justify-center font-black text-xl shadow-inner`}>{idx + 1}</span><div className="flex-1"><span className="font-black text-3xl text-slate-800">{v.word}</span><span className={`text-sm ${posBg} ${posText} px-4 py-1.5 rounded-full font-bold ml-4 uppercase`}>{v.pos}</span></div></div>
+                <div className="flex items-center gap-5 mb-1"><span className={`${circleBg} text-white w-12 h-12 rounded-full flex items-center justify-center font-black text-xl shadow-inner`}>{idx + 1}</span><div className="flex-1"><span className="font-black text-3xl text-slate-800">{v.word}</span><span className={`text-sm ${posBg} ${posText} px-4 py-1.5 rounded-full font-bold ml-4 uppercase`}>{v.posTranslation || v.pos}</span></div></div>
               </div>
             );
           })}</div>
@@ -2497,7 +2506,7 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
       let zyIdx = 0;
       const isEditable = !!(editPayload && onEdit);
       
-      const hasHighlight = !!highlightStyle?.borderBottom;
+      const hasHighlight = !!(highlightStyle?.color || highlightStyle?.borderBottom);
 
       return (
         <span 
@@ -2522,12 +2531,12 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
               zyIdx++;
             }
 
-            const charHighlightStyle = hasHighlight ? {
-               borderBottom: highlightStyle.borderBottom,
-               color: highlightStyle.color,
-               fontWeight: highlightStyle.fontWeight,
-               paddingBottom: '0px'
-            } : {};
+           const charHighlightStyle = hasHighlight ? {
+                    borderBottom: highlightStyle.borderBottom,
+                    color: highlightStyle.color,
+                    fontWeight: highlightStyle.fontWeight,
+                    paddingBottom: '2px'
+                } : {};
 
           if (!isHz) {
               // 黃金比例 2.1：保持標點符號原尺寸，左側推開 5% 建立聲調防護區，右側強壓 45% 消除多餘留白
