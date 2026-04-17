@@ -122,14 +122,32 @@
           if (isPunc) return { ...chunk, type: 'punctuation' };
           
           const vocabMatch = (vocabList || []).find(v => v.word === text);
-          const grammarMatch = (coreGrammar || []).find(g => g.title === text);
-          const ruleMatch = (grammarRules || []).find(r => r.theme === text);
-          
-          if (grammarMatch || ruleMatch) return { ...chunk, type: 'grammar' };
-          if (vocabMatch) return { ...chunk, type: vocabMatch.type || 'vocab' };
-          
-          const validTypes = ['keyword', 'vocab', 'grammar'];
-          return { ...chunk, type: validTypes.includes(chunk.type) ? chunk.type : 'normal' };
+        const grammarMatch = (coreGrammar || []).find(g => g.title === text);
+        const ruleMatch = (grammarRules || []).find(r => r.theme === text);
+
+        let newType = chunk.type || 'normal';
+        let newIsGrammar = chunk.isGrammar || false;
+
+        if (vocabMatch) {
+            newType = vocabMatch.type || 'vocab';
+            if (vocabMatch.isGrammar !== undefined) {
+                newIsGrammar = vocabMatch.isGrammar;
+            }
+        }
+
+        if (grammarMatch || ruleMatch) {
+            newIsGrammar = true;
+            if (newType !== 'keyword' && newType !== 'vocab') {
+                newType = 'grammar';
+            }
+        }
+
+        const validTypes = ['keyword', 'vocab', 'grammar', 'punctuation'];
+        if (!validTypes.includes(newType) && !newIsGrammar) {
+            newType = 'normal';
+        }
+
+        return { ...chunk, type: newType, isGrammar: newIsGrammar };
         });
       };
 
@@ -2038,10 +2056,18 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                                 const showP = shouldShow && isTypePinyin; 
                                 const showZ = shouldShow && isTypeZhuyin;
                                 
-                               const highlightStyle = chunk.type === 'keyword' ? { color: '#B8860B', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' }
-                                              : chunk.type === 'vocab' ? { color: '#1B6B47', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' }
-                                              : chunk.type === 'grammar' ? { borderBottom: '4px dashed #7A7387', color: '#5C5666', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' }
-                                              : {};
+                              let highlightStyle = {};
+                                if (chunk.type === 'keyword') {
+                                    highlightStyle = { color: '#B8860B', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' };
+                                } else if (chunk.type === 'vocab') {
+                                    highlightStyle = { color: '#1B6B47', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' };
+                                } else if (chunk.type === 'grammar' || chunk.isGrammar) {
+                                    highlightStyle = { color: '#5C5666', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' };
+                                }
+
+                                if (chunk.isGrammar || chunk.type === 'grammar') {
+                                    highlightStyle = { ...highlightStyle, borderBottom: '4px dashed #7A7387' };
+                                }
 
                                 const editPayload = { type: 'chunk', id: chunk.id, text: textStr, pinyin: finalPinyin, zhuyin: finalZhuyin };
                                 
