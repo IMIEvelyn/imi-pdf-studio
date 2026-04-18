@@ -2167,7 +2167,28 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
 
                           {(data.coreGrammar || []).length > 0 && (
                             <section className="print-section-break">
-                             <SectionHeader title={getTranslatedModuleTitle("📙 核心語法", settings.translationLanguage)} color="#D4A017" border="#FFEE99" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize} />
+                              <div className="flex flex-wrap items-end justify-between gap-4 w-full border-b-[3px] pb-2 mb-8" style={{ borderColor: '#FFEE99', WebkitPrintColorAdjust: 'exact' }}>
+            <div className="shrink-0">
+              <SectionHeader title={getTranslatedModuleTitle("📙 核心語法", settings.translationLanguage)} color="#D4A017" border="none" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize} />
+            </div>
+            {/* 模組專屬：多語標記圖例說明 */}
+            <div className="flex items-center gap-6 font-bold text-slate-500 tracking-wider whitespace-nowrap mb-1" style={{ fontSize: `${layoutLegendSize}px` }}>
+              <span className="flex items-center gap-1.5">
+                <svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="#FFB020" strokeWidth="1" className="mb-[2px]">
+                  <path d="M12 2l8.66 5v10L12 22l-8.66-5V7L12 2z" strokeLinejoin="round" />
+                </svg>
+                {getLegendTranslations(settings.translationLanguage)[0]}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="rounded-full shrink-0 border-[1px] border-[#56D0A0] bg-white" style={{ width: '12px', height: '12px' }}></span>
+                {getLegendTranslations(settings.translationLanguage)[1]}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-5 border-b-[2px] border-dashed border-[#7A7387] mb-1"></span>
+                {getLegendTranslations(settings.translationLanguage)[2]}
+              </span>
+            </div>
+          </div>
                               <div className="mt-10 space-y-12">
                                 {(data.coreGrammar || []).map((p, i) => (
                                  <div key={p.id || `grammar-${i}`} className="px-8 pt-5 pb-0 mx-3 rounded-[32px] bg-white" style={{ border: '2px solid #E2E8F0', WebkitPrintColorAdjust: 'exact' }}>
@@ -2265,7 +2286,28 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
 
                           {(data.dialogues || []).length > 0 && (
                             <section className="print-section-break">
-                              <SectionHeader title={getTranslatedModuleTitle("💬 情境對話", settings.translationLanguage)} color="#615A6B" border="#7A7387" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize} />
+                             <div className="flex flex-wrap items-end justify-between gap-4 w-full border-b-[3px] pb-2 mb-8" style={{ borderColor: '#7A7387', WebkitPrintColorAdjust: 'exact' }}>
+            <div className="shrink-0">
+              <SectionHeader title={getTranslatedModuleTitle("💬 情境對話", settings.translationLanguage)} color="#615A6B" border="none" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize} />
+            </div>
+            {/* 模組專屬：多語標記圖例說明 */}
+            <div className="flex items-center gap-6 font-bold text-slate-500 tracking-wider whitespace-nowrap mb-1" style={{ fontSize: `${layoutLegendSize}px` }}>
+              <span className="flex items-center gap-1.5">
+                <svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="#FFB020" strokeWidth="1" className="mb-[2px]">
+                  <path d="M12 2l8.66 5v10L12 22l-8.66-5V7L12 2z" strokeLinejoin="round" />
+                </svg>
+                {getLegendTranslations(settings.translationLanguage)[0]}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="rounded-full shrink-0 border-[1px] border-[#56D0A0] bg-white" style={{ width: '12px', height: '12px' }}></span>
+                {getLegendTranslations(settings.translationLanguage)[1]}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-5 border-b-[2px] border-dashed border-[#7A7387] mb-1"></span>
+                {getLegendTranslations(settings.translationLanguage)[2]}
+              </span>
+            </div>
+          </div>
                               <div className="mt-10 space-y-12">
                                 {(data.dialogues || []).map((d, i) => (
                                   <div key={d.id || `dialogue-${i}`} className="px-10 pt-5 pb-0 mx-3 rounded-[40px] bg-white" style={{ border: '2px solid #E4E0EB', borderBottom: '6px solid #7A7387', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
@@ -2304,10 +2346,28 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
 
 {((data.grammarRules || []).length > 0) && (
   <section className="print-section-break">
-    <SectionHeader 
-      title={getTranslatedModuleTitle("🛠️ 語法診斷室", settings.translationLanguage)} 
-      color="#D95A50" border="#F07167" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize} 
-    />
+   <div className="flex flex-wrap items-end justify-between gap-4 w-full border-b-[3px] pb-2 mb-8" style={{ borderColor: '#F07167', WebkitPrintColorAdjust: 'exact' }}>
+            <div className="shrink-0">
+              <SectionHeader title={getTranslatedModuleTitle("🛠️ 語法診斷室", settings.translationLanguage)} color="#D95A50" border="none" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize} />
+            </div>
+            {/* 模組專屬：多語標記圖例說明 */}
+            <div className="flex items-center gap-6 font-bold text-slate-500 tracking-wider whitespace-nowrap mb-1" style={{ fontSize: `${layoutLegendSize}px` }}>
+              <span className="flex items-center gap-1.5">
+                <svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="#FFB020" strokeWidth="1" className="mb-[2px]">
+                  <path d="M12 2l8.66 5v10L12 22l-8.66-5V7L12 2z" strokeLinejoin="round" />
+                </svg>
+                {getLegendTranslations(settings.translationLanguage)[0]}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="rounded-full shrink-0 border-[1px] border-[#56D0A0] bg-white" style={{ width: '12px', height: '12px' }}></span>
+                {getLegendTranslations(settings.translationLanguage)[1]}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="w-5 border-b-[2px] border-dashed border-[#7A7387] mb-1"></span>
+                {getLegendTranslations(settings.translationLanguage)[2]}
+              </span>
+            </div>
+          </div>
     <div className="mt-10 space-y-10">
       {(data.grammarRules || []).map((rule, i) => (
        <div key={rule.id || `rule-${i}`} className="bg-white rounded-[32px] px-8 pt-8 pb-3 mx-3 shadow-sm print-break-inside-avoid" style={{ border: '2px solid #e2e8f0', borderBottom: '6px solid #e2e8f0', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
@@ -2685,13 +2745,12 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
           
           const wType = getWordType(part);
           if (wType === 'keyword') {
-              highlightStyle = { borderBottom: '4px solid #FFCD57', color: '#B8860B', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' };
+            highlightStyle = { color: '#B8860B', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' };
           } else if (wType === 'grammar') {
-              highlightStyle = { borderBottom: '4px dashed #7A7387', color: '#5C5666', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' };
+            highlightStyle = { borderBottom: '4px dashed #7A7387', color: '#5C5666', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' };
           } else {
-              highlightStyle = { borderBottom: '4px solid #56D0A0', color: '#1B6B47', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' };
+            highlightStyle = { color: '#1B6B47', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' };
           }
-        } else {
           if (effectiveScope === 'full_text') {
             showP = isTypePinyin;
             showZ = isTypeZhuyin;
