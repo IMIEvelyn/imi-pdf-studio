@@ -2761,7 +2761,12 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
 
        // 判斷是否為標點符號，給予向左靠攏的負邊距磁力
             const isPunc = /^[。，、！？；：”’）\]]+$/.test(part);
-            const block = <WordBlock key={i} text={part} pinyinStr={pyForBlock} zhuyinStr={zyForBlock} showP={showP} showZ={showZ} highlightStyle={highlightStyle} editPayload={editPayload} />;
+          let vocabNum = null;
+            if (wType === 'keyword' || wType === 'vocab') {
+              const vIdx = (vocabList || []).findIndex(v => v.word === part);
+              if (vIdx !== -1) vocabNum = vIdx + 1;
+            }
+            const block = <WordBlock key={i} text={part} pinyinStr={pyForBlock} zhuyinStr={zyForBlock} showP={showP} showZ={showZ} highlightStyle={highlightStyle} editPayload={editPayload} wordType={wType} vocabNumber={vocabNum} />;
             return isPunc ? <span key={i} className="-ml-1.5 inline-block">{block}</span> : block;
       });
 
