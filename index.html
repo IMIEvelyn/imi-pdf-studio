@@ -2627,18 +2627,18 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
                   
                 {/* 方案 D：行內跟隨標籤 (避讓注音與拼音版) */}
 {showTag && wordType === 'keyword' && (
-  <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '0.75em', height: '0.75em', verticalAlign: 'top', marginLeft: '2px', position: 'relative' }}>
-    <svg width="100%" height="100%" viewBox="0 0 24 24" fill="white" stroke="#FFB020" strokeWidth="1" style={{position: 'absolute'}}>
-      <path d="M12 2l8.66 5v10L12 22l-8.66-5V7L12 2z" strokeLinejoin="round" />
-    </svg>
-    <span style={{ fontSize: '0.45em', fontWeight: '900', color: '#FFB020', zIndex: 1, marginTop: '1px', fontFamily: 'Arial, sans-serif' }}>{vocabNumber}</span>
-  </div>
-)}
-{showTag && wordType === 'vocab' && (
-  <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '0.7em', height: '0.7em', borderRadius: '50%', border: '1px solid #56D0A0', backgroundColor: 'white', verticalAlign: 'top', marginLeft: '2px', position: 'relative' }}>
-    <span style={{ fontSize: '0.5em', fontWeight: '900', color: '#56D0A0', fontFamily: 'Arial, sans-serif' }}>{vocabNumber}</span>
-  </div>
-)}
+        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '0.75em', height: '0.75em', verticalAlign: 'top', marginLeft: '2px', position: 'relative', flexShrink: 0 }}>
+          <svg width="100%" height="100%" viewBox="0 0 24 24" fill="white" stroke="#FFB020" strokeWidth="1" style={{position: 'absolute'}}>
+            <path d="M12 2l8.66 5v10L12 22l-8.66-5V7L12 2z" strokeLinejoin="round" />
+          </svg>
+          <span style={{ fontSize: '0.45em', fontWeight: '900', color: '#FFB020', zIndex: 1, marginTop: '1px', fontFamily: 'Arial, sans-serif' }}>{vocabNumber}</span>
+        </div>
+      )}
+      {showTag && wordType === 'vocab' && (
+        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '0.7em', height: '0.7em', borderRadius: '50%', border: '1px solid #56D0A0', backgroundColor: 'white', verticalAlign: 'top', marginLeft: '2px', position: 'relative', flexShrink: 0 }}>
+          <span style={{ fontSize: '0.5em', fontWeight: '900', color: '#56D0A0', fontFamily: 'Arial, sans-serif' }}>{vocabNumber}</span>
+        </div>
+      )}
                   </span>
                   {showP && <span className="res-py">{py || '\u00A0'}</span>}
                 </span>
@@ -2743,13 +2743,26 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
                 editPayload = null;
               }
           
-          const wType = getWordType(part);
-          if (wType === 'keyword') {
+        const vMatch = (vocabList || []).find(v => v.word === part);
+          const isGrammarPoint = (coreGrammar && coreGrammar.some(g => g.title === part)) || (grammarRules && grammarRules.some(r => r.theme === part));
+
+          let baseType = 'vocab';
+          if (vMatch) {
+            baseType = vMatch.type || 'vocab';
+          } else if (isGrammarPoint) {
+            baseType = 'grammar';
+          }
+
+          if (baseType === 'keyword') {
             highlightStyle = { color: '#B8860B', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' };
-          } else if (wType === 'grammar') {
-            highlightStyle = { borderBottom: '4px dashed #7A7387', color: '#5C5666', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' };
+          } else if (baseType === 'grammar') {
+            highlightStyle = { color: '#5C5666', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' };
           } else {
             highlightStyle = { color: '#1B6B47', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' };
+          }
+
+          if (isGrammarPoint) {
+            highlightStyle = { ...highlightStyle, borderBottom: '4px dashed #7A7387' };
           }
           if (effectiveScope === 'full_text') {
             showP = isTypePinyin;
@@ -2761,13 +2774,23 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
 
        // 判斷是否為標點符號，給予向左靠攏的負邊距磁力
             const isPunc = /^[。，、！？；：”’）\]]+$/.test(part);
-        const currentWType = getWordType(part);
+       const vMatchForBlock = (vocabList || []).find(v => v.word === part);
+            const isGrammarForBlock = (coreGrammar && coreGrammar.some(g => g.title === part)) || (grammarRules && grammarRules.some(r => r.theme === part));
+
+            let displayWType = 'vocab';
+            if (vMatchForBlock) {
+              displayWType = vMatchForBlock.type || 'vocab';
+            } else if (isGrammarForBlock) {
+              displayWType = 'grammar';
+            }
+
             let vocabNum = null;
-            if (currentWType === 'keyword' || currentWType === 'vocab') {
+            if (vMatchForBlock) {
               const vIdx = (vocabList || []).findIndex(v => v.word === part);
               if (vIdx !== -1) vocabNum = vIdx + 1;
             }
-            const block = <WordBlock key={i} text={part} pinyinStr={pyForBlock} zhuyinStr={zyForBlock} showP={showP} showZ={showZ} highlightStyle={highlightStyle} editPayload={editPayload} wordType={currentWType} vocabNumber={vocabNum} />;
+
+            const block = <WordBlock key={i} text={part} pinyinStr={pyForBlock} zhuyinStr={zyForBlock} showP={showP} showZ={showZ} highlightStyle={highlightStyle} editPayload={editPayload} wordType={displayWType} vocabNumber={vocabNum} />;
             return isPunc ? <span key={i} className="-ml-1.5 inline-block">{block}</span> : block;
       });
 
