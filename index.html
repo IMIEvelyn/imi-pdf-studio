@@ -2771,8 +2771,9 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
           }
         }
 
-       // 判斷是否為標點符號，給予向左靠攏的負邊距磁力
-          const vMatchForBlock = (vocabList || []).find(v => v.word === part);
+      // 判斷是否為標點符號，給予向左靠攏的負邊距磁力
+            const isPunc = /^[。，、！？；：”’）\]]+$/.test(part);
+            const vMatchForBlock = (vocabList || []).find(v => v.word === part);
             const isGrammarForBlock = (coreGrammar && coreGrammar.some(g => g.title === part)) || (grammarRules && grammarRules.some(r => r.theme === part)) || (vMatchForBlock && vMatchForBlock.isGrammar);
 
             let displayWType = 'vocab';
