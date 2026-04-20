@@ -2625,17 +2625,20 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
                   <span className="hz-font">{char}</span>
                   {showZ && zy && <ZhuyinBlock syllable={zy} />}
                   
-               {showTag && wordType === 'keyword' && (
-        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '0.75em', height: '0.75em', minWidth: '0.75em', minHeight: '0.75em', verticalAlign: 'top', marginLeft: '2px', position: 'relative', flexShrink: 0 }}>
-          <svg width="100%" height="100%" viewBox="0 0 24 24" fill="white" stroke="#FFB020" strokeWidth="1" style={{position: 'absolute'}}>
-            <path d="M12 2l8.66 5v10L12 22l-8.66-5V7L12 2z" strokeLinejoin="round" />
+              {showTag && wordType === 'keyword' && (
+        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '0.75em', height: '0.75em', verticalAlign: 'text-bottom', marginLeft: '2px', position: 'relative', flexShrink: 0 }}>
+          <svg viewBox="0 0 24 24" style={{ width: '100%', height: '100%' }}>
+            <path d="M12 2l8.66 5v10L12 22l-8.66-5V7L12 2z" fill="white" stroke="#FFB020" strokeWidth="1.5" strokeLinejoin="round" />
+            <text x="12" y="12" textAnchor="middle" dominantBaseline="central" fill="#FFB020" fontSize="12" fontWeight="900" fontFamily="Arial, sans-serif">{vocabNumber}</text>
           </svg>
-          <span style={{ fontSize: '0.45em', fontWeight: '900', color: '#FFB020', zIndex: 1, marginTop: '1px', fontFamily: 'Arial, sans-serif' }}>{vocabNumber}</span>
         </div>
       )}
       {showTag && wordType === 'vocab' && (
-        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '0.7em', height: '0.7em', minWidth: '0.7em', minHeight: '0.7em', borderRadius: '50%', border: '1px solid #56D0A0', backgroundColor: 'white', verticalAlign: 'top', marginLeft: '2px', position: 'relative', flexShrink: 0 }}>
-          <span style={{ fontSize: '0.5em', fontWeight: '900', color: '#56D0A0', fontFamily: 'Arial, sans-serif' }}>{vocabNumber}</span>
+        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '0.75em', height: '0.75em', verticalAlign: 'text-bottom', marginLeft: '2px', position: 'relative', flexShrink: 0 }}>
+          <svg viewBox="0 0 24 24" style={{ width: '100%', height: '100%' }}>
+            <circle cx="12" cy="12" r="10.5" fill="white" stroke="#56D0A0" strokeWidth="1.5" />
+            <text x="12" y="12" textAnchor="middle" dominantBaseline="central" fill="#56D0A0" fontSize="13" fontWeight="900" fontFamily="Arial, sans-serif">{vocabNumber}</text>
+          </svg>
         </div>
       )}
                   </span>
