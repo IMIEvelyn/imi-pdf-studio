@@ -845,7 +845,7 @@
           {!isEditingRaw && <div className="bg-[#FFFcf9] p-5 rounded-[24px] border border-orange-50 flex gap-4 items-center shadow-inner"><span className="font-bold text-slate-500">標記顏色：</span><div className="flex gap-3"><span className="px-4 py-1.5 bg-[#ffec99] rounded-xl font-bold text-yellow-900 shadow-sm">重點</span><span className="px-4 py-1.5 bg-[#d1f4df] rounded-xl font-bold text-[#1e6138] shadow-sm">生詞</span><span className="px-4 py-1.5 border-b-4 border-dashed border-[#7A7387] text-[#5C5666] font-bold">語法</span></div></div>}
           <div className="p-8 bg-white border-2 border-orange-50 rounded-[32px] min-h-[300px] text-2xl leading-[2.5] shadow-[inset_0_4px_12px_rgba(0,0,0,0.02)]">
             {isEditingRaw ? <textarea className="w-full h-72 p-6 bg-[#FFFcf9] border-2 border-[#FFAC59] rounded-[24px] outline-none resize-none shadow-inner" value={rawText} onChange={(e) => setRawText(e.target.value)} /> : 
-            <div className="text-2xl leading-[2.8] tracking-wider text-slate-800 font-bold">{(data.coreTextChunks || []).map((chunk) => {
+           <div className="text-2xl leading-[2.8] tracking-wider text-slate-800 font-bold whitespace-pre-wrap">{(data.coreTextChunks || []).map((chunk) => {
               const textStr = (chunk.text || '').replace(/ /g, ''); const isPunc = chunk.type === 'punctuation' || /^[，。！？；：「」『』、\(\)（）\s"'.]+$/.test(textStr);
               if (isPunc) return <span key={chunk.id} className="text-slate-500 px-0 mx-0 inline leading-normal">{textStr}</span>;
               
@@ -1909,7 +1909,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
             
           </div>
         </div>
-          <div id="imi-print-area" className="bg-white shadow-[0_8px_0_0_#F0E5D8,0_16px_32px_rgba(0,0,0,0.04)] max-w-4xl mx-auto rounded-[40px] relative print:shadow-none print:border-none print:w-full print:rounded-none" style={{ padding: '0px', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact', '--hz-size': `${layoutContentSize}px` }}>
+      <div id="imi-print-area" className="bg-white shadow-[0_8px_0_0_#F0E5D8,0_16px_32px_rgba(0,0,0,0.04)] w-[210mm] max-w-full mx-auto rounded-[40px] relative print:shadow-none print:border-none print:w-full print:rounded-none" style={{ padding: '0px', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact', '--hz-size': `${layoutContentSize}px` }}>
             
             <div className="eastern-border-layer absolute inset-3 pointer-events-none" style={{ zIndex: 10 }}>
               <div className="absolute top-0 left-[58px] right-[58px] h-[2px] bg-[#A89CC7]" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}></div>
@@ -2048,7 +2048,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
   </div>
 </div>
 
-<div className="mt-8 sentence-block mx-3" style={{ fontSize: `${layoutContentSize}px`, lineHeight: '3.8' }}>
+<div className="mt-8 sentence-block mx-3 whitespace-pre-wrap" style={{ fontSize: `${layoutContentSize}px`, lineHeight: '3.8' }}>
                               {(data.coreTextChunks || []).map((chunk, i) => {
                                 const textStr = (chunk.text || '').replace(/ /g, ''); 
                                 const isPunc = chunk.type === 'punctuation' || /^[，。！？；：「」『』、\(\)（）\s"'.?!:;]+$/.test(textStr);
@@ -2440,7 +2440,10 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
               </tfoot>
             </table>
           </div>
-          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-2xl p-4 rounded-full shadow-[0_16px_32px_rgba(0,0,0,0.1),inset_0_4px_8px_rgba(255,255,255,1)] border border-slate-200 flex items-center gap-6 z-20 print:hidden relative">
+         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-2xl p-4 rounded-full shadow-[0_16px_32px_rgba(0,0,0,0.1),inset_0_4px_8px_rgba(255,255,255,1)] border border-slate-200 flex items-center gap-6 z-20 print:hidden relative">
+            <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (onPrev) onPrev(); }} className="px-10 py-5 text-slate-600 font-black text-xl hover:bg-[#FFF6E9] rounded-[32px] transition-colors relative z-50 cursor-pointer">返回設定</button>
+            <button onClick={() => window.print()} className="px-12 py-5 bg-[#FF9B82] text-white rounded-[32px] font-black text-2xl shadow-[0_8px_0_0_#E2755D] hover:translate-y-1 hover:shadow-[0_4px_0_0_#E2755D] active:translate-y-[8px] active:shadow-none transition-all flex items-center gap-3"><Download size={28} strokeWidth={3}/>列印 / 下載 PDF</button>
+          </div>
        <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (onPrev) onPrev(); }} className="px-10 py-5 text-slate-600 font-black text-xl hover:bg-[#FFF6E9] rounded-[32px] transition-colors relative z-50 cursor-pointer">返回設定</button>
             <button onClick={handleDownload} className="px-12 py-5 bg-[#FF9B82] text-white rounded-[32px] font-black text-2xl shadow-[0_8px_0_0_#E2755D] hover:translate-y-1 hover:shadow-[0_4px_0_0_#E2755D] active:translate-y-[8px] active:shadow-none transition-all flex items-center gap-3"><Download size={28} strokeWidth={3}/>下載 HTML 教材</button>
           </div>
