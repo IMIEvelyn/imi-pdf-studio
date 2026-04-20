@@ -2006,7 +2006,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                                   </div>
                                 )}
                               </div>
-                             <div className="space-y-2"><h1 className="font-black tracking-tighter" style={{ fontSize: `${layoutTitleSize}px` }}>{settings.themeTitle || '課後複習講義'}</h1></div>
+                           <div className="space-y-2"><h1 className="font-black tracking-tighter" style={{ fontSize: `${Number(layoutTitleSize) + 12}px` }}>{settings.themeTitle || '課後複習講義'}</h1></div>
                             </div>
                             <div className="text-right flex flex-col items-end shrink-0 z-10 relative">
                              <span className="bg-white/20 text-white px-4 py-1.5 rounded-xl font-black text-sm mb-2 tracking-widest border border-white/40 shadow-sm" style={{ WebkitPrintColorAdjust: 'exact' }}>{settings.textLevel}</span>
@@ -2625,8 +2625,8 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
                   <span className="hz-font">{char}</span>
                   {showZ && zy && <ZhuyinBlock syllable={zy} />}
                   
-              {showTag && wordType === 'keyword' && (
-        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '0.75em', height: '0.75em', verticalAlign: 'text-bottom', marginLeft: '2px', position: 'relative', flexShrink: 0 }}>
+             {showTag && wordType === 'keyword' && (
+        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '0.75em', height: '0.75em', verticalAlign: 'top', marginLeft: '2px', marginTop: '-0.15em', position: 'relative', flexShrink: 0 }}>
           <svg viewBox="0 0 24 24" style={{ width: '100%', height: '100%' }}>
             <path d="M12 2l8.66 5v10L12 22l-8.66-5V7L12 2z" fill="white" stroke="#FFB020" strokeWidth="1.5" strokeLinejoin="round" />
             <text x="12" y="12" textAnchor="middle" dominantBaseline="central" fill="#FFB020" fontSize="12" fontWeight="900" fontFamily="Arial, sans-serif">{vocabNumber}</text>
@@ -2634,7 +2634,7 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
         </div>
       )}
       {showTag && wordType === 'vocab' && (
-        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '0.75em', height: '0.75em', verticalAlign: 'text-bottom', marginLeft: '2px', position: 'relative', flexShrink: 0 }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '0.75em', height: '0.75em', verticalAlign: 'top', marginLeft: '2px', marginTop: '-0.15em', position: 'relative', flexShrink: 0 }}>
           <svg viewBox="0 0 24 24" style={{ width: '100%', height: '100%' }}>
             <circle cx="12" cy="12" r="10.5" fill="white" stroke="#56D0A0" strokeWidth="1.5" />
             <text x="12" y="12" textAnchor="middle" dominantBaseline="central" fill="#56D0A0" fontSize="13" fontWeight="900" fontFamily="Arial, sans-serif">{vocabNumber}</text>
