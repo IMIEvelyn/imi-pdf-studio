@@ -183,12 +183,14 @@
           const generateNumId = (i) => Date.now() + Math.floor(Math.random() * 1000000) + i;
 
           if (sec1) {
-               try {
-                   const segmenter = new Intl.Segmenter('zh-TW', { granularity: 'word' });
-                   const segments = Array.from(segmenter.segment(sec1));
-                   result.coreTextChunks = segments.map((seg, i) => ({ id: generateStrId('chunk', i), text: seg.segment, type: 'normal' }));
-               } catch (e) {
-                   result.coreTextChunks = sec1.split(/(?=[，。！？；：「」『』、])/).map((t, i) => ({ id: generateStrId('chunk', i), text: t, type: 'normal' }));
+             try {
+                  const segmenter = new Intl.Segmenter('zh-TW', { granularity: 'word' });
+                  const cleanSec1 = sec1.replace(/^[\s　\n]+/, '');
+                  const segments = Array.from(segmenter.segment(cleanSec1));
+                  result.coreTextChunks = segments.map((seg, i) => ({ id: generateStrId('chunk', i), text: seg.segment, type: 'normal' }));
+              } catch (e) {
+                  const cleanSec1 = sec1.replace(/^[\s　\n]+/, '');
+                  result.coreTextChunks = cleanSec1.split(/(?=[，。！？；：「」『』、])/).map((t, i) => ({ id: generateStrId('chunk', i), text: t, type: 'normal' }));
                }
           }
 
@@ -1979,10 +1981,10 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
               </svg>
             </div>
 
-            <div className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none z-[100] overflow-hidden" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+          <div className="absolute top-0 left-0 right-0 pointer-events-none z-[100] overflow-hidden" style={{ bottom: '-297mm', height: 'round(up, 100%, 297mm)', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
               {Array.from({ length: 30 }).map((_, i) => (
                 <div key={i} className="w-full relative box-border border-b-2 border-dashed border-slate-300 print:border-none" style={{ height: '297mm', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                  <div className="absolute left-0 right-0 text-center font-bold text-sm tracking-widest" style={{ bottom: '28px', color: '#A89CC7', fontFamily: 'ui-sans-serif, system-ui, sans-serif' }}>
+                  <div className="absolute left-0 right-0 text-center font-bold text-sm tracking-widest print:block" style={{ bottom: '28px', color: '#A89CC7', fontFamily: 'ui-sans-serif, system-ui, sans-serif' }}>
                     - {i + 1} -
                   </div>
                 </div>
@@ -2397,12 +2399,12 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                 <strong className="text-slate-600 text-lg font-black uppercase tracking-widest">💡 {rule.theme}</strong>
               </div>
 
-              {/* 雙軌模式 1：中文說明 */}
+             {/* 雙軌模式 1：中文說明 */}
               {settings.explanationMode !== 'foreign_only' && (
                 <div className="text-slate-800 font-bold mb-1 whitespace-pre-wrap sentence-block break-keep cursor-pointer hover:bg-slate-50 transition-all rounded-lg p-1"
                      style={{ lineHeight: '2.2', fontSize: `${layoutContentSize}px` }}
                      onClick={() => { setEditPayload({ type: 'diagnosis_exp', id: rule.id, text: rule.explanation }); setTransModalOpen(true); }}>
-                  <InlineRubyText text={rule.explanation} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} hidePinyin={true} />
+                  <InlineRubyText text={rule.explanation} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={rule.explanationPinyin} sentenceZhuyin={rule.explanationZhuyin} sentenceEditPayload={{ type: 'rule_explanation', id: rule.id, text: rule.explanation, pinyin: rule.explanationPinyin || '', zhuyin: rule.explanationZhuyin || '' }} />
                 </div>
               )}
               {/* 雙軌模式 2：外語翻譯 (還原原始的 ? : 三元判斷結構) */}
@@ -2732,19 +2734,25 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
        if (matchedVocab || matchedGrammar) {
               showP = isTypePinyin;
               showZ = isTypeZhuyin;
-
-              if (matchedVocab) {
+         
+      if (matchedVocab) {
+                // 還原：保留老師原有的例外處理
                 const isException = part === '一' || part === '不';
+                const contextPy = partPyTokens.join(' ').trim();
+                const contextZy = partZyTokens.join(' ').trim();
+
                 if (!isException && matchedVocab.pinyin) {
-                  // 最高權重：直接強制使用核心詞彙的拼音 (不受整句編輯干擾)
-                  pyForBlock = matchedVocab.pinyin;
-                  zyForBlock = matchedVocab.zhuyin || partZyTokens.join(' ');
+                  // 最高權重：引入 AI 情境音優先，解決「得」等字的一字多音霸權
+                  pyForBlock = contextPy || matchedVocab.pinyin;
+                  zyForBlock = contextZy || matchedVocab.zhuyin || '';
                 } else {
-                  // 一般權重：有整句編輯優先，沒有才用詞彙的
-                  pyForBlock = effectiveScope === 'full_text' ? (partPyTokens.join(' ') || matchedVocab.pinyin) : matchedVocab.pinyin;
-                  zyForBlock = effectiveScope === 'full_text' ? (partZyTokens.join(' ') || matchedVocab.zhuyin) : matchedVocab.zhuyin;
+                  // 一般權重：100% 還原老師原本的 effectiveScope 邏輯
+                  pyForBlock = effectiveScope === 'full_text' ? (contextPy || matchedVocab.pinyin) : matchedVocab.pinyin;
+                  zyForBlock = effectiveScope === 'full_text' ? (contextZy || matchedVocab.zhuyin) : matchedVocab.zhuyin;
                 }
                 editPayload = { type: 'vocab', id: matchedVocab.id, text: part, pinyin: matchedVocab.pinyin || '', zhuyin: matchedVocab.zhuyin || '' };
+         
+              
               } else {
                 pyForBlock = partPyTokens.join(' ');
                 zyForBlock = partZyTokens.join(' ');
