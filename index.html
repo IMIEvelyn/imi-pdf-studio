@@ -161,11 +161,16 @@
           const levelMatch = text.match(/TBCL\s*(.+?)\n/i) || text.match(/(TBCL.*?)\n/i);
           if (levelMatch) result.textLevel = levelMatch[1].trim();
 
-          const extractSection = (startMarker, endMarker) => {
+        const extractSection = (startMarker, endMarker) => {
               const start = text.indexOf(startMarker);
               if (start === -1) return '';
               const end = endMarker ? text.indexOf(endMarker, start) : text.length;
-              return text.substring(start + startMarker.length, end !== -1 ? end : text.length).trim();
+              const actualEnd = end !== -1 ? end : text.length;
+              
+              const lineEnd = text.indexOf('\n', start);
+              const actualStart = (lineEnd !== -1 && lineEnd < actualEnd) ? lineEnd + 1 : start + startMarker.length;
+              
+              return text.substring(actualStart, actualEnd).trim();
           };
 
           const sec1 = extractSection('### 1. 核心課文', '### 2.');
@@ -1909,7 +1914,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
             
           </div>
         </div>
-     <div id="imi-print-area" className="bg-white shadow-[0_8px_0_0_#F0E5D8,0_16px_32px_rgba(0,0,0,0.04)] w-[210mm] max-w-full mx-auto rounded-[40px] relative print:shadow-none print:border-none print:w-full print:rounded-none" style={{ padding: '20mm', boxSizing: 'border-box', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact', '--hz-size': `${layoutContentSize}px` }}>
+   <div id="imi-print-area" className="bg-white shadow-[0_8px_0_0_#F0E5D8,0_16px_32px_rgba(0,0,0,0.04)] w-[210mm] max-w-full mx-auto rounded-[40px] relative print:shadow-none print:border-none print:w-full print:rounded-none pb-[60px] print:pb-0" style={{ padding: '8mm', boxSizing: 'border-box', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact', '--hz-size': `${layoutContentSize}px` }}>
             
             <div className="eastern-border-layer absolute inset-3 pointer-events-none" style={{ zIndex: 10 }}>
               <div className="absolute top-0 left-[58px] right-[58px] h-[2px] bg-[#A89CC7]" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}></div>
@@ -1976,7 +1981,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
 
             <div className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none z-[100] overflow-hidden" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
               {Array.from({ length: 30 }).map((_, i) => (
-                <div key={i} className="w-full relative box-border" style={{ height: '100vh', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                <div key={i} className="w-full relative box-border border-b-2 border-dashed border-slate-300 print:border-none" style={{ height: '297mm', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                   <div className="absolute left-0 right-0 text-center font-bold text-sm tracking-widest" style={{ bottom: '28px', color: '#A89CC7', fontFamily: 'ui-sans-serif, system-ui, sans-serif' }}>
                     - {i + 1} -
                   </div>
@@ -2313,7 +2318,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                                 {(data.dialogues || []).map((d, i) => (
                                   <div key={d.id || `dialogue-${i}`} className="px-10 pt-5 pb-0 mx-3 rounded-[40px] bg-white" style={{ border: '2px solid #E4E0EB', borderBottom: '6px solid #7A7387', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
                                     <h4 className="font-black text-2xl mb-8 inline-block px-8 py-3 rounded-full shadow-sm print-avoid-break-after" style={{ backgroundColor: '#ffffff', color: '#615A6B', border: '1px solid #E4E0EB', WebkitPrintColorAdjust: 'exact' }}>{d.title}</h4>
-                                   <div className="-space-y-6">
+                                  <div className="space-y-6">
                                       {(d.lines || []).map((l, j) => (
                                         <div key={l.id || `line-${j}`} className="flex gap-6 avoid-break-inside print-flex-row items-start">
                                           <span className="font-black w-14 shrink-0 text-3xl border-r-4 pt-1" style={{ color: '#7A7387', borderColor: '#D3CDD9' }}>{l.speaker}</span>
