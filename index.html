@@ -1909,7 +1909,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
             
           </div>
         </div>
-      <div id="imi-print-area" className="bg-white shadow-[0_8px_0_0_#F0E5D8,0_16px_32px_rgba(0,0,0,0.04)] w-[210mm] max-w-full mx-auto rounded-[40px] relative print:shadow-none print:border-none print:w-full print:rounded-none" style={{ padding: '0px', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact', '--hz-size': `${layoutContentSize}px` }}>
+     <div id="imi-print-area" className="bg-white shadow-[0_8px_0_0_#F0E5D8,0_16px_32px_rgba(0,0,0,0.04)] w-[210mm] max-w-full mx-auto rounded-[40px] relative print:shadow-none print:border-none print:w-full print:rounded-none" style={{ padding: '20mm', boxSizing: 'border-box', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact', '--hz-size': `${layoutContentSize}px` }}>
             
             <div className="eastern-border-layer absolute inset-3 pointer-events-none" style={{ zIndex: 10 }}>
               <div className="absolute top-0 left-[58px] right-[58px] h-[2px] bg-[#A89CC7]" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}></div>
@@ -2048,12 +2048,13 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
   </div>
 </div>
 
-<div className="mt-8 sentence-block mx-3 whitespace-pre-wrap" style={{ fontSize: `${layoutContentSize}px`, lineHeight: '3.8' }}>
-                              {(data.coreTextChunks || []).map((chunk, i) => {
-                                const textStr = (chunk.text || '').replace(/ /g, ''); 
-                                const isPunc = chunk.type === 'punctuation' || /^[，。！？；：「」『』、\(\)（）\s"'.?!:;]+$/.test(textStr);
-                                
-                                if (isPunc) return <span key={chunk.id || `chunk-${i}`} className="word-container punc-text px-0" style={{ display: 'inline' }}>{'\u2060'}{textStr}</span>;
+              <div className="mt-8 sentence-block mx-3 whitespace-pre-wrap" style={{ fontSize: `${layoutContentSize}px`, lineHeight: '3.8' }}>
+               {(data.coreTextChunks || []).map((chunk, i) => {
+                const textStr = (chunk.text || '').replace(/ /g, ''); 
+                const isPunc = chunk.type === 'punctuation' || /^[，。！？；：「」『』、\(\)（）\s"'.?!:;]+$/.test(textStr);
+                
+                if (textStr.includes('\n')) return <br key={chunk.id || `chunk-${i}`} />;
+                if (isPunc) return <span key={chunk.id || `chunk-${i}`} className="word-container punc-text px-0" style={{ display: 'inline' }}>{'\u2060'}{textStr}</span>;
                                 
                                 const isFullText = settings.phoneticScope === 'full_text';
                                 const isTarget = chunk.type === 'keyword' || chunk.type === 'vocab' || chunk.type === 'grammar';
