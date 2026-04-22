@@ -2055,10 +2055,9 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
   </div>
 </div>
 
-              <div className="mt-8 sentence-block mx-3 whitespace-pre-wrap" style={{ fontSize: `${layoutContentSize}px`, lineHeight: '3.8' }}>
-               {(data.coreTextChunks || []).map((chunk, i) => {
-                const textStr = (chunk.text || '').replace(/ /g, ''); 
-                const isPunc = chunk.type === 'punctuation' || /^[，。！？；：「」『』、\(\)（）\s"'.?!:;]+$/.test(textStr);
+             <div className="mt-8 sentence-block mx-3 whitespace-pre-wrap" style={{ fontSize: `${layoutContentSize}px`, lineHeight: '3.8' }}>{(data.coreTextChunks || []).map((chunk, i) => {
+              const textStr = (chunk.text || '').replace(/[ \xA0　\t\u200B\uFEFF]+/g, '');
+              const isPunc = chunk.type === 'punctuation' || /^[，。！？；：「」『』、\(\)（） \s"'.?!:;]+$/.test(textStr);
                 
                 if (textStr.includes('\n')) return <br key={chunk.id || `chunk-${i}`} />;
                 if (isPunc) return <span key={chunk.id || `chunk-${i}`} className="word-container punc-text px-0" style={{ display: 'inline' }}>{'\u2060'}{textStr}</span>;
@@ -2204,14 +2203,14 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                                       <InlineRubyText text={p.title} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={p.titlePinyin} sentenceZhuyin={p.titleZhuyin} alwaysShowRuby={true} sentenceEditPayload={{ type: 'grammar_title', id: p.id, text: p.title, pinyin: p.titlePinyin || '', zhuyin: p.titleZhuyin || '' }} />
                                     </h4>
                                     {settings.explanationMode !== 'foreign_only' && (
-                                 <div className="text-slate-800 font-bold mb-1 leading-relaxed break-keep cursor-pointer hover:bg-slate-50 transition-all rounded-lg p-1" 
-     style={{ fontSize: `${layoutContentSize}px` }}
-     onClick={() => {
-       setEditPayload({ type: 'grammar_desc', id: p.id, text: p.description });
-       setTransModalOpen(true);
-     }}>
-  <InlineRubyText text={p.description} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={p.descPinyin} sentenceZhuyin={p.descZhuyin} hidePinyin={true} />
-</div>
+                               <div className="text-slate-800 font-bold mb-1 leading-relaxed break-keep cursor-pointer hover:bg-slate-50 transition-all rounded-lg p-1" 
+                   style={{ fontSize: `${layoutContentSize}px` }}
+                   onClick={() => {
+                     setEditPayload({ type: 'grammar_desc', id: p.id, text: p.description });
+                     setTransModalOpen(true);
+                   }}>
+                <InlineRubyText text={p.description} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={p.descPinyin} sentenceZhuyin={p.descZhuyin} sentenceEditPayload={{ type: 'grammar_desc', id: p.id, text: p.description, pinyin: p.descPinyin || '', zhuyin: p.descZhuyin || '' }} hidePinyin={true} />
+              </div>
                                     )}
                                     {settings.translateTargets.coreGrammar && (
   <div className="cursor-pointer hover:bg-slate-50 transition-all rounded-lg p-1 group relative"
@@ -2735,28 +2734,27 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
               showP = isTypePinyin;
               showZ = isTypeZhuyin;
          
-      if (matchedVocab) {
-                // 還原：保留老師原有的例外處理
-                const isException = part === '一' || part === '不';
-                const contextPy = partPyTokens.join(' ').trim();
-                const contextZy = partZyTokens.join(' ').trim();
+     if (matchedVocab) {
+              // 🌟 尊重教學專業：保留老師原創的例外分流處理
+              const isException = part === '一' || part === '不';
+              const contextPy = partPyTokens.join(' ').trim();
+              const contextZy = partZyTokens.join(' ').trim();
 
-                if (!isException && matchedVocab.pinyin) {
-                  // 最高權重：引入 AI 情境音優先，解決「得」等字的一字多音霸權
-                  pyForBlock = contextPy || matchedVocab.pinyin;
-                  zyForBlock = contextZy || matchedVocab.zhuyin || '';
-                } else {
-                  // 一般權重：100% 還原老師原本的 effectiveScope 邏輯
-                  pyForBlock = effectiveScope === 'full_text' ? (contextPy || matchedVocab.pinyin) : matchedVocab.pinyin;
-                  zyForBlock = effectiveScope === 'full_text' ? (contextZy || matchedVocab.zhuyin) : matchedVocab.zhuyin;
-                }
-                editPayload = { type: 'vocab', id: matchedVocab.id, text: part, pinyin: matchedVocab.pinyin || '', zhuyin: matchedVocab.zhuyin || '' };
-         
-              
+              if (!isException && matchedVocab.pinyin) {
+                // 1. 語意型多音字 (如「得」)：強制 AI 情境優先，解決字典霸權與連鎖修改災難
+                pyForBlock = contextPy || matchedVocab.pinyin;
+                zyForBlock = contextZy || matchedVocab.zhuyin || '';
               } else {
-                pyForBlock = partPyTokens.join(' ');
-                zyForBlock = partZyTokens.join(' ');
-                editPayload = null;
+                // 2. 規則型變調 (一、不) 與一般情況：嚴格遵守老師的範圍設定 (effectiveScope)
+                // 若無全文標音 (給進階學生)，則退回生詞卡標準音，完美連動老師在生詞卡上的手動修改！
+                pyForBlock = effectiveScope === 'full_text' ? (contextPy || matchedVocab.pinyin) : matchedVocab.pinyin;
+                zyForBlock = effectiveScope === 'full_text' ? (contextZy || matchedVocab.zhuyin) : matchedVocab.zhuyin;
+              }
+              editPayload = { type: 'vocab', id: matchedVocab.id, text: part, pinyin: matchedVocab.pinyin || '', zhuyin: matchedVocab.zhuyin || '' };
+            } else {
+              pyForBlock = partPyTokens.join(' ');
+              zyForBlock = partZyTokens.join(' ');
+              editPayload = null;
               }
           
        const vMatch = (vocabList || []).find(v => v.word === part);
@@ -2780,13 +2778,13 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
             highlightStyle = { ...highlightStyle, borderBottom: '4px dashed #7A7387' };
           }
          
-          if (effectiveScope === 'full_text') {
-            showP = isTypePinyin;
-            showZ = isTypeZhuyin;
-            pyForBlock = partPyTokens.join(' ');
-            zyForBlock = partZyTokens.join(' ');
+         if (effectiveScope === 'full_text') {
+              showP = isTypePinyin;
+              showZ = isTypeZhuyin;
+              if (!pyForBlock) pyForBlock = partPyTokens.join(' ').trim();
+              if (!zyForBlock) zyForBlock = partZyTokens.join(' ').trim();
+            }
           }
-        }
 
       // 判斷是否為標點符號，給予向左靠攏的負邊距磁力
             const isPunc = /^[。，、！？；：”’）\]]+$/.test(part);
