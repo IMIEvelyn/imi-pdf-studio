@@ -2767,6 +2767,13 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
               zyForBlock = partZyTokens.join(' ');
               editPayload = null;
             }
+          } // 👈 第一刀：在這裡提早關閉 VIP 包廂！
+          else {
+            // 🚨 給一般字詞的救命代碼：讓它們也能拿到 AI 的注音/拼音資料
+            pyForBlock = partPyTokens.join(' ');
+            zyForBlock = partZyTokens.join(' ');
+            editPayload = null;
+          }
           
        const vMatch = (vocabList || []).find(v => v.word === part);
           // 升級：同時檢查該詞彙是否被手動勾選為「語法標記 (isGrammar)」
@@ -2797,7 +2804,7 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
               if (!pyForBlock) pyForBlock = partPyTokens.join(' ').trim();
               if (!zyForBlock) zyForBlock = partZyTokens.join(' ').trim();
             }
-          }
+          
 
       // 判斷是否為標點符號，給予向左靠攏的負邊距磁力
             const isPunc = /^[。，、！？；：”’）\]]+$/.test(part);
