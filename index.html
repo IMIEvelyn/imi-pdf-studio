@@ -2068,13 +2068,12 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                                 
                                 let finalPinyin = chunk.pinyin || '';
                                 let finalZhuyin = chunk.zhuyin || '';
-                                if (isTarget) {
-                                  const matchedVocab = (data.vocabList || []).find(v => v.word === textStr);
-                                  if (matchedVocab) {
-                                    finalPinyin = finalPinyin || matchedVocab.pinyin || '';
-                                    finalZhuyin = finalZhuyin || matchedVocab.zhuyin || '';
-                                  }
-                                }
+                               const matchedVocab = (data.vocabList || []).find(v => v.word === textStr);
+                  if (matchedVocab) {
+                      // 👑 老師在生詞卡的手動修改優先於 AI 靜態記憶
+                        finalPinyin = matchedVocab.pinyin || finalPinyin || '';
+                        finalZhuyin = matchedVocab.zhuyin || finalZhuyin || '';
+                          }
 
                                 const showP = shouldShow && isTypePinyin; 
                                 const showZ = shouldShow && isTypeZhuyin;
@@ -2318,7 +2317,14 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                               <div className="mt-10 space-y-12">
                                 {(data.dialogues || []).map((d, i) => (
                                   <div key={d.id || `dialogue-${i}`} className="px-10 pt-5 pb-0 mx-3 rounded-[40px] bg-white" style={{ border: '2px solid #E4E0EB', borderBottom: '6px solid #7A7387', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-                                    <h4 className="font-black text-2xl mb-8 inline-block px-8 py-3 rounded-full shadow-sm print-avoid-break-after" style={{ backgroundColor: '#ffffff', color: '#615A6B', border: '1px solid #E4E0EB', WebkitPrintColorAdjust: 'exact' }}>{d.title}</h4>
+                                  <h4 className="font-black text-2xl mb-8 inline-block px-8 py-3 rounded-full shadow-sm print-avoid-break-after cursor-pointer hover:bg-slate-50 transition-all group relative" 
+    style={{ backgroundColor: '#ffffff', color: '#615A6B', border: '1px solid #E4E0EB', WebkitPrintColorAdjust: 'exact' }}
+    onClick={() => {
+      setEditPayload({ type: 'dialogue_title', id: d.id || i, text: d.title });
+      setTransModalOpen(true);
+    }}>
+  <InlineRubyText text={d.title} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={d.titlePinyin} sentenceZhuyin={d.titleZhuyin} sentenceEditPayload={{ type: 'dialogue_title', id: d.id || i, text: d.title, pinyin: d.titlePinyin || '', zhuyin: d.titleZhuyin || '' }} />
+</h4>
                                   <div className="space-y-6">
                                       {(d.lines || []).map((l, j) => (
                                         <div key={l.id || `line-${j}`} className="flex gap-6 avoid-break-inside print-flex-row items-start">
@@ -2783,9 +2789,11 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
             highlightStyle = { ...highlightStyle, borderBottom: '4px dashed #7A7387' };
           }
          
-         if (effectiveScope === 'full_text') {
-              showP = isTypePinyin;
-              showZ = isTypeZhuyin;
+        // 👑 絕對強制開關：直接讀取系統最高設定，無視其他干擾變數！
+            const isFullTextMode = settings.phoneticScope === 'full_text' || effectiveScope === 'full_text';
+            if (isFullTextMode) {
+              showP = settings.phoneticType === 'pinyin' || settings.phoneticType === 'zhuyin_pinyin';
+              showZ = settings.phoneticType === 'zhuyin' || settings.phoneticType === 'zhuyin_pinyin';
               if (!pyForBlock) pyForBlock = partPyTokens.join(' ').trim();
               if (!zyForBlock) zyForBlock = partZyTokens.join(' ').trim();
             }
@@ -2796,13 +2804,13 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
             const vMatchForBlock = (vocabList || []).find(v => v.word === part);
             const isGrammarForBlock = (coreGrammar && coreGrammar.some(g => g.title === part)) || (grammarRules && grammarRules.some(r => r.theme === part)) || (vMatchForBlock && vMatchForBlock.isGrammar);
 
-            let displayWType = 'vocab';
+            // 🚨 身分修復：一般字詞必須是 normal，絕不能預設偽裝成 vocab！
+            let displayWType = 'normal'; 
             if (vMatchForBlock) {
               displayWType = vMatchForBlock.type || 'vocab';
             } else if (isGrammarForBlock) {
               displayWType = 'grammar';
             }
-
             let vocabNum = null;
             if (vMatchForBlock) {
               const vIdx = (vocabList || []).findIndex(v => v.word === part);
