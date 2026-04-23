@@ -2262,7 +2262,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                                                   <div key={lidx} className="flex gap-4 print-flex-row items-start">
                                                     {role && <span className="font-black w-auto min-w-[2.5rem] shrink-0 text-xl pt-1" style={{ color: '#D4A017' }}>{role}</span>}
                                                     <span className="text-xl text-slate-800 font-bold flex-1" style={{ lineHeight: '2.6' }}>
-                                                      <InlineRubyText text={content} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={contentPy} sentenceZhuyin={contentZy} sentenceEditPayload={typeof ex === 'object' ? { type: 'grammar_example', parentId: p.id, id: j, text: text, pinyin: ex.pinyin || '', zhuyin: ex.zhuyin || '' } : null} />
+                                                     <InlineRubyText text={content} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={contentPy} sentenceZhuyin={contentZy} sentenceEditPayload={typeof ex === 'object' ? { type: 'grammar_example', parentId: p.id, id: j, text: text, pinyin: ex.pinyin || '', zhuyin: ex.zhuyin || '' } : null} />
                                                     </span>
                                                   </div>
                                                 );
@@ -2275,7 +2275,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                                             <div className="w-3 h-3 rounded-full mt-1 shrink-0 shadow-sm" style={{ backgroundColor: '#FFD700', WebkitPrintColorAdjust: 'exact' }} />
                                             <div className="flex-1 flex flex-col min-w-0">
                                               <span style={{ lineHeight: '2.6' }}>
-                                             <InlineRubyText text={text} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={typeof ex === 'object' ? ex.pinyin : ''} sentenceZhuyin={typeof ex === 'object' ? ex.zhuyin : ''} sentenceEditPayload={typeof ex === 'object' ? { type: 'grammar_example', parentId: p.id, id: j, text: text, pinyin: ex.pinyin || '', zhuyin: ex.zhuyin || '' } : null} />
+                                           <InlineRubyText text={text} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={typeof ex === 'object' ? ex.pinyin : ''} sentenceZhuyin={typeof ex === 'object' ? ex.zhuyin : ''} sentenceEditPayload={typeof ex === 'object' ? { type: 'grammar_example', parentId: p.id, id: j, text: text, pinyin: ex.pinyin || '', zhuyin: ex.zhuyin || '' } : null} />
                                               </span>
                                               {typeof ex === 'object' && settings.translateTargets.coreGrammar && ex.translation && (<span className="text-slate-600 text-base block mt-2 border-l-2 pl-3 font-medium cursor-pointer hover:text-[#56D0A0] transition-colors group relative" style={{ borderColor: '#FFEE99', fontSize: `${layoutTransSize}px` }} onClick={() => { setEditPayload({ type: 'grammar_ex', id: j, parentId: i, text: ex.translation }); setTransModalOpen(true); }}>{ex.translation}<span className="ml-2 opacity-0 group-hover:opacity-100 text-[#56D0A0] text-sm print:hidden">✏️ 編輯</span></span>)}
         </div>
@@ -2384,11 +2384,15 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
             </h4>
            <div className="space-y-4 pb-0">
              <div className="flex items-center justify-between gap-4 pt-[15px] pb-0 px-6 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #FDF1F0', WebkitPrintColorAdjust: 'exact' }}>
-                <RenderMistakePDF rule={rule} text={rule.mistake} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} />
+              <div className="whitespace-pre-wrap flex-1">
+  <RenderMistakePDF rule={rule} text={rule.mistake} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={rule.mistakePinyin} sentenceZhuyin={rule.mistakeZhuyin} />
+</div>
                 <span className="font-black text-4xl px-2 font-sans shrink-0" style={{ color: '#F07167' }}>X</span>
               </div>
              <div className="flex items-center justify-between gap-4 pt-[15px] pb-0 px-6 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #E6F7F2', WebkitPrintColorAdjust: 'exact' }}>
-                <InlineRubyText text={rule.correction} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} isCorrection={true} sentencePinyin={rule.correctionPinyin} sentenceZhuyin={rule.correctionZhuyin} />
+                <div className="whitespace-pre-wrap flex-1">
+  <InlineRubyText text={rule.correction} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} isCorrection={true} sentencePinyin={rule.correctionPinyin} sentenceZhuyin={rule.correctionZhuyin} sentenceEditPayload={{ type: 'grammar_rule', id: rule.id || i, text: rule.correction, pinyin: rule.correctionPinyin || '', zhuyin: rule.correctionZhuyin || '' }} />
+</div>
                 <span className="font-black text-4xl px-2 italic font-serif shrink-0" style={{ color: '#48C0A3' }}>O</span>
               </div>
             </div>
@@ -2734,16 +2738,17 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
               showP = isTypePinyin;
               showZ = isTypeZhuyin;
          
-     if (matchedVocab) {
+    if (matchedVocab) {
               // 🌟 尊重教學專業：保留老師原創的例外分流處理
               const isException = part === '一' || part === '不';
               const contextPy = partPyTokens.join(' ').trim();
               const contextZy = partZyTokens.join(' ').trim();
 
               if (!isException && matchedVocab.pinyin) {
-                // 1. 語意型多音字 (如「得」)：強制 AI 情境優先，解決字典霸權與連鎖修改災難
-                pyForBlock = contextPy || matchedVocab.pinyin;
-                zyForBlock = contextZy || matchedVocab.zhuyin || '';
+                // 【優化點：翻轉權重】將老師把關的詞彙卡 (matchedVocab) 優先於 AI 情境 (context)
+                // 確保老師修改的「差不多 (一聲差)」能 100% 霸權連動，不再被 AI 覆蓋！
+                pyForBlock = matchedVocab.pinyin || contextPy;
+                zyForBlock = matchedVocab.zhuyin || contextZy || '';
               } else {
                 // 2. 規則型變調 (一、不) 與一般情況：嚴格遵守老師的範圍設定 (effectiveScope)
                 // 若無全文標音 (給進階學生)，則退回生詞卡標準音，完美連動老師在生詞卡上的手動修改！
@@ -2755,7 +2760,7 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
               pyForBlock = partPyTokens.join(' ');
               zyForBlock = partZyTokens.join(' ');
               editPayload = null;
-              }
+            }
           
        const vMatch = (vocabList || []).find(v => v.word === part);
           // 升級：同時檢查該詞彙是否被手動勾選為「語法標記 (isGrammar)」
