@@ -1177,6 +1177,13 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
   const [transModalOpen, setTransModalOpen] = React.useState(false);
   const [editPayload, setEditPayload] = React.useState(null); // { type, id, text, parentId }
 
+  // 🌟 [新增] 萬用翻譯編輯器專用狀態
+  const [transModalOpen, setTransModalOpen] = React.useState(false);
+  const [editPayload, setEditPayload] = React.useState(null); // { type, id, text, parentId }
+
+  // 🌟 [新增] 模組化卡片專用狀態：記錄目前顯示哪個模組 (預設顯示核心課文)
+  const [activeModule, setActiveModule] = React.useState('coreText');
+  
   // 🌟 [新增] 儲存翻譯的處理神經
   const handleSaveTranslation = () => {
     if (!editPayload) return;
@@ -1850,72 +1857,90 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                 }
             }
           `}</style>
-{/* === 所見即所得：智慧排版指揮中心 (乾淨俐落摺疊版) === */}
-        <div className="print:hidden bg-slate-50 p-6 rounded-2xl mb-8 border-2 border-slate-200 shadow-sm mt-8 relative z-50">
-          <h4 className="font-black text-slate-800 text-lg flex items-center gap-2 mb-5">
-            <span className="text-emerald-500">🎛️</span> 智慧排版即時控制台
-          </h4>
-          
-          <div className="flex flex-col gap-3">
+{/* === 所見即所得：智慧排版指揮中心 (美感升級 2x2 網格版) === */}
+<div className="print:hidden w-[210mm] max-w-full mx-auto bg-slate-100/50 p-5 rounded-[24px] mb-6 border-2 border-slate-200 shadow-sm mt-8 relative z-50">
+  <h4 className="font-black text-slate-700 text-base flex items-center gap-2 mb-4 px-1">
+    <span className="text-emerald-500">🎛️</span> 版面微調控制台
+  </h4>
+  
+  <div className="grid grid-cols-2 gap-3">
             
-            {/* 1. 標題與圖例 */}
-            <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
-              <button onClick={() => toggleSection('headings')} className={`w-full flex justify-between items-center p-4 font-bold text-slate-700 hover:bg-slate-100 transition-colors ${expandedSection === 'headings' ? 'bg-slate-100' : ''}`}>
-                <span className="flex items-center gap-2"><span>1.</span> 標題與圖例尺寸</span>
-                <span className={`transform transition-transform ${expandedSection === 'headings' ? 'rotate-180' : ''}`}>▼</span>
-              </button>
-              {expandedSection === 'headings' && (
-                <div className="p-5 pt-3 border-t border-slate-200 space-y-4">
-                    <div className="space-y-2">
-                      <label className="flex justify-between text-sm font-bold text-slate-600"><span>大標題字體</span><span className="text-emerald-600">{layoutTitleSize}px</span></label>
-                      <input type="range" min="24" max="48" value={layoutTitleSize} onChange={(e) => setLayoutTitleSize(Number(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-500" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="flex justify-between text-sm font-bold text-slate-600"><span>圖例標記尺寸</span><span className="text-emerald-600">{layoutLegendSize}px</span></label>
-                      <input type="range" min="10" max="24" value={layoutLegendSize} onChange={(e) => setLayoutLegendSize(Number(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-500" />
-                    </div>
-                </div>
-              )}
+           {/* 1. 標題與圖例 */}
+    <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow">
+      <button onClick={() => toggleSection('headings')} className={`w-full flex justify-between items-center p-3.5 font-bold text-slate-700 hover:bg-slate-50 transition-colors text-sm ${expandedSection === 'headings' ? 'bg-slate-50' : ''}`}>
+        <span className="flex items-center gap-2"><span>1.</span> 標題與圖例</span>
+        <span className={`transform transition-transform ${expandedSection === 'headings' ? 'rotate-180' : ''}`}>▼</span>
+      </button>
+      {expandedSection === 'headings' && (
+        <div className="p-4 pt-2 border-t border-slate-100 space-y-3 bg-slate-50/50">
+            <div className="space-y-1.5">
+              <label className="flex justify-between text-xs font-bold text-slate-500"><span>大標題</span><span className="text-emerald-600">{layoutTitleSize}px</span></label>
+              <input type="range" min="24" max="48" value={layoutTitleSize} onChange={(e) => setLayoutTitleSize(Number(e.target.value))} className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-500" />
             </div>
+            <div className="space-y-1.5">
+              <label className="flex justify-between text-xs font-bold text-slate-500"><span>圖例標記</span><span className="text-emerald-600">{layoutLegendSize}px</span></label>
+              <input type="range" min="10" max="24" value={layoutLegendSize} onChange={(e) => setLayoutLegendSize(Number(e.target.value))} className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-emerald-500" />
+            </div>
+        </div>
+      )}
+    </div>
 
-            {/* 2. 內文與翻譯 */}
-            <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
-              <button onClick={() => toggleSection('content')} className={`w-full flex justify-between items-center p-4 font-bold text-slate-700 hover:bg-slate-100 transition-colors ${expandedSection === 'content' ? 'bg-slate-100' : ''}`}>
-                <span className="flex items-center gap-2"><span>2.</span> 內文與翻譯字體</span>
-                <span className={`transform transition-transform ${expandedSection === 'content' ? 'rotate-180' : ''}`}>▼</span>
-              </button>
-              {expandedSection === 'content' && (
-                <div className="p-5 pt-3 border-t border-slate-200 space-y-4">
-                    <div className="space-y-2">
-                      <label className="flex justify-between text-sm font-bold text-slate-600"><span>中文內文字體</span><span className="text-amber-600">{layoutContentSize}px</span></label>
-                      <input type="range" min="18" max="40" value={layoutContentSize} onChange={(e) => setLayoutContentSize(Number(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-amber-500" />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="flex justify-between text-sm font-bold text-slate-600"><span>外文翻譯字體</span><span className="text-amber-600">{layoutTransSize}px</span></label>
-                      <input type="range" min="12" max="24" value={layoutTransSize} onChange={(e) => setLayoutTransSize(Number(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-amber-500" />
-                    </div>
-                </div>
-              )}
+    {/* 2. 內文與翻譯 */}
+    <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow">
+      <button onClick={() => toggleSection('content')} className={`w-full flex justify-between items-center p-3.5 font-bold text-slate-700 hover:bg-slate-50 transition-colors text-sm ${expandedSection === 'content' ? 'bg-slate-50' : ''}`}>
+        <span className="flex items-center gap-2"><span>2.</span> 內文與翻譯</span>
+        <span className={`transform transition-transform ${expandedSection === 'content' ? 'rotate-180' : ''}`}>▼</span>
+      </button>
+      {expandedSection === 'content' && (
+        <div className="p-4 pt-2 border-t border-slate-100 space-y-3 bg-slate-50/50">
+            <div className="space-y-1.5">
+              <label className="flex justify-between text-xs font-bold text-slate-500"><span>中文內文</span><span className="text-amber-600">{layoutContentSize}px</span></label>
+              <input type="range" min="18" max="40" value={layoutContentSize} onChange={(e) => setLayoutContentSize(Number(e.target.value))} className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-amber-500" />
             </div>
+            <div className="space-y-1.5">
+              <label className="flex justify-between text-xs font-bold text-slate-500"><span>外文翻譯</span><span className="text-amber-600">{layoutTransSize}px</span></label>
+              <input type="range" min="12" max="24" value={layoutTransSize} onChange={(e) => setLayoutTransSize(Number(e.target.value))} className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-amber-500" />
+            </div>
+        </div>
+      )}
+    </div>
 
             {/* 3. 呼吸空間 */}
-            <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
-              <button onClick={() => toggleSection('spacings')} className={`w-full flex justify-between items-center p-4 font-bold text-slate-700 hover:bg-slate-100 transition-colors ${expandedSection === 'spacings' ? 'bg-slate-100' : ''}`}>
-                <span className="flex items-center gap-2"><span>3.</span> 單元呼吸空間</span>
-                <span className={`transform transition-transform ${expandedSection === 'spacings' ? 'rotate-180' : ''}`}>▼</span>
-              </button>
-              {expandedSection === 'spacings' && (
-                <div className="p-5 pt-3 border-t border-slate-200 space-y-4">
-                    <div className="space-y-2">
-                      <label className="flex justify-between text-sm font-bold text-slate-600"><span>區塊上下間距</span><span className="text-indigo-500">{layoutSpacing}px</span></label>
-                    <input type="range" min="12" max="80" value={layoutSpacing} onChange={(e) => setLayoutSpacing(Number(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-400" />
-                    </div>
-                </div>
-              )}
+    <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow col-span-2">
+      <button onClick={() => toggleSection('spacings')} className={`w-full flex justify-between items-center p-3.5 font-bold text-slate-700 hover:bg-slate-50 transition-colors text-sm ${expandedSection === 'spacings' ? 'bg-slate-50' : ''}`}>
+        <span className="flex items-center gap-2"><span>3.</span> 單元區塊間距</span>
+        <span className={`transform transition-transform ${expandedSection === 'spacings' ? 'rotate-180' : ''}`}>▼</span>
+      </button>
+      {expandedSection === 'spacings' && (
+        <div className="p-4 pt-2 border-t border-slate-100 space-y-3 bg-slate-50/50">
+            <div className="space-y-1.5">
+              <label className="flex justify-between text-xs font-bold text-slate-500"><span>上下間距</span><span className="text-indigo-500">{layoutSpacing}px</span></label>
+            <input type="range" min="12" max="80" value={layoutSpacing} onChange={(e) => setLayoutSpacing(Number(e.target.value))} className="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-400" />
             </div>
-            
-          </div>
         </div>
+      )}
+    </div>
+  </div>
+</div>
+        {/* 🌟 [新增] 方案 B：螢幕專用模組導覽列 (列印時隱藏) */}
+        <div className="print:hidden w-[210mm] max-w-full mx-auto mb-6 flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
+          {[
+            { id: 'coreText', label: '📖 核心課文', color: 'bg-slate-700', activeBg: 'bg-slate-700 text-white shadow-lg shadow-slate-700/30', inactiveBg: 'bg-white text-slate-500 hover:bg-slate-100 border-2 border-slate-200' },
+            { id: 'vocab', label: '📝 核心生詞', color: 'bg-[#48C0A3]', activeBg: 'bg-[#48C0A3] text-white shadow-lg shadow-[#48C0A3]/30', inactiveBg: 'bg-white text-slate-500 hover:bg-[#EAFBF4] border-2 border-slate-200' },
+            { id: 'coreGrammar', label: '📙 核心語法', color: 'bg-[#D4A017]', activeBg: 'bg-[#D4A017] text-white shadow-lg shadow-[#D4A017]/30', inactiveBg: 'bg-white text-slate-500 hover:bg-[#FFFBEA] border-2 border-slate-200' },
+            { id: 'dialogue', label: '💬 情境對話', color: 'bg-[#615A6B]', activeBg: 'bg-[#615A6B] text-white shadow-lg shadow-[#615A6B]/30', inactiveBg: 'bg-white text-slate-500 hover:bg-[#F3F1F5] border-2 border-slate-200' },
+            { id: 'grammarDiagnose', label: '🛠️ 語法診斷室', color: 'bg-[#D95A50]', activeBg: 'bg-[#D95A50] text-white shadow-lg shadow-[#D95A50]/30', inactiveBg: 'bg-white text-slate-500 hover:bg-[#FFF2F4] border-2 border-slate-200' }
+          ].map(module => (
+            <button
+              key={module.id}
+              onClick={() => setActiveModule(module.id)}
+              className={`whitespace-nowrap px-6 py-3 rounded-2xl font-black text-lg transition-all duration-300 ${activeModule === module.id ? module.activeBg : module.inactiveBg}`}
+            >
+              {module.label}
+            </button>
+          ))}
+        </div>
+
    <div id="imi-print-area" className="bg-white shadow-[0_8px_0_0_#F0E5D8,0_16px_32px_rgba(0,0,0,0.04)] w-[210mm] max-w-full mx-auto rounded-[40px] relative print:shadow-none print:border-none print:w-full print:rounded-none pb-[60px] print:pb-0" style={{ padding: '8mm', boxSizing: 'border-box', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact', '--hz-size': `${layoutContentSize}px` }}>
             
             <div className="eastern-border-layer absolute inset-3 pointer-events-none" style={{ zIndex: 10 }}>
@@ -2023,7 +2048,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                             </div>
                           </div>
                         </div>
-                         <section> 
+                        <section className={`${activeModule === 'coreText' ? 'block' : 'hidden'} print:block`}>
                        {/* 核心課文：標題與圖例並排區塊 */}
 <div className="flex flex-wrap items-end justify-between gap-4 w-full border-b-[3px] pb-2 mb-8" style={{ borderColor: '#7A7387', WebkitPrintColorAdjust: 'exact' }}>
   <div className="shrink-0">
@@ -2119,7 +2144,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
     </section>                       
                           <ModuleDivider />
 
-                          <section className="print-section-break">
+                         <section className={`print-section-break ${activeModule === 'vocab' ? 'block' : 'hidden'} print:block`}>
                        <SectionHeader title={getTranslatedModuleTitle("📝 核心生詞", settings.translationLanguage)} color="#38A385" border="#48C0A3" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize}>
   <div className="flex items-center justify-end ml-auto gap-4 font-bold text-slate-500 tracking-wider whitespace-nowrap mb-1 w-full" style={{ fontSize: `${layoutLegendSize}px` }}>
     <span className="flex items-center gap-1.5"><span className="rounded-full shrink-0 shadow-sm" style={{ width: `${layoutLegendSize}px`, height: `${layoutLegendSize}px`, backgroundColor: '#FFCD57', WebkitPrintColorAdjust: 'exact' }}></span>{kwStr}</span>
@@ -2172,7 +2197,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                           {((data.coreGrammar || []).length > 0) && <ModuleDivider />}
 
                           {(data.coreGrammar || []).length > 0 && (
-                            <section className="print-section-break">
+                         <section className={`print-section-break ${activeModule === 'coreGrammar' ? 'block' : 'hidden'} print:block`}>
                               <div className="flex flex-wrap items-end justify-between gap-4 w-full border-b-[3px] pb-2 mb-8" style={{ borderColor: '#FFEE99', WebkitPrintColorAdjust: 'exact' }}>
             <div className="shrink-0">
               <SectionHeader title={getTranslatedModuleTitle("📙 核心語法", settings.translationLanguage)} color="#D4A017" border="none" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize} />
@@ -2291,7 +2316,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                           {((data.dialogues || []).length > 0) && <ModuleDivider />}
 
                           {(data.dialogues || []).length > 0 && (
-                            <section className="print-section-break">
+                            <section className={`print-section-break ${activeModule === 'dialogue' ? 'block' : 'hidden'} print:block`}>
                              <div className="flex flex-wrap items-end justify-between gap-4 w-full border-b-[3px] pb-2 mb-8" style={{ borderColor: '#7A7387', WebkitPrintColorAdjust: 'exact' }}>
             <div className="shrink-0">
               <SectionHeader title={getTranslatedModuleTitle("💬 情境對話", settings.translationLanguage)} color="#615A6B" border="none" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize} />
@@ -2358,7 +2383,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
 {((data.grammarRules || []).length > 0) && <ModuleDivider />}
 
 {((data.grammarRules || []).length > 0) && (
-  <section className="print-section-break">
+  <section className={`print-section-break ${activeModule === 'grammarDiagnose' ? 'block' : 'hidden'} print:block`}>
    <div className="flex flex-wrap items-end justify-between gap-4 w-full border-b-[3px] pb-2 mb-8" style={{ borderColor: '#F07167', WebkitPrintColorAdjust: 'exact' }}>
             <div className="shrink-0">
               <SectionHeader title={getTranslatedModuleTitle("🛠️ 語法診斷室", settings.translationLanguage)} color="#D95A50" border="none" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize} />
@@ -2535,14 +2560,8 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
     }
 
     function ModuleDivider() {
-      return (
-        <div className="flex items-center justify-center py-12 print-hide-divider">
-          <div className="h-1 w-24 rounded-full" style={{ backgroundColor: '#e2e8f0', WebkitPrintColorAdjust: 'exact' }}></div>
-          <div className="mx-6 text-slate-300 text-2xl">✦</div>
-          <div className="h-1 w-24 rounded-full" style={{ backgroundColor: '#e2e8f0', WebkitPrintColorAdjust: 'exact' }}></div>
-        </div>
-      );
-    }
+  return null; // 方案 B：卡片切換化後，螢幕與列印都不再需要星星分隔線了
+}
 
 function SectionHeader({ title, color, border, children, layoutSpacing, layoutTitleSize }) {
       return (
