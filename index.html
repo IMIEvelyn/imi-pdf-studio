@@ -1177,10 +1177,6 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
   const [transModalOpen, setTransModalOpen] = React.useState(false);
   const [editPayload, setEditPayload] = React.useState(null); // { type, id, text, parentId }
 
-  // 🌟 [新增] 萬用翻譯編輯器專用狀態
-  const [transModalOpen, setTransModalOpen] = React.useState(false);
-  const [editPayload, setEditPayload] = React.useState(null); // { type, id, text, parentId }
-
   // 🌟 [新增] 模組化卡片專用狀態：記錄目前顯示哪個模組 (預設顯示核心課文)
   const [activeModule, setActiveModule] = React.useState('coreText');
   
