@@ -422,13 +422,29 @@
             grammarRules: (parsedData.grammarRules || []).map(r => ({ ...r, mistakePinyin: r.mistakePinyin || "", mistakeZhuyin: r.mistakeZhuyin || "", correctionPinyin: r.correctionPinyin || "", correctionZhuyin: r.correctionZhuyin || "", explanationPinyin: r.explanationPinyin || "", explanationZhuyin: r.explanationZhuyin || "", translation: r.translation || "" }))
           };
 
+          // 🌟 [新增] 動態標音指令：根據老師設定，決定呼叫 AI 生成的標音種類，大幅節省 API Token！
+          let phoneticInstruction = '';
+          if (exportSettings.phoneticType === 'pinyin') {
+            phoneticInstruction = '1. pinyin 與 zhuyin (僅拼音任務)：只要有中文的地方，包含 coreTextChunks, vocabList, dialogues, coreGrammar, grammarRules，請務必將對應的「pinyin」欄位填滿！【極度重要】請直接將所有「zhuyin」欄位設為空字串 ""，禁止生成注音。';
+          } else if (exportSettings.phoneticType === 'zhuyin') {
+            phoneticInstruction = '1. pinyin 與 zhuyin (僅注音任務)：只要有中文的地方，包含 coreTextChunks, vocabList, dialogues, coreGrammar, grammarRules，請務必將對應的「zhuyin」欄位填滿！【極度重要】請直接將所有「pinyin」欄位設為空字串 ""，禁止生成拼音。';
+          } else {
+            phoneticInstruction = '1. pinyin 與 zhuyin (雙軌標音任務)：只要有中文的地方，包含 coreTextChunks, vocabList, dialogues, coreGrammar, grammarRules，請務必將對應的 pinyin 與 zhuyin 欄位填滿！';
+          }
+
           const systemInstruction = `你是一位專業華語出版助手。請負責將以下 JSON 結構中的內容補齊標音與翻譯。
+
+【最高準則：臺灣華語標準 (TBCL & TOCFL)】
+▶ 讀音：請嚴格遵守中華民國教育部《國語辭典》標準（如「垃圾 lèsè」、「和 hàn」）。
+▶ 用詞：嚴禁使用中國大陸慣用語。請絕對使用臺灣在地詞彙（如：軟體、公車、列印）。
+▶ 翻譯：風格請貼近臺灣《新版當代中文課程》等主流教材。
+
 【極度重要任務：強制補齊，禁止留空！】
-1. pinyin 與 zhuyin：只要有中文的地方，包含 coreTextChunks, vocabList, dialogues, coreGrammar, grammarRules，請務必將對應的 pinyin 與 zhuyin 欄位填滿！
+${phoneticInstruction}
 ★ 致命警告：所有 Pinyin 與 Zhuyin 必須「每一個漢字空一格」斷開！略過 <u> 等 HTML 標籤。
 2. translation (翻譯)：請依照設定的語言 ${exportSettings.translationLanguage}，為各模組填寫精確翻譯！
 3. 詞性翻譯 (pos)：請務必將 vocabList 中的中文詞性，根據 ${exportSettings.translationLanguage} 翻譯成該語言的「完整詞性全名」。嚴格禁止使用任何縮寫（如 N, V, Adj），例如：英文必須輸出 Noun, Verb。`;
-          
+      
           const payload = {
             contents: [{ role: "user", parts: [{ text: JSON.stringify(dataToTranslate) }] }],
             systemInstruction: { parts: [{ text: systemInstruction }] },
@@ -1179,6 +1195,9 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
 
   // 🌟 [新增] 模組化卡片專用狀態：記錄目前顯示哪個模組 (預設顯示核心課文)
   const [activeModule, setActiveModule] = React.useState('coreText');
+
+  // 🌟 [新增] 標音顯示覆蓋記憶體：記住老師在中控台點了哪種顯示模式 (預設為 'both')
+  const [phoneticOverride, setPhoneticOverride] = React.useState('both');
   
   // 🌟 [新增] 儲存翻譯的處理神經
   const handleSaveTranslation = () => {
@@ -1588,9 +1607,9 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
         setEditingWord(null);
       };
       
-      const isTypePinyin = settings.phoneticType === 'pinyin' || settings.phoneticType === 'zhuyin_pinyin';
-      const isTypeZhuyin = settings.phoneticType === 'zhuyin' || settings.phoneticType === 'zhuyin_pinyin';
-
+      const isTypePinyin = (settings.phoneticType === 'pinyin' || settings.phoneticType === 'zhuyin_pinyin') && phoneticOverride !== 'zhuyin_only';
+      const isTypeZhuyin = (settings.phoneticType === 'zhuyin' || settings.phoneticType === 'zhuyin_pinyin') && phoneticOverride !== 'pinyin_only';
+      
       const getWordType = (word) => {
         if (data.coreGrammar && data.coreGrammar.some(g => g.title === word)) return 'grammar';
         if (data.grammarRules && data.grammarRules.some(r => r.theme === word)) return 'grammar';
@@ -1902,7 +1921,7 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
     </div>
 
             {/* 3. 呼吸空間 */}
-    <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow col-span-2">
+   <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow">
       <button onClick={() => toggleSection('spacings')} className={`w-full flex justify-between items-center p-3.5 font-bold text-slate-700 hover:bg-slate-50 transition-colors text-sm ${expandedSection === 'spacings' ? 'bg-slate-50' : ''}`}>
         <span className="flex items-center gap-2"><span>3.</span> 單元區塊間距</span>
         <span className={`transform transition-transform ${expandedSection === 'spacings' ? 'rotate-180' : ''}`}>▼</span>
@@ -1916,6 +1935,35 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
         </div>
       )}
     </div>
+{/* 🌟 4. 標音顯示切換 (智慧防呆版) */}
+            <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-sm hover:shadow-md transition-shadow">
+              <button onClick={() => toggleSection('phoneticSwitch')} className={`w-full flex justify-between items-center p-3.5 font-bold text-slate-700 hover:bg-slate-50 transition-colors text-sm ${expandedSection === 'phoneticSwitch' ? 'bg-slate-50' : ''}`}>
+                <span className="flex items-center gap-2"><span>4.</span> 標音顯示切換</span>
+                <span className={`transform transition-transform ${expandedSection === 'phoneticSwitch' ? 'rotate-180' : ''}`}>▼</span>
+              </button>
+              {expandedSection === 'phoneticSwitch' && (
+                <div className="p-3 border-t border-slate-100 bg-slate-50/50">
+                  {settings.phoneticType === 'zhuyin_pinyin' ? (
+                    <div className="flex flex-col gap-2">
+                      <p className="text-[10px] font-bold text-slate-400 px-1">雙軌模式：可切換預覽視圖</p>
+                      <div className="grid grid-cols-1 gap-1.5">
+                        <button onClick={() => setPhoneticOverride('both')} className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${phoneticOverride === 'both' ? 'bg-indigo-500 text-white border-indigo-500 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-indigo-300'}`}>👁️ 完整顯示</button>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          <button onClick={() => setPhoneticOverride('pinyin_only')} className={`px-2 py-2 rounded-xl text-[11px] font-bold transition-all border ${phoneticOverride === 'pinyin_only' ? 'bg-amber-500 text-white border-amber-500 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-amber-300'}`}>🔤 僅拼音</button>
+                          <button onClick={() => setPhoneticOverride('zhuyin_only')} className={`px-2 py-2 rounded-xl text-[11px] font-bold transition-all border ${phoneticOverride === 'zhuyin_only' ? 'bg-emerald-500 text-white border-emerald-500 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300'}`}>ㄅ 僅注音</button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="py-4 px-2 text-center text-xs font-bold text-slate-400 leading-relaxed">
+                      💡 目前為單一標音模式<br/>
+                      <span className="text-[10px] opacity-70 font-medium">如需切換請回設定頁選擇「雙軌」</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+    
   </div>
 </div>
         {/* 🌟 [新增] 方案 B：螢幕專用模組導覽列 (列印時隱藏) */}
@@ -2002,15 +2050,27 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
               </svg>
             </div>
 
-          <div className="absolute top-0 left-0 right-0 pointer-events-none z-[100] overflow-hidden" style={{ bottom: '-297mm', height: 'round(up, 100%, 297mm)', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-              {Array.from({ length: 30 }).map((_, i) => (
-                <div key={i} className="w-full relative box-border border-b-2 border-dashed border-slate-300 print:border-none" style={{ height: '297mm', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                  <div className="absolute left-0 right-0 text-center font-bold text-sm tracking-widest print:block" style={{ bottom: '28px', color: '#A89CC7', fontFamily: 'ui-sans-serif, system-ui, sans-serif' }}>
-                    - {i + 1} -
-                  </div>
-                </div>
-              ))}
-            </div>
+          {/* 🌟 [新增] 螢幕專屬：A4 虛擬分頁輔助比例尺 (解決預覽干擾，列印時自動隱藏) */}
+<div className="absolute top-0 left-0 right-0 pointer-events-none z-[100] overflow-hidden print:hidden" style={{ bottom: '-297mm', height: 'round(up, 100%, 297mm)' }}>
+  {Array.from({ length: 30 }).map((_, i) => (
+    <div key={i} className="w-full relative box-border border-b-2 border-dashed border-slate-300/70" style={{ height: '297mm' }}>
+      <div className="absolute right-4 px-3 py-1 bg-white/90 text-slate-400 text-xs font-bold rounded-t-lg shadow-sm backdrop-blur-sm" style={{ bottom: '0px' }}>
+        ✂️ 第 {i + 1} 頁 參考裁切線
+      </div>
+    </div>
+  ))}
+</div>
+
+{/* ⚠️ 原本的頁碼系統 (完全保留給列印使用，螢幕預覽時隱藏) */}
+<div className="hidden print:block absolute top-0 left-0 right-0 pointer-events-none z-[100] overflow-hidden" style={{ bottom: '-297mm', height: 'round(up, 100%, 297mm)', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+  {Array.from({ length: 30 }).map((_, i) => (
+    <div key={i} className="w-full relative box-border border-b-2 border-dashed border-slate-300 print:border-none" style={{ height: '297mm', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+      <div className="absolute left-0 right-0 text-center font-bold text-sm tracking-widest print:block" style={{ bottom: '28px', color: '#A89CC7', fontFamily: 'ui-sans-serif, system-ui, sans-serif' }}>
+        - {i + 1} -
+      </div>
+    </div>
+  ))}
+</div>
 
             <table className="print-spacer-table relative z-0">
               <thead>
@@ -2495,13 +2555,26 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
                     <span className="text-2xl font-black text-slate-800 break-all leading-relaxed">{editingWord.text}</span>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
+                  <div>
                       <label className="block text-base font-bold text-slate-500 mb-2 ml-1">拼音 (Pinyin)</label>
-                      <textarea autoFocus className="w-full px-5 py-4 bg-[#f8fafc] border-2 border-slate-100 rounded-2xl text-xl font-bold outline-none focus:border-[#FF9B82] shadow-inner resize-none h-40 leading-relaxed" value={editingWord.pinyin} onChange={(e) => setEditingWord({...editingWord, pinyin: e.target.value})} placeholder="請以空格隔開" />
+                      <textarea 
+                        autoFocus={settings.phoneticType !== 'zhuyin'}
+                        disabled={settings.phoneticType === 'zhuyin'}
+                        className={`w-full px-5 py-4 border-2 border-slate-100 rounded-2xl text-xl font-bold outline-none shadow-inner resize-none h-40 leading-relaxed transition-all ${settings.phoneticType === 'zhuyin' ? 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-60' : 'bg-[#f8fafc] focus:border-[#FF9B82]'}`} 
+                        value={settings.phoneticType === 'zhuyin' ? '' : (editingWord.pinyin || '')} 
+                        onChange={(e) => setEditingWord({...editingWord, pinyin: e.target.value})} 
+                        placeholder={settings.phoneticType === 'zhuyin' ? "🔒 單一標音：注音模式" : "請以空格隔開"} 
+                      />
                     </div>
                     <div>
                       <label className="block text-base font-bold text-slate-500 mb-2 ml-1">注音 (Zhuyin)</label>
-                      <textarea className="w-full px-5 py-4 bg-[#f8fafc] border-2 border-slate-100 rounded-2xl text-xl font-bold outline-none focus:border-[#FF9B82] shadow-inner resize-none h-40 leading-relaxed" value={editingWord.zhuyin} onChange={(e) => setEditingWord({...editingWord, zhuyin: e.target.value})} placeholder="請以空格隔開" />
+                      <textarea 
+                        disabled={settings.phoneticType === 'pinyin'}
+                        className={`w-full px-5 py-4 border-2 border-slate-100 rounded-2xl text-xl font-bold outline-none shadow-inner resize-none h-40 leading-relaxed transition-all ${settings.phoneticType === 'pinyin' ? 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-60' : 'bg-[#f8fafc] focus:border-[#FF9B82]'}`} 
+                        value={settings.phoneticType === 'pinyin' ? '' : (editingWord.zhuyin || '')} 
+                        onChange={(e) => setEditingWord({...editingWord, zhuyin: e.target.value})} 
+                        placeholder={settings.phoneticType === 'pinyin' ? "🔒 單一標音：拼音模式" : "請以空格隔開"} 
+                      />
                     </div>
                   </div>
                   <div className="flex gap-4 pt-4">
@@ -2681,14 +2754,14 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
           </span>
         );
       }
-    function InlineRubyText({ text, settings, vocabList, coreTextChunks, coreGrammar, grammarRules, sentencePinyin, sentenceZhuyin, isCorrection = false, alwaysShowRuby = false, sentenceEditPayload = null }) {
+    function InlineRubyText({ text, settings, vocabList, coreTextChunks, coreGrammar, grammarRules, sentencePinyin, sentenceZhuyin, isCorrection = false, alwaysShowRuby = false, sentenceEditPayload = null, phoneticOverride = 'both' }) {
       const onEdit = React.useContext(EditPhoneticContext);
       if (!text) return null;
 
-      const isTypePinyin = settings.phoneticType === 'pinyin' || settings.phoneticType === 'zhuyin_pinyin';
-      const isTypeZhuyin = settings.phoneticType === 'zhuyin' || settings.phoneticType === 'zhuyin_pinyin';
+      const isTypePinyin = (settings.phoneticType === 'pinyin' || settings.phoneticType === 'zhuyin_pinyin') && phoneticOverride !== 'zhuyin_only';
+      const isTypeZhuyin = (settings.phoneticType === 'zhuyin' || settings.phoneticType === 'zhuyin_pinyin') && phoneticOverride !== 'pinyin_only';
+      
       const effectiveScope = alwaysShowRuby ? 'full_text' : settings.phoneticScope;
-
       const isHanzi = (char) => /[\u4e00-\u9fa5]/.test(char);
 
       let targetWords = (vocabList || []).filter(v => v.word).map(v => v.word);
