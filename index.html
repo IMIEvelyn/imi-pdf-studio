@@ -1581,31 +1581,32 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
         setEditingWord(payload);
       };
 
-      const savePhonetic = () => {
-        if (!editingWord) return;
-        const newData = { ...data };
-        if (editingWord.type === 'chunk') {
-            newData.coreTextChunks = (newData.coreTextChunks || []).map(c => c.id === editingWord.id ? { ...c, pinyin: editingWord.pinyin, zhuyin: editingWord.zhuyin } : c);
-        } else if (editingWord.type === 'vocab') {
-            newData.vocabList = (newData.vocabList || []).map(v => v.id === editingWord.id ? { ...v, pinyin: editingWord.pinyin, zhuyin: editingWord.zhuyin } : v);
-        } else if (editingWord.type === 'grammar_title') {
-            newData.coreGrammar = (newData.coreGrammar || []).map(g => g.id === editingWord.id ? { ...g, titlePinyin: editingWord.pinyin, titleZhuyin: editingWord.zhuyin } : g);
-        } else if (editingWord.type === 'grammar_desc') {
-            newData.coreGrammar = (newData.coreGrammar || []).map(g => g.id === editingWord.id ? { ...g, descPinyin: editingWord.pinyin, descZhuyin: editingWord.zhuyin } : g);
-        } else if (editingWord.type === 'grammar_example') {
-            newData.coreGrammar = (newData.coreGrammar || []).map(g => g.id === editingWord.parentId ? { ...g, examples: g.examples.map((ex, i) => i === editingWord.id ? { ...ex, pinyin: editingWord.pinyin, zhuyin: editingWord.zhuyin } : ex) } : g);
-        } else if (editingWord.type === 'dialogue_line') {
-            newData.dialogues = (newData.dialogues || []).map(d => d.id === editingWord.parentId ? { ...d, lines: d.lines.map(l => l.id === editingWord.id ? { ...l, pinyin: editingWord.pinyin, zhuyin: editingWord.zhuyin } : l) } : d);
-        } else if (editingWord.type === 'rule_mistake') {
-            newData.grammarRules = (newData.grammarRules || []).map(r => r.id === editingWord.id ? { ...r, mistakePinyin: editingWord.pinyin, mistakeZhuyin: editingWord.zhuyin } : r);
-        } else if (editingWord.type === 'rule_correction') {
-            newData.grammarRules = (newData.grammarRules || []).map(r => r.id === editingWord.id ? { ...r, correctionPinyin: editingWord.pinyin, correctionZhuyin: editingWord.zhuyin } : r);
-        } else if (editingWord.type === 'rule_explanation') {
-            newData.grammarRules = (newData.grammarRules || []).map(r => r.id === editingWord.id ? { ...r, explanationPinyin: editingWord.pinyin, explanationZhuyin: editingWord.zhuyin } : r);
-        }
-        if (setData) setData(newData);
-        setEditingWord(null);
-      };
+const savePhonetic = () => {
+    if (!editingWord) return;
+    const newData = { ...data };
+    const clean = (s) => (s || '').replace(/([ㄚㄅAB]\s*:\s*)/gi, '').trim();
+    const p = clean(editingWord.pinyin);
+    const z = clean(editingWord.zhuyin);
+
+    if (editingWord.type === 'chunk') {
+      newData.coreTextChunks = (newData.coreTextChunks || []).map(c => c.id === editingWord.id ? { ...c, pinyin: p, zhuyin: z } : c);
+    } else if (editingWord.type === 'vocab') {
+      newData.vocabList = (newData.vocabList || []).map(v => v.id === editingWord.id ? { ...v, pinyin: p, zhuyin: z } : v);
+    } else if (editingWord.type === 'grammar_title') {
+      newData.coreGrammar = (newData.coreGrammar || []).map(g => g.id === editingWord.id ? { ...g, titlePinyin: p, titleZhuyin: z } : g);
+    } else if (editingWord.type === 'grammar_desc') {
+      newData.coreGrammar = (newData.coreGrammar || []).map(g => g.id === editingWord.id ? { ...g, descPinyin: p, descZhuyin: z } : g);
+    } else if (editingWord.type === 'grammar_example') {
+      newData.coreGrammar = (newData.coreGrammar || []).map(g => g.id === editingWord.parentId ? { ...g, examples: g.examples.map((ex, i) => i === editingWord.id ? { ...ex, pinyin: p, zhuyin: z } : ex) } : g);
+    } else if (editingWord.type === 'dialogue_line') {
+      newData.dialogues = (newData.dialogues || []).map(d => d.id === editingWord.parentId ? { ...d, lines: d.lines.map(l => l.id === editingWord.id ? { ...l, pinyin: p, zhuyin: z } : l) } : d);
+    } else if (editingWord.type === 'rule_mistake' || editingWord.type === 'rule_correction' || editingWord.type === 'rule_explanation') {
+      const f = editingWord.type.split('_')[1];
+      newData.grammarRules = (newData.grammarRules || []).map(r => (r.id === editingWord.id || r.text === editingWord.text) ? { ...r, [`${f}Pinyin`]: p, [`${f}Zhuyin`]: z } : r);
+    }
+    if (setData) setData(newData);
+    setEditingWord(null);
+  };
       
       const isTypePinyin = (settings.phoneticType === 'pinyin' || settings.phoneticType === 'zhuyin_pinyin') && phoneticOverride !== 'zhuyin_only';
       const isTypeZhuyin = (settings.phoneticType === 'zhuyin' || settings.phoneticType === 'zhuyin_pinyin') && phoneticOverride !== 'pinyin_only';
@@ -2821,8 +2822,8 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
         const matchedVocab = (vocabList || []).find(v => v.word === part);
         const matchedGrammar = (coreGrammar || []).find(g => g.title === part) || (grammarRules || []).find(r => r.theme === part);
         
-        let pyForBlock = '';
-        let zyForBlock = '';
+       let pyForBlock = (matchedVocab && matchedVocab.pinyin) ? matchedVocab.pinyin : partPyTokens.join(' ');
+        let zyForBlock = (matchedVocab && matchedVocab.zhuyin) ? matchedVocab.zhuyin : partZyTokens.join(' ');
         let showP = false;
         let showZ = false;
         let highlightStyle = {};
@@ -2931,20 +2932,22 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
     function RenderMistakePDF({ rule, text, settings, vocabList, coreTextChunks, coreGrammar, grammarRules }) {
       const onEdit = React.useContext(EditPhoneticContext);
       if (!text) return null;
-      const parts = text.split(/(<u>.*?<\/u>)/g);
+     const parts = text.split(/(<u>.*?<\/u>|\n)/g);
       
       const cleanText = text.replace(/<\/?u>/g, '');
       const editPayload = { type: 'rule_mistake', id: rule.id, text: cleanText, pinyin: rule.mistakePinyin || '', zhuyin: rule.mistakeZhuyin || '' };
 
-      const fullPyTokens = filterPhoneticTokens((rule.mistakePinyin || '').replace(/<\/?u>/g, ''));
-      const fullZyTokens = filterPhoneticTokens((rule.mistakeZhuyin || '').replace(/<\/?u>/g, ''));
+    const fullPyTokens = filterPhoneticTokens((rule.mistakePinyin || '').replace(/([ㄚㄅAB]\s*:\s*|<\/?u>)/gi, ''));
+    const fullZyTokens = filterPhoneticTokens((rule.mistakeZhuyin || '').replace(/([ㄚㄅAB]\s*:\s*|<\/?u>)/gi, ''));
       
       let pyCursor = 0;
       let zyCursor = 0;
 
       return (
-        <div className="sentence-block flex-1 min-w-0 relative group" style={{ display: 'inline' }}>
+       <div className="sentence-block flex-1 min-w-0 relative group" style={{ display: 'inline', whiteSpace: 'pre-wrap' }}>
           {parts.map((part, i) => {
+            if (part === '\n') return <br key={i} />;
+         
             const isUnderlined = part.startsWith('<u>') && part.endsWith('</u>');
             const innerText = isUnderlined ? part.slice(3, -4) : part;
 
