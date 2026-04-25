@@ -2907,11 +2907,11 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
             highlightStyle = { ...highlightStyle, borderBottom: '4px dashed #7A7387' };
           }
          
-        // 👑 絕對強制開關：直接讀取系統最高設定，無視其他干擾變數！
+      // 👑 絕對強制開關：直接讀取系統最高設定，無視其他干擾變數！
             const isFullTextMode = settings.phoneticScope === 'full_text' || effectiveScope === 'full_text';
             if (isFullTextMode) {
-              showP = settings.phoneticType === 'pinyin' || settings.phoneticType === 'zhuyin_pinyin';
-              showZ = settings.phoneticType === 'zhuyin' || settings.phoneticType === 'zhuyin_pinyin';
+              showP = isTypePinyin;
+              showZ = isTypeZhuyin;
               if (!pyForBlock) pyForBlock = partPyTokens.join(' ').trim();
               if (!zyForBlock) zyForBlock = partZyTokens.join(' ').trim();
             }
@@ -2951,7 +2951,7 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
       );
     }
 
-    function RenderMistakePDF({ rule, text, settings, vocabList, coreTextChunks, coreGrammar, grammarRules }) {
+  function RenderMistakePDF({ rule, text, settings, vocabList, coreTextChunks, coreGrammar, grammarRules, phoneticOverride = 'both' }) {
       const onEdit = React.useContext(EditPhoneticContext);
       if (!text) return null;
      const parts = text.split(/(<u>.*?<\/u>|\n)/g);
@@ -2982,8 +2982,8 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
             pyCursor += hanziCount;
             zyCursor += hanziCount;
 
-            const renderSpan = (
-                <InlineRubyText text={innerText} settings={settings} vocabList={vocabList} coreTextChunks={coreTextChunks} coreGrammar={coreGrammar} grammarRules={grammarRules} sentencePinyin={partPy} sentenceZhuyin={partZy} />
+           const renderSpan = (
+                <InlineRubyText text={innerText} settings={settings} vocabList={vocabList} coreTextChunks={coreTextChunks} coreGrammar={coreGrammar} grammarRules={grammarRules} sentencePinyin={partPy} sentenceZhuyin={partZy} phoneticOverride={phoneticOverride} />
             );
 
             return isUnderlined ? (
