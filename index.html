@@ -346,15 +346,17 @@
           const modelName = "gemini-2.5-flash"; 
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
           
-          const systemInstruction = `你是一位專業的資料歸位助手。老師提供的是已經整理好的結構化教材內容，請精準地歸位。
-          【任務核心】提取 textLevel, coreTextChunks(極致斷詞), vocabList, dialogues, coreGrammar, grammarRules。嚴禁改寫原始文本。`;
+         const systemInstruction = `你是一位專業的資料歸位助手。老師提供的是已經整理好的結構化教材內容，請精準地歸位。
+【任務核心】提取 textLevel, coreTextChunks, vocabList, dialogues, coreGrammar, grammarRules。
+【極度重要：斷詞保護原則】處理 coreTextChunks 進行斷詞時，請務必先比對老師提供的 vocabList (核心詞彙) 與 coreGrammar (核心語法)。只要是出現在這兩份清單上的詞彙或語法塊（例如：「有的」、「早一點」），即使在語言學上可以進一步拆分，你也「絕對不准」將其切開，必須將其完整保留為單一個 Chunk！
+【基本原則】嚴禁改寫原始文本，保持原文與標點符號的絕對完整。`;
 
           const payload = {
             contents: [{ role: "user", parts: [{ text: combinedText }] }],
             systemInstruction: { parts: [{ text: systemInstruction }] },
             generationConfig: { responseMimeType: "application/json" }
           };
-
+          
           const result = await fetchWithBackoff(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
           if (result && result.isError) { setError(`${result.message}`); setIsAnalyzing(false); return; }
           
@@ -447,10 +449,7 @@
             phoneticInstruction = `1. pinyin 與 zhuyin (雙軌標音任務)：只要有中文的地方，${scopeInstruction}，請務必將對應的 pinyin 與 zhuyin 欄位填滿！`;
           }
 
-
-          
-
-          const systemInstruction = `你是一位專業華語出版助手。請負責將以下 JSON 結構中的內容補齊標音與翻譯。
+const systemInstruction = `你是一位專業華語出版助手。請負責將以下 JSON 結構中的內容補齊標音與翻譯。
 
 【最高準則：臺灣華語標準 (TBCL & TOCFL)】
 ▶ 讀音：請嚴格遵守中華民國教育部《國語辭典》標準（如「垃圾 lèsè」、「和 hàn」）。
@@ -460,9 +459,9 @@
 【極度重要任務：強制補齊，禁止留空！】
 ${phoneticInstruction}
 ★ 致命警告：所有 Pinyin 與 Zhuyin 必須「每一個漢字空一格」斷開！略過 <u> 等 HTML 標籤。
-2. translation (翻譯)：請依照設定的語言 ${exportSettings.translationLanguage}，為各模組填寫精確翻譯！
+2. translation (翻譯)：【獨立於標音任務之外的最高優先級任務】請依照設定的語言 ${exportSettings.translationLanguage}，為各模組（包含課文、對話、語法例句等所有區塊）填寫「完整、精確、絕不縮水」的翻譯！即使該區塊不需要標音，翻譯也必須如實呈現所有的中文語意！
 3. 詞性翻譯 (pos)：請務必將 vocabList 中的中文詞性，根據 ${exportSettings.translationLanguage} 翻譯成該語言的「完整詞性全名」。嚴格禁止使用任何縮寫（如 N, V, Adj），例如：英文必須輸出 Noun, Verb。`;
-      
+          
           const payload = {
             contents: [{ role: "user", parts: [{ text: JSON.stringify(dataToTranslate) }] }],
             systemInstruction: { parts: [{ text: systemInstruction }] },
@@ -2839,8 +2838,17 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
         return 'vocab';
       };
 
-      const escapedWords = targetWords.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
-      const regex = targetWords.length > 0 ? new RegExp(`(${escapedWords.join('|')})`, 'g') : /(?!)/g;
+     // 🛡️ [究極升級] 全域智慧斷詞防護罩
+      let shieldWords = [];
+      if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+        const segmenter = new Intl.Segmenter('zh-TW', { granularity: 'word' });
+        shieldWords = Array.from(segmenter.segment(text)).map(s => s.segment).filter(w => w.length > 1);
+      }
+      const safeSplitWords = [...new Set([...targetWords, ...shieldWords])];
+      safeSplitWords.sort((a, b) => b.length - a.length);
+
+      const escapedWords = safeSplitWords.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      const regex = safeSplitWords.length > 0 ? new RegExp(`(${escapedWords.join('|')})`, 'g') : /(?!)/g;
       const parts = text.split(regex);
 
       const fullPyTokens = filterPhoneticTokens(sentencePinyin);
@@ -2873,13 +2881,14 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
               showP = isTypePinyin;
               showZ = isTypeZhuyin;
          
-    if (matchedVocab) {
+   if (matchedVocab) {
               // 🌟 尊重教學專業：保留老師原創的例外分流處理
               const isException = part === '一' || part === '不';
               const contextPy = partPyTokens.join(' ').trim();
               const contextZy = partZyTokens.join(' ').trim();
 
-              if (!isException && matchedVocab.pinyin) {
+              // 🛡️ 修復破音字覆蓋漏洞：同時檢查拼音「或」注音，只要老師有改其中一個，就擁有最高優先權！
+              if (!isException && (matchedVocab.pinyin || matchedVocab.zhuyin)) {
                 // 【優化點：翻轉權重】將老師把關的詞彙卡 (matchedVocab) 優先於 AI 情境 (context)
                 // 確保老師修改的「差不多 (一聲差)」能 100% 霸權連動，不再被 AI 覆蓋！
                 pyForBlock = matchedVocab.pinyin || contextPy;
@@ -2896,6 +2905,7 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
               zyForBlock = partZyTokens.join(' ');
               editPayload = null;
             }
+         
           } // 👈 第一刀：在這裡提早關閉 VIP 包廂！
           else {
             // 🚨 給一般字詞的救命代碼：讓它們也能拿到 AI 的注音/拼音資料
