@@ -413,24 +413,42 @@
           const modelName = "gemini-2.5-flash"; 
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
           
+  // 🛡️ API 節流與防呆判斷：檢查是否為「全文標音」模式
+          const isFullText = exportSettings.phoneticScope === 'full_text';
+
           const dataToTranslate = {
-            coreTextChunks: (parsedData.coreTextChunks || []).map(c => ({ ...c, pinyin: c.pinyin || "", zhuyin: c.zhuyin || "" })),
+            coreTextChunks: (parsedData.coreTextChunks || []).map(c => isFullText ? { ...c, pinyin: c.pinyin || "", zhuyin: c.zhuyin || "" } : { ...c }),
             coreTextTranslation: parsedData.coreTextTranslation || "",
             vocabList: (parsedData.vocabList || []).map(v => ({ ...v, pinyin: v.pinyin || "", zhuyin: v.zhuyin || "", translation: v.translation || "", posTranslation: v.posTranslation || "" })),
-            dialogues: (parsedData.dialogues || []).map(d => ({ ...d, titlePinyin: d.titlePinyin || "", titleZhuyin: d.titleZhuyin || "", lines: (d.lines || []).map(l => ({ ...l, pinyin: l.pinyin || "", zhuyin: l.zhuyin || "", translation: l.translation || "" })) })),
-            coreGrammar: (parsedData.coreGrammar || []).map(g => ({ ...g, titlePinyin: g.titlePinyin || "", titleZhuyin: g.titleZhuyin || "", descPinyin: g.descPinyin || "", descZhuyin: g.descZhuyin || "", translation: g.translation || "", examples: (g.examples || []).map(ex => { const exObj = typeof ex === 'string' ? { text: ex } : ex; return { text: exObj.text, pinyin: exObj.pinyin || "", zhuyin: exObj.zhuyin || "", translation: exObj.translation || "" }; }) })),
-            grammarRules: (parsedData.grammarRules || []).map(r => ({ ...r, mistakePinyin: r.mistakePinyin || "", mistakeZhuyin: r.mistakeZhuyin || "", correctionPinyin: r.correctionPinyin || "", correctionZhuyin: r.correctionZhuyin || "", explanationPinyin: r.explanationPinyin || "", explanationZhuyin: r.explanationZhuyin || "", translation: r.translation || "" }))
+            dialogues: (parsedData.dialogues || []).map(d => isFullText ? { ...d, titlePinyin: d.titlePinyin || "", titleZhuyin: d.titleZhuyin || "", lines: (d.lines || []).map(l => ({ ...l, pinyin: l.pinyin || "", zhuyin: l.zhuyin || "", translation: l.translation || "" })) } : { ...d, lines: (d.lines || []).map(l => ({ ...l, translation: l.translation || "" })) }),
+          coreGrammar: (parsedData.coreGrammar || []).map(g => {
+                const baseG = { ...g, titlePinyin: g.titlePinyin || "", titleZhuyin: g.titleZhuyin || "", translation: g.translation || "" };
+                if (isFullText) {
+                    baseG.descPinyin = g.descPinyin || ""; baseG.descZhuyin = g.descZhuyin || "";
+                    baseG.examples = (g.examples || []).map(ex => { const exObj = typeof ex === 'string' ? { text: ex } : ex; return { text: exObj.text, pinyin: exObj.pinyin || "", zhuyin: exObj.zhuyin || "", translation: exObj.translation || "" }; });
+                } else {
+                    baseG.examples = (g.examples || []).map(ex => { const exObj = typeof ex === 'string' ? { text: ex } : ex; return { text: exObj.text, translation: exObj.translation || "" }; });
+                }
+                return baseG;
+            }),
+            grammarRules: (parsedData.grammarRules || []).map(r => isFullText ? { ...r, mistakePinyin: r.mistakePinyin || "", mistakeZhuyin: r.mistakeZhuyin || "", correctionPinyin: r.correctionPinyin || "", correctionZhuyin: r.correctionZhuyin || "", explanationPinyin: r.explanationPinyin || "", explanationZhuyin: r.explanationZhuyin || "", translation: r.translation || "" } : { ...r, translation: r.translation || "" })
           };
+    // 🌟 [新增] 動態標音指令：根據老師設定，決定呼叫 AI 生成的標音種類與範圍，大幅節省 API Token！
+          const scopeInstruction = isFullText 
+              ? '包含 coreTextChunks, vocabList, dialogues, coreGrammar, grammarRules 的所有內容' 
+              : '【極度重要】僅包含 vocabList (詞彙) 以及 coreGrammar (語法標題)！絕對不要為對話、課文、例句或語法規則生成標音欄位';
 
-          // 🌟 [新增] 動態標音指令：根據老師設定，決定呼叫 AI 生成的標音種類，大幅節省 API Token！
           let phoneticInstruction = '';
           if (exportSettings.phoneticType === 'pinyin') {
-            phoneticInstruction = '1. pinyin 與 zhuyin (僅拼音任務)：只要有中文的地方，包含 coreTextChunks, vocabList, dialogues, coreGrammar, grammarRules，請務必將對應的「pinyin」欄位填滿！【極度重要】請直接將所有「zhuyin」欄位設為空字串 ""，禁止生成注音。';
+            phoneticInstruction = `1. pinyin 與 zhuyin (僅拼音任務)：只要有中文的地方，${scopeInstruction}，請務必將對應的「pinyin」欄位填滿！請直接將所有「zhuyin」欄位設為空字串 ""，禁止生成注音。`;
           } else if (exportSettings.phoneticType === 'zhuyin') {
-            phoneticInstruction = '1. pinyin 與 zhuyin (僅注音任務)：只要有中文的地方，包含 coreTextChunks, vocabList, dialogues, coreGrammar, grammarRules，請務必將對應的「zhuyin」欄位填滿！【極度重要】請直接將所有「pinyin」欄位設為空字串 ""，禁止生成拼音。';
+            phoneticInstruction = `1. pinyin 與 zhuyin (僅注音任務)：只要有中文的地方，${scopeInstruction}，請務必將對應的「zhuyin」欄位填滿！請直接將所有「pinyin」欄位設為空字串 ""，禁止生成拼音。`;
           } else {
-            phoneticInstruction = '1. pinyin 與 zhuyin (雙軌標音任務)：只要有中文的地方，包含 coreTextChunks, vocabList, dialogues, coreGrammar, grammarRules，請務必將對應的 pinyin 與 zhuyin 欄位填滿！';
+            phoneticInstruction = `1. pinyin 與 zhuyin (雙軌標音任務)：只要有中文的地方，${scopeInstruction}，請務必將對應的 pinyin 與 zhuyin 欄位填滿！`;
           }
+
+
+          
 
           const systemInstruction = `你是一位專業華語出版助手。請負責將以下 JSON 結構中的內容補齊標音與翻譯。
 
