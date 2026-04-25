@@ -417,7 +417,7 @@
             coreTextChunks: (parsedData.coreTextChunks || []).map(c => ({ ...c, pinyin: c.pinyin || "", zhuyin: c.zhuyin || "" })),
             coreTextTranslation: parsedData.coreTextTranslation || "",
             vocabList: (parsedData.vocabList || []).map(v => ({ ...v, pinyin: v.pinyin || "", zhuyin: v.zhuyin || "", translation: v.translation || "", posTranslation: v.posTranslation || "" })),
-            dialogues: (parsedData.dialogues || []).map(d => ({ ...d, lines: (d.lines || []).map(l => ({ ...l, pinyin: l.pinyin || "", zhuyin: l.zhuyin || "", translation: l.translation || "" })) })),
+            dialogues: (parsedData.dialogues || []).map(d => ({ ...d, titlePinyin: d.titlePinyin || "", titleZhuyin: d.titleZhuyin || "", lines: (d.lines || []).map(l => ({ ...l, pinyin: l.pinyin || "", zhuyin: l.zhuyin || "", translation: l.translation || "" })) })),
             coreGrammar: (parsedData.coreGrammar || []).map(g => ({ ...g, titlePinyin: g.titlePinyin || "", titleZhuyin: g.titleZhuyin || "", descPinyin: g.descPinyin || "", descZhuyin: g.descZhuyin || "", translation: g.translation || "", examples: (g.examples || []).map(ex => { const exObj = typeof ex === 'string' ? { text: ex } : ex; return { text: exObj.text, pinyin: exObj.pinyin || "", zhuyin: exObj.zhuyin || "", translation: exObj.translation || "" }; }) })),
             grammarRules: (parsedData.grammarRules || []).map(r => ({ ...r, mistakePinyin: r.mistakePinyin || "", mistakeZhuyin: r.mistakeZhuyin || "", correctionPinyin: r.correctionPinyin || "", correctionZhuyin: r.correctionZhuyin || "", explanationPinyin: r.explanationPinyin || "", explanationZhuyin: r.explanationZhuyin || "", translation: r.translation || "" }))
           };
@@ -497,6 +497,8 @@ ${phoneticInstruction}
               const aiD = (responseData.dialogues || []).find(ad => ad.id === d.id) || (responseData.dialogues || [])[i] || {};
               return {
                 ...d,
+                titlePinyin: d.titlePinyin || aiD.titlePinyin || '',
+                titleZhuyin: d.titleZhuyin || aiD.titleZhuyin || '',
                 lines: (d.lines || []).map((l, j) => {
                   const aiL = (aiD.lines || []).find(al => al.id === l.id) || (aiD.lines || [])[j] || {};
                   return { ...l, pinyin: aiL.pinyin || l.pinyin || '', zhuyin: aiL.zhuyin || l.zhuyin || '', translation: aiL.translation || l.translation || '' };
@@ -1598,6 +1600,8 @@ const savePhonetic = () => {
       newData.coreGrammar = (newData.coreGrammar || []).map(g => g.id === editingWord.id ? { ...g, descPinyin: p, descZhuyin: z } : g);
     } else if (editingWord.type === 'grammar_example') {
       newData.coreGrammar = (newData.coreGrammar || []).map(g => g.id === editingWord.parentId ? { ...g, examples: g.examples.map((ex, i) => i === editingWord.id ? { ...ex, pinyin: p, zhuyin: z } : ex) } : g);
+    } else if (editingWord.type === 'dialogue_title') {
+      newData.dialogues = (newData.dialogues || []).map(d => (d.id === editingWord.id || d.title === editingWord.text) ? { ...d, titlePinyin: p, titleZhuyin: z } : d);
     } else if (editingWord.type === 'dialogue_line') {
       newData.dialogues = (newData.dialogues || []).map(d => d.id === editingWord.parentId ? { ...d, lines: d.lines.map(l => l.id === editingWord.id ? { ...l, pinyin: p, zhuyin: z } : l) } : d);
     } else if (editingWord.type === 'rule_mistake' || editingWord.type === 'rule_correction' || editingWord.type === 'rule_explanation') {
@@ -2052,7 +2056,7 @@ const savePhonetic = () => {
             </div>
 
           {/* 🌟 [新增] 螢幕專屬：A4 虛擬分頁輔助比例尺 (解決預覽干擾，列印時自動隱藏) */}
-<div className="absolute top-0 left-0 right-0 pointer-events-none z-[100] overflow-hidden print:hidden" style={{ bottom: '-297mm', height: 'round(up, 100%, 297mm)' }}>
+<div className="absolute top-0 left-0 right-0 pointer-events-none z-40 overflow-hidden print:hidden" style={{ bottom: '-297mm', height: 'round(up, 100%, 297mm)' }}>
   {Array.from({ length: 30 }).map((_, i) => (
     <div key={i} className="w-full relative box-border border-b-2 border-dashed border-slate-300/70" style={{ height: '297mm' }}>
       <div className="absolute right-4 px-3 py-1 bg-white/90 text-slate-400 text-xs font-bold rounded-t-lg shadow-sm backdrop-blur-sm" style={{ bottom: '0px' }}>
@@ -2234,7 +2238,7 @@ const savePhonetic = () => {
                <WordBlock text={v.word} pinyinStr={v.pinyin} zhuyinStr={v.zhuyin} showP={showP} showZ={showZ} highlightStyle={{}} editPayload={{ type: 'vocab', id: v.id, text: v.word, pinyin: v.pinyin || '', zhuyin: v.zhuyin || '' }} />
                 </span>
                 {/* 詞性標記也微調對齊圖例尺寸 */}
-                <span className="px-2.5 py-0.5 font-extrabold rounded-full mt-1.5 whitespace-nowrap shrink-0 ml-auto" style={{ backgroundColor: lightBg, color: darkText, fontSize: `${layoutLegendSize - 2}px` }}>{v.posTranslation || v.pos || wType}</span>
+               <span className="px-2.5 py-0.5 font-extrabold rounded-full mt-1.5 whitespace-normal text-right leading-tight max-w-[35%] ml-auto" style={{ backgroundColor: lightBg, color: darkText, fontSize: `${layoutLegendSize - 2}px` }}>{v.posTranslation || v.pos || wType}</span>
             </div>
            {settings.translateTargets.vocab && (
       <div className="cursor-pointer hover:bg-slate-50 transition-all rounded-lg px-1 pb-1 group relative mt-1" onClick={() => { setEditPayload({ type: 'vocab', id: v.id, text: v.translation }); setTransModalOpen(true); }}>
@@ -2281,7 +2285,7 @@ const savePhonetic = () => {
                                 {(data.coreGrammar || []).map((p, i) => (
                                  <div key={p.id || `grammar-${i}`} className="px-8 pt-5 pb-0 mx-3 rounded-[32px] bg-white" style={{ border: '2px solid #E2E8F0', WebkitPrintColorAdjust: 'exact' }}>
                                     <h4 className="font-black text-3xl mb-1 leading-tight print-avoid-break-after" style={{ color: '#B8860B' }}>
-                                      <InlineRubyText text={p.title} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={p.titlePinyin} sentenceZhuyin={p.titleZhuyin} alwaysShowRuby={true} sentenceEditPayload={{ type: 'grammar_title', id: p.id, text: p.title, pinyin: p.titlePinyin || '', zhuyin: p.titleZhuyin || '' }} />
+                                    <InlineRubyText text={p.title} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={p.titlePinyin} sentenceZhuyin={p.titleZhuyin} alwaysShowRuby={true} sentenceEditPayload={{ type: 'grammar_title', id: p.id, text: p.title, pinyin: p.titlePinyin || '', zhuyin: p.titleZhuyin || '' }} phoneticOverride={phoneticOverride} />
                                     </h4>
                                     {settings.explanationMode !== 'foreign_only' && (
                                <div className="text-slate-800 font-bold mb-1 leading-relaxed break-keep cursor-pointer hover:bg-slate-50 transition-all rounded-lg p-1" 
@@ -2290,7 +2294,7 @@ const savePhonetic = () => {
                      setEditPayload({ type: 'grammar_desc', id: p.id, text: p.description });
                      setTransModalOpen(true);
                    }}>
-                <InlineRubyText text={p.description} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={p.descPinyin} sentenceZhuyin={p.descZhuyin} sentenceEditPayload={{ type: 'grammar_desc', id: p.id, text: p.description, pinyin: p.descPinyin || '', zhuyin: p.descZhuyin || '' }} hidePinyin={true} />
+               <InlineRubyText text={p.description} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={p.descPinyin} sentenceZhuyin={p.descZhuyin} sentenceEditPayload={{ type: 'grammar_desc', id: p.id, text: p.description, pinyin: p.descPinyin || '', zhuyin: p.descZhuyin || '' }} hidePinyin={true} phoneticOverride={phoneticOverride} />
               </div>
                                     )}
                                     {settings.translateTargets.coreGrammar && (
@@ -2343,7 +2347,7 @@ const savePhonetic = () => {
                                                   <div key={lidx} className="flex gap-4 print-flex-row items-start">
                                                     {role && <span className="font-black w-auto min-w-[2.5rem] shrink-0 text-xl pt-1" style={{ color: '#D4A017' }}>{role}</span>}
                                                     <span className="text-xl text-slate-800 font-bold flex-1" style={{ lineHeight: '2.6' }}>
-                                                     <InlineRubyText text={content} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={contentPy} sentenceZhuyin={contentZy} sentenceEditPayload={typeof ex === 'object' ? { type: 'grammar_example', parentId: p.id, id: j, text: text, pinyin: ex.pinyin || '', zhuyin: ex.zhuyin || '' } : null} />
+                                                     <InlineRubyText text={content} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={contentPy} sentenceZhuyin={contentZy} sentenceEditPayload={typeof ex === 'object' ? { type: 'grammar_example', parentId: p.id, id: j, text: text, pinyin: ex.pinyin || '', zhuyin: ex.zhuyin || '' } : null} phoneticOverride={phoneticOverride} />
                                                     </span>
                                                   </div>
                                                 );
@@ -2356,7 +2360,7 @@ const savePhonetic = () => {
                                             <div className="w-3 h-3 rounded-full mt-1 shrink-0 shadow-sm" style={{ backgroundColor: '#FFD700', WebkitPrintColorAdjust: 'exact' }} />
                                             <div className="flex-1 flex flex-col min-w-0">
                                               <span style={{ lineHeight: '2.6' }}>
-                                           <InlineRubyText text={text} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={typeof ex === 'object' ? ex.pinyin : ''} sentenceZhuyin={typeof ex === 'object' ? ex.zhuyin : ''} sentenceEditPayload={typeof ex === 'object' ? { type: 'grammar_example', parentId: p.id, id: j, text: text, pinyin: ex.pinyin || '', zhuyin: ex.zhuyin || '' } : null} />
+                                           <InlineRubyText text={text} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={typeof ex === 'object' ? ex.pinyin : ''} sentenceZhuyin={typeof ex === 'object' ? ex.zhuyin : ''} sentenceEditPayload={typeof ex === 'object' ? { type: 'grammar_example', parentId: p.id, id: j, text: text, pinyin: ex.pinyin || '', zhuyin: ex.zhuyin || '' } : null} phoneticOverride={phoneticOverride} />
                                               </span>
                                               {typeof ex === 'object' && settings.translateTargets.coreGrammar && ex.translation && (<span className="text-slate-600 text-base block mt-2 border-l-2 pl-3 font-medium cursor-pointer hover:text-[#56D0A0] transition-colors group relative" style={{ borderColor: '#FFEE99', fontSize: `${layoutTransSize}px` }} onClick={() => { setEditPayload({ type: 'grammar_ex', id: j, parentId: i, text: ex.translation }); setTransModalOpen(true); }}>{ex.translation}<span className="ml-2 opacity-0 group-hover:opacity-100 text-[#56D0A0] text-sm print:hidden">✏️ 編輯</span></span>)}
         </div>
@@ -2405,8 +2409,8 @@ const savePhonetic = () => {
       setEditPayload({ type: 'dialogue_title', id: d.id || i, text: d.title });
       setTransModalOpen(true);
     }}>
-  <InlineRubyText text={d.title} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={d.titlePinyin} sentenceZhuyin={d.titleZhuyin} sentenceEditPayload={{ type: 'dialogue_title', id: d.id || i, text: d.title, pinyin: d.titlePinyin || '', zhuyin: d.titleZhuyin || '' }} />
-</h4>
+  <InlineRubyText text={d.title} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={d.titlePinyin} sentenceZhuyin={d.titleZhuyin} sentenceEditPayload={{ type: 'dialogue_title', id: d.id || i, text: d.title, pinyin: d.titlePinyin || '', zhuyin: d.titleZhuyin || '' }} phoneticOverride={phoneticOverride} />
+    </h4>
                                   <div className="space-y-6">
                                       {(d.lines || []).map((l, j) => (
                                         <div key={l.id || `line-${j}`} className="flex gap-6 avoid-break-inside print-flex-row items-start">
@@ -2414,7 +2418,7 @@ const savePhonetic = () => {
                                           <div className="flex-1 flex flex-col min-w-0">
                                            <span className="text-slate-800 font-bold break-keep" style={{ lineHeight: '2.6', fontSize: `${layoutContentSize}px` }}>
 
-                                              <InlineRubyText text={l.text} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={l.pinyin} sentenceZhuyin={l.zhuyin} sentenceEditPayload={{ type: 'dialogue_line', parentId: d.id, id: l.id, text: l.text, pinyin: l.pinyin || '', zhuyin: l.zhuyin || '' }} />
+                                             <InlineRubyText text={l.text} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={l.pinyin} sentenceZhuyin={l.zhuyin} sentenceEditPayload={{ type: 'dialogue_line', parentId: d.id, id: l.id, text: l.text, pinyin: l.pinyin || '', zhuyin: l.zhuyin || '' }} phoneticOverride={phoneticOverride} />
                                             </span>
                                            {settings.translateTargets.dialogue && l.translation && (
   <span className="text-slate-600 text-base block mt-1 italic cursor-pointer hover:text-[#56D0A0] transition-colors group" 
@@ -2473,14 +2477,32 @@ const savePhonetic = () => {
            <div className="space-y-4 pb-0">
              <div className="flex items-center justify-between gap-4 pt-[15px] pb-0 px-6 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #FDF1F0', WebkitPrintColorAdjust: 'exact' }}>
               <div className="whitespace-pre-wrap flex-1">
-  <RenderMistakePDF rule={rule} text={rule.mistake} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={rule.mistakePinyin} sentenceZhuyin={rule.mistakeZhuyin} />
+ <RenderMistakePDF rule={rule} text={rule.mistake} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={rule.mistakePinyin} sentenceZhuyin={rule.mistakeZhuyin} phoneticOverride={phoneticOverride} />
 </div>
                 <span className="font-black text-4xl px-2 font-sans shrink-0" style={{ color: '#F07167' }}>X</span>
               </div>
              <div className="flex items-center justify-between gap-4 pt-[15px] pb-0 px-6 rounded-2xl bg-white avoid-break-inside" style={{ border: '2px solid #E6F7F2', WebkitPrintColorAdjust: 'exact' }}>
-                <div className="whitespace-pre-wrap flex-1">
-  <InlineRubyText text={rule.correction} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} isCorrection={true} sentencePinyin={rule.correctionPinyin} sentenceZhuyin={rule.correctionZhuyin} sentenceEditPayload={{ type: 'grammar_rule', id: rule.id || i, text: rule.correction, pinyin: rule.correctionPinyin || '', zhuyin: rule.correctionZhuyin || '' }} />
-</div>
+                <div className="whitespace-pre-wrap flex-1" style={{ whiteSpace: 'pre-wrap' }}>
+                {(() => {
+                  const lines = (rule.correction || '').split('\n');
+                  const clean = (s) => (s || '').replace(/([ㄚㄅAB]\s*:\s*)/gi, '');
+                  const pyT = filterPhoneticTokens(clean(rule.correctionPinyin));
+                  const zyT = filterPhoneticTokens(clean(rule.correctionZhuyin));
+                  let pyC = 0, zyC = 0;
+                  return lines.map((line, lIdx) => {
+                    let hz = 0; for(const ch of line) if(/[\u4e00-\u9fa5]/.test(ch)) hz++;
+                    const pPy = pyT.slice(pyC, pyC + hz).join(' ');
+                    const pZy = zyT.slice(zyC, zyC + hz).join(' ');
+                    pyC += hz; zyC += hz;
+                    return (
+                      <span key={lIdx}>
+                        <InlineRubyText text={line} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} isCorrection={true} sentencePinyin={pPy} sentenceZhuyin={pZy} sentenceEditPayload={{ type: 'rule_correction', id: rule.id || i, text: rule.correction, pinyin: rule.correctionPinyin || '', zhuyin: rule.correctionZhuyin || '' }} phoneticOverride={phoneticOverride} />
+                        {lIdx < lines.length - 1 && <br />}
+                      </span>
+                    );
+                  });
+                })()}
+              </div>
                 <span className="font-black text-4xl px-2 italic font-serif shrink-0" style={{ color: '#48C0A3' }}>O</span>
               </div>
             </div>
@@ -2495,7 +2517,7 @@ const savePhonetic = () => {
                 <div className="text-slate-800 font-bold mb-1 whitespace-pre-wrap sentence-block break-keep cursor-pointer hover:bg-slate-50 transition-all rounded-lg p-1"
                      style={{ lineHeight: '2.2', fontSize: `${layoutContentSize}px` }}
                      onClick={() => { setEditPayload({ type: 'diagnosis_exp', id: rule.id, text: rule.explanation }); setTransModalOpen(true); }}>
-                  <InlineRubyText text={rule.explanation} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={rule.explanationPinyin} sentenceZhuyin={rule.explanationZhuyin} sentenceEditPayload={{ type: 'rule_explanation', id: rule.id, text: rule.explanation, pinyin: rule.explanationPinyin || '', zhuyin: rule.explanationZhuyin || '' }} />
+                <InlineRubyText text={rule.explanation} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={rule.explanationPinyin} sentenceZhuyin={rule.explanationZhuyin} sentenceEditPayload={{ type: 'rule_explanation', id: rule.id, text: rule.explanation, pinyin: rule.explanationPinyin || '', zhuyin: rule.explanationZhuyin || '' }} phoneticOverride={phoneticOverride} />
                 </div>
               )}
               {/* 雙軌模式 2：外語翻譯 (還原原始的 ? : 三元判斷結構) */}
