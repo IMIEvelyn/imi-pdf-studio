@@ -2693,22 +2693,32 @@ function ZhuyinBlock({ syllable }) {
   const isDouble = baseChars.length === 2;
   const isSingle = baseChars.length === 1;
   
+  // 🚀 唯一新增的判斷：只鎖定「三拼音」且「輕聲」的特殊專案
+  const isTripleWithNeutral = isTriple && toneChar === '˙';
+  
   const colClass = `zy-col ${isTriple ? 'is-triple' : isDouble ? 'is-double' : 'is-single'}`;
   
   return (
       <span className="zy-wrapper">
           {toneChar === '˙' && <span className="tone-top">{toneChar}</span>}
           
-          {/* 🚀 唯一異動點：只在三拼音時，將字體微縮至 0.85 倍，並將行高拉近至 0.85，其他完全不動 */}
-          <span className={colClass} style={isTriple ? { fontSize: '0.85em', lineHeight: '0.85' } : {}}>
-              {baseChars.map((z, zi) => <span className="z-char" key={zi}>{z}</span>)}
+          <span className={colClass}>
+              {baseChars.map((z, zi) => (
+                  <span 
+                      className="z-char" 
+                      key={zi}
+                      // 🚀 只在這個特殊專案下，壓縮單一字元的實體高度來拉近距離。其餘情況回傳空物件 {}，完全聽從您的 CSS。
+                      style={isTripleWithNeutral ? { display: 'block', height: '0.85em', lineHeight: '0.85em' } : {}}
+                  >
+                      {z}
+                  </span>
+              ))}
           </span>
           
           {toneChar && toneChar !== '˙' && <span className="tone-side">{toneChar}</span>}
       </span>
   );
 }
-
 
     
 
