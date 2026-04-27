@@ -2693,7 +2693,7 @@ function ZhuyinBlock({ syllable }) {
   const isDouble = baseChars.length === 2;
   const isSingle = baseChars.length === 1;
   
-  // 🚀 唯一新增的判斷：只鎖定「三拼音」且「輕聲」的特殊專案
+  // 🚀 嚴格專案處理：只針對「三拼音」且「輕聲」
   const isTripleWithNeutral = isTriple && toneChar === '˙';
   
   const colClass = `zy-col ${isTriple ? 'is-triple' : isDouble ? 'is-double' : 'is-single'}`;
@@ -2707,8 +2707,13 @@ function ZhuyinBlock({ syllable }) {
                   <span 
                       className="z-char" 
                       key={zi}
-                      // 🚀 只在這個特殊專案下，壓縮單一字元的實體高度來拉近距離。其餘情況回傳空物件 {}，完全聽從您的 CSS。
-                      style={isTripleWithNeutral ? { display: 'block', height: '0.85em', lineHeight: '0.85em' } : {}}
+                      style={isTripleWithNeutral ? { 
+                          display: 'block', 
+                          fontSize: '0.9em',
+                          lineHeight: '0.9', // 讓字元上下邊界削薄，自然貼緊
+                          // 第一個字微降躲開輕聲點，第二三個字只給極微小的負邊距防止字疊字
+                          marginTop: zi === 0 ? '0.15em' : '-0.05em' 
+                      } : {}}
                   >
                       {z}
                   </span>
@@ -2719,7 +2724,6 @@ function ZhuyinBlock({ syllable }) {
       </span>
   );
 }
-
     
 
    function WordBlock({ text, pinyinStr, zhuyinStr, showP, showZ, highlightStyle, editPayload, wordType, vocabNumber }) {
