@@ -2301,7 +2301,7 @@ const savePhonetic = () => {
                               <div className="mt-10 space-y-12">
                                 {(data.coreGrammar || []).map((p, i) => (
                                  <div key={p.id || `grammar-${i}`} className="px-8 pt-5 pb-0 mx-3 rounded-[32px] bg-white" style={{ border: '2px solid #E2E8F0', WebkitPrintColorAdjust: 'exact' }}>
-                                    <h4 className="font-black text-3xl mb-1 leading-tight print-avoid-break-after" style={{ color: '#B8860B' }}>
+                                  <h4 className="font-black text-3xl mb-1 leading-tight print-avoid-break-after" style={{ color: '#B8860B' }}>
                                     <InlineRubyText text={p.title} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={p.titlePinyin} sentenceZhuyin={p.titleZhuyin} alwaysShowRuby={true} sentenceEditPayload={{ type: 'grammar_title', id: p.id, text: p.title, pinyin: p.titlePinyin || '', zhuyin: p.titleZhuyin || '' }} phoneticOverride={phoneticOverride} />
                                     </h4>
                                     {settings.explanationMode !== 'foreign_only' && (
@@ -2363,7 +2363,7 @@ const savePhonetic = () => {
                                                 return (
                                                   <div key={lidx} className="flex gap-4 print-flex-row items-start">
                                                     {role && <span className="font-black w-auto min-w-[2.5rem] shrink-0 text-xl pt-1" style={{ color: '#D4A017' }}>{role}</span>}
-                                                    <span className="text-xl text-slate-800 font-bold flex-1" style={{ lineHeight: '2.6' }}>
+                                                   <span className="text-xl text-slate-800 font-bold flex-1" style={{ lineHeight: '2.6' }}>
                                                      <InlineRubyText text={content} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={contentPy} sentenceZhuyin={contentZy} sentenceEditPayload={typeof ex === 'object' ? { type: 'grammar_example', parentId: p.id, id: j, text: text, pinyin: ex.pinyin || '', zhuyin: ex.zhuyin || '' } : null} phoneticOverride={phoneticOverride} />
                                                     </span>
                                                   </div>
@@ -2681,30 +2681,74 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
       );
     }
 
-    function ZhuyinBlock({ syllable }) {
-      if (!syllable) return null;
-      const cleanSyllable = syllable.replace(/\s+/g, '');
-      const chars = cleanSyllable.split('');
-      const tones = ['ˊ', 'ˇ', 'ˋ', '˙'];
-      const baseChars = chars.filter(c => !tones.includes(c));
-      const toneChar = chars.find(c => tones.includes(c));
-      
-      const isTriple = baseChars.length === 3;
-      const isDouble = baseChars.length === 2;
-      const isSingle = baseChars.length === 1;
-      
-      const colClass = `zy-col ${isTriple ? 'is-triple' : isDouble ? 'is-double' : 'is-single'}`;
-      
-      return (
-          <span className="zy-wrapper">
-              {toneChar === '˙' && <span className="tone-top">{toneChar}</span>}
-              <span className={colClass}>
-                  {baseChars.map((z, zi) => <span className="z-char" key={zi}>{z}</span>)}
-              </span>
-              {toneChar && toneChar !== '˙' && <span className="tone-side">{toneChar}</span>}
-          </span>
-      );
-    }
+function ZhuyinBlock({ syllable }) {
+  if (!syllable) return null;
+  const cleanSyllable = syllable.replace(/\s+/g, '');
+  const chars = cleanSyllable.split('');
+  const tones = ['ˊ', 'ˇ', 'ˋ', '˙'];
+  const baseChars = chars.filter(c => !tones.includes(c));
+  const toneChar = chars.find(c => tones.includes(c));
+  
+  const isTriple = baseChars.length === 3;
+  const isDouble = baseChars.length === 2;
+  const isSingle = baseChars.length === 1;
+  
+  const colClass = `zy-col ${isTriple ? 'is-triple' : isDouble ? 'is-double' : 'is-single'}`;
+
+  // 【全面思考：動態縮放】三拼音字體縮小至 85%，行高緊縮至 0.9 倍
+  const symbolScale = isTriple ? '0.85em' : '1em'; 
+  const symbolLeading = isTriple ? '0.9' : '1.05';
+return (
+    <span className="zy-wrapper" style={{ 
+      display: 'inline-flex', 
+      flexDirection: 'column', 
+      alignItems: 'center', 
+      position: 'relative', 
+      height: '2.5em',             // 全系統統一注音容器高度，確保版面不波浪起伏
+      justifyContent: 'flex-end',  // 內容從底部開始向上排，保護頂部空間
+      verticalAlign: 'bottom'
+    }}>
+      {/* 🚀 輕聲點：給予剛好不沾黏的微距 (0.05em)，維持視覺緊湊 */}
+      {toneChar === '˙' && (
+        <span className="tone-top" style={{ 
+          fontSize: '0.85em', 
+          lineHeight: '1',
+          marginBottom: '0.05em' 
+        }}>
+          {toneChar}
+        </span>
+      )}
+      {/* 注音符號本體：套用動態縮放與緊縮 */}
+      <span className={colClass} style={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center',
+        fontSize: symbolScale, 
+        lineHeight: symbolLeading 
+      }}>
+        {baseChars.map((z, zi) => (
+          <span className="z-char" key={zi} style={{ display: 'block' }}>{z}</span>
+        ))}
+      </span>
+
+      {/* 二三四聲：維持右側絕對定位，三拼音時位置稍微下調以對齊中心 */}
+      {toneChar && toneChar !== '˙' && (
+        <span className="tone-side" style={{ 
+          position: 'absolute', 
+          right: '-0.75em', 
+          top: isTriple ? '60%' : '50%', 
+          transform: 'translateY(-50%)', 
+          fontSize: '0.9em'
+        }}>
+          {toneChar}
+        </span>
+      )}
+    </span>
+  );
+}
+
+
+    
 
    function WordBlock({ text, pinyinStr, zhuyinStr, showP, showZ, highlightStyle, editPayload, wordType, vocabNumber }) {
       const onEdit = React.useContext(EditPhoneticContext);
@@ -2815,7 +2859,7 @@ function SectionHeader({ title, color, border, children, layoutSpacing, layoutTi
          return (
            <span className={`${isCorrection ? 'text-[#1B4D3E]' : 'text-slate-900'} relative group`} style={{ display: 'inline' }}>
              <WordBlock text={text} pinyinStr="" zhuyinStr="" showP={false} showZ={false} highlightStyle={{}} />
-             {sentenceEditPayload && onEdit && (
+             {effectiveScope === 'full_text' && sentenceEditPayload && onEdit && (
                  <button onClick={(e) => { e.stopPropagation(); onEdit(sentenceEditPayload); }} className="ml-2 opacity-0 group-hover:opacity-100 text-[#FF9B82] transition-opacity print:hidden inline-flex align-middle pb-2" title="編輯整句標音">
                     <Edit3 size={18} strokeWidth={3} />
                  </button>
