@@ -2693,7 +2693,7 @@ function ZhuyinBlock({ syllable }) {
   const isDouble = baseChars.length === 2;
   const isSingle = baseChars.length === 1;
   
-  // 🚀 嚴格專案處理：只針對「三拼音」且「輕聲」
+  // 🚀 嚴格鎖定：只有「三拼音」且「輕聲」時才執行專案壓縮
   const isTripleWithNeutral = isTriple && toneChar === '˙';
   
   const colClass = `zy-col ${isTriple ? 'is-triple' : isDouble ? 'is-double' : 'is-single'}`;
@@ -2702,21 +2702,18 @@ function ZhuyinBlock({ syllable }) {
       <span className="zy-wrapper">
           {toneChar === '˙' && <span className="tone-top">{toneChar}</span>}
           
-          <span className={colClass}>
+          <span 
+              className={colClass}
+              // 🚀 這是唯一的修改點：使用視覺縮放 (Transform)
+              style={isTripleWithNeutral ? { 
+                  transform: 'scale(0.9)', 
+                  transformOrigin: 'bottom center',
+                  display: 'inline-flex',
+                  flexDirection: 'column'
+              } : {}}
+          >
               {baseChars.map((z, zi) => (
-                  <span 
-                      className="z-char" 
-                      key={zi}
-                      style={isTripleWithNeutral ? { 
-                          display: 'block', 
-                          fontSize: '0.9em',
-                          lineHeight: '0.9', // 讓字元上下邊界削薄，自然貼緊
-                          // 第一個字微降躲開輕聲點，第二三個字只給極微小的負邊距防止字疊字
-                          marginTop: zi === 0 ? '0.15em' : '-0.05em' 
-                      } : {}}
-                  >
-                      {z}
-                  </span>
+                  <span className="z-char" key={zi}>{z}</span>
               ))}
           </span>
           
