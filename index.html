@@ -2694,56 +2694,18 @@ function ZhuyinBlock({ syllable }) {
   const isSingle = baseChars.length === 1;
   
   const colClass = `zy-col ${isTriple ? 'is-triple' : isDouble ? 'is-double' : 'is-single'}`;
-
-  // 【全面思考：動態縮放】三拼音字體縮小至 85%，行高緊縮至 0.9 倍
-  const symbolScale = isTriple ? '0.85em' : '1em'; 
-  const symbolLeading = isTriple ? '0.9' : '1.05';
-return (
-    <span className="zy-wrapper" style={{ 
-      display: 'inline-flex', 
-      flexDirection: 'column', 
-      alignItems: 'center', 
-      position: 'relative', 
-      height: '2.5em',             // 全系統統一注音容器高度，確保版面不波浪起伏
-      justifyContent: 'flex-end',  // 內容從底部開始向上排，保護頂部空間
-      verticalAlign: 'bottom'
-    }}>
-      {/* 🚀 輕聲點：給予剛好不沾黏的微距 (0.05em)，維持視覺緊湊 */}
-      {toneChar === '˙' && (
-        <span className="tone-top" style={{ 
-          fontSize: '0.85em', 
-          lineHeight: '1',
-          marginBottom: '0.05em' 
-        }}>
-          {toneChar}
-        </span>
-      )}
-      {/* 注音符號本體：套用動態縮放與緊縮 */}
-      <span className={colClass} style={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        alignItems: 'center',
-        fontSize: symbolScale, 
-        lineHeight: symbolLeading 
-      }}>
-        {baseChars.map((z, zi) => (
-          <span className="z-char" key={zi} style={{ display: 'block' }}>{z}</span>
-        ))}
+  
+  return (
+      <span className="zy-wrapper">
+          {toneChar === '˙' && <span className="tone-top">{toneChar}</span>}
+          
+          {/* 🚀 唯一異動點：只在三拼音時，將字體微縮至 0.85 倍，並將行高拉近至 0.85，其他完全不動 */}
+          <span className={colClass} style={isTriple ? { fontSize: '0.85em', lineHeight: '0.85' } : {}}>
+              {baseChars.map((z, zi) => <span className="z-char" key={zi}>{z}</span>)}
+          </span>
+          
+          {toneChar && toneChar !== '˙' && <span className="tone-side">{toneChar}</span>}
       </span>
-
-      {/* 二三四聲：維持右側絕對定位，三拼音時位置稍微下調以對齊中心 */}
-      {toneChar && toneChar !== '˙' && (
-        <span className="tone-side" style={{ 
-          position: 'absolute', 
-          right: '-0.75em', 
-          top: isTriple ? '60%' : '50%', 
-          transform: 'translateY(-50%)', 
-          fontSize: '0.9em'
-        }}>
-          {toneChar}
-        </span>
-      )}
-    </span>
   );
 }
 
