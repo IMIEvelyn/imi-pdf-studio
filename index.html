@@ -115,6 +115,31 @@
   const [layoutTransSize, setLayoutTransSize] = React.useState(16);       // 外文翻譯字體 (預設 16px)
   const [layoutSpacing, setLayoutSpacing] = React.useState(32);           // 區塊呼吸間距 (預設 32px)
       
+  const handleResetAll = () => {
+    setCurrentStep(1);
+    setIsAnalyzing(false);
+    setIsGeneratingPreview(false);
+    setError(null);
+    setCustomApiKey('');
+    setRawInput('');
+    setSelectedFiles([]);
+    setParsedData({
+      textLevel: '',
+      coreTextChunks: [],
+      vocabList: [],
+      dialogues: [],
+      coreGrammar: [],
+      grammarRules: []
+    });
+    setExportSettings(DEFAULT_SETTINGS);
+    setFinalPreviewData(null);
+    setLayoutTitleSize(32);
+    setLayoutLegendSize(14);
+    setLayoutContentSize(24);
+    setLayoutTransSize(16);
+    setLayoutSpacing(32);
+  };
+      
       const autoLinkChunks = (chunks, vocabList, coreGrammar, grammarRules) => {
         return chunks.map(chunk => {
           const text = (chunk.text || '').replace(/ /g, '');
@@ -630,7 +655,7 @@ ${phoneticInstruction}
             {currentStep === 1 && <Step1Input rawInput={rawInput} setRawInput={setRawInput} selectedFiles={selectedFiles} setSelectedFiles={setSelectedFiles} handleAnalyze={handleAnalyze} isAnalyzing={isAnalyzing} customApiKey={customApiKey} setCustomApiKey={setCustomApiKey} />}
             {currentStep === 2 && <Step2Editor data={parsedData} setData={setParsedData} onNext={() => setCurrentStep(3)} onPrev={() => setCurrentStep(1)} renderMistake={renderMistake} autoLink={autoLinkChunks} />}
           {currentStep === 3 && <Step3Settings settings={exportSettings} setSettings={setExportSettings} onNext={handleGeneratePreview} onPrev={() => setCurrentStep(2)} isGenerating={isGeneratingPreview} />}
-         {currentStep === 4 && finalPreviewData && <Step4Preview onPrev={() => setCurrentStep(3)} data={finalPreviewData} setData={setFinalPreviewData} settings={exportSettings} layoutTitleSize={layoutTitleSize} setLayoutTitleSize={setLayoutTitleSize} layoutLegendSize={layoutLegendSize} setLayoutLegendSize={setLayoutLegendSize} layoutContentSize={layoutContentSize} setLayoutContentSize={setLayoutContentSize} layoutTransSize={layoutTransSize} setLayoutTransSize={setLayoutTransSize} layoutSpacing={layoutSpacing} setLayoutSpacing={setLayoutSpacing} />}
+       {currentStep === 4 && finalPreviewData && <Step4Preview onReset={handleResetAll} onPrev={() => setCurrentStep(3)} data={finalPreviewData} setData={setFinalPreviewData} settings={exportSettings} layoutTitleSize={layoutTitleSize} setLayoutTitleSize={setLayoutTitleSize} layoutLegendSize={layoutLegendSize} setLayoutLegendSize={setLayoutLegendSize} layoutContentSize={layoutContentSize} setLayoutContentSize={setLayoutContentSize} layoutTransSize={layoutTransSize} setLayoutTransSize={setLayoutTransSize} layoutSpacing={layoutSpacing} setLayoutSpacing={setLayoutSpacing} />}
             <div className="mt-20 text-center print:hidden">
               <p className="text-slate-400/80 font-bold tracking-widest text-sm">
                 @ Made by InkHeart Mandarin Immersion ( <a href="https://imiteacherevelyn.wixsite.com/mandarin-hub" target="_blank" rel="noopener noreferrer" className="hover:text-[#FF9B82] underline underline-offset-2 transition-colors">IMI網站</a> )<br />
@@ -1205,7 +1230,7 @@ ${phoneticInstruction}
       );
     }
 
-function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLayoutTitleSize, layoutLegendSize, setLayoutLegendSize, layoutContentSize, setLayoutContentSize, layoutTransSize, setLayoutTransSize, layoutSpacing, setLayoutSpacing }) {
+function Step4Preview({ onReset, data, settings, onPrev, setData, layoutTitleSize, setLayoutTitleSize, layoutLegendSize, setLayoutLegendSize, layoutContentSize, setLayoutContentSize, layoutTransSize, setLayoutTransSize, layoutSpacing, setLayoutSpacing }) {
   const [editingWord, setEditingWord] = React.useState(null);
   
   // 🌟 [新增] 萬用翻譯編輯器專用狀態
@@ -1217,6 +1242,17 @@ function Step4Preview({ data, settings, onPrev, setData, layoutTitleSize, setLay
 
   // 🌟 [新增] 標音顯示覆蓋記憶體：記住老師在中控台點了哪種顯示模式 (預設為 'both')
   const [phoneticOverride, setPhoneticOverride] = React.useState('both');
+
+  // 🌟 [新增] 返回首頁並清空資料的觸發器
+  const handleReturnToHome = (e) => {
+    e.preventDefault();
+    const isConfirmed = window.confirm("目前的設定與編輯內容將會被清空且無法復原。");
+    
+    if (isConfirmed && onReset) {
+      onReset();             // 呼叫我們剛剛在父元件寫好的大腦清空函式
+      window.scrollTo(0, 0); // 將畫面滾動回最頂部，體驗更好
+    }
+  };
   
   // 🌟 [新增] 儲存翻譯的處理神經
   const handleSaveTranslation = () => {
@@ -2578,9 +2614,19 @@ const savePhonetic = () => {
               </tfoot>
             </table>
           </div>
-         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-2xl p-4 rounded-full shadow-[0_16px_32px_rgba(0,0,0,0.1),inset_0_4px_8px_rgba(255,255,255,1)] border border-slate-200 flex items-center gap-6 z-20 print:hidden relative">
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-2xl p-4 rounded-full shadow-[0_16px_32px_rgba(0,0,0,0.1),inset_0_4px_8px_rgba(255,255,255,1)] border border-slate-200 flex items-center gap-6 z-20 print:hidden relative">
             <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (onPrev) onPrev(); }} className="px-10 py-5 text-slate-600 font-black text-xl hover:bg-[#FFF6E9] rounded-[32px] transition-colors relative z-50 cursor-pointer">返回設定</button>
             <button onClick={() => window.print()} className="px-12 py-5 bg-[#FF9B82] text-white rounded-[32px] font-black text-2xl shadow-[0_8px_0_0_#E2755D] hover:translate-y-1 hover:shadow-[0_4px_0_0_#E2755D] active:translate-y-[8px] active:shadow-none transition-all flex items-center gap-3"><Download size={28} strokeWidth={3}/>列印 / 下載 PDF</button>
+
+            {/* 🚀 新增區塊：分隔線與獨立的返回首頁按鈕 */}
+            <div className="w-px h-12 bg-slate-200 ml-2"></div>
+            <button 
+                type="button" 
+                onClick={handleReturnToHome} 
+                className="px-8 py-5 border-2 border-slate-300 text-slate-500 rounded-[32px] font-bold text-xl hover:bg-slate-50 hover:text-slate-700 hover:border-slate-400 transition-all active:scale-95 flex items-center gap-2 mr-1"
+            >
+                🏠 返回首頁
+            </button>
           </div>
           
           {editingWord && (
@@ -2987,7 +3033,8 @@ function ZhuyinBlock({ syllable }) {
       return (
         <span className={`${isCorrection ? 'text-[#1B4D3E]' : 'text-slate-900'} relative group`} style={{ display: 'inline' }}>
           {content}
-          {sentenceEditPayload && onEdit && (
+          {/* 🚀 新增防線：必須在「全文標音」模式下，才允許渲染編輯小鉛筆 */}
+          {effectiveScope === 'full_text' && sentenceEditPayload && onEdit && (
              <button onClick={(e) => { e.stopPropagation(); onEdit(sentenceEditPayload); }} className="ml-2 opacity-0 group-hover:opacity-100 text-[#FF9B82] transition-opacity print:hidden inline-flex align-middle pb-2" title="編輯整句標音">
                 <Edit3 size={18} strokeWidth={3} />
              </button>
