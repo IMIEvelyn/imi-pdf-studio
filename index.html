@@ -2614,20 +2614,22 @@ const savePhonetic = () => {
               </tfoot>
             </table>
           </div>
-        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-2xl p-4 rounded-full shadow-[0_16px_32px_rgba(0,0,0,0.1),inset_0_4px_8px_rgba(255,255,255,1)] border border-slate-200 flex items-center gap-6 z-20 print:hidden relative">
-            <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (onPrev) onPrev(); }} className="px-10 py-5 text-slate-600 font-black text-xl hover:bg-[#FFF6E9] rounded-[32px] transition-colors relative z-50 cursor-pointer">返回設定</button>
-            <button onClick={() => window.print()} className="px-12 py-5 bg-[#FF9B82] text-white rounded-[32px] font-black text-2xl shadow-[0_8px_0_0_#E2755D] hover:translate-y-1 hover:shadow-[0_4px_0_0_#E2755D] active:translate-y-[8px] active:shadow-none transition-all flex items-center gap-3"><Download size={28} strokeWidth={3}/>列印 / 下載 PDF</button>
+       <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-2xl p-4 rounded-full shadow-[0_16px_32px_rgba(0,0,0,0.1),inset_0_4px_8px_rgba(255,255,255,1)] border border-slate-200 flex items-center gap-6 z-20 print:hidden relative">
+    <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (onPrev) onPrev(); }} className="px-10 py-5 text-slate-600 font-black text-xl hover:bg-[#FFF6E9] rounded-[32px] transition-colors relative z-50 cursor-pointer">返回設定</button>
+    <button onClick={() => window.print()} className="px-12 py-5 bg-[#FF9B82] text-white rounded-[32px] font-black text-2xl shadow-[0_8px_0_0_#E2755D] hover:translate-y-1 hover:shadow-[0_4px_0_0_#E2755D] active:translate-y-[8px] active:shadow-none transition-all flex items-center gap-3"><Download size={28} strokeWidth={3}/>列印 / 下載 PDF</button>
 
-            {/* 🚀 新增區塊：分隔線與獨立的返回首頁按鈕 */}
-            <div className="w-px h-12 bg-slate-200 ml-2"></div>
-            <button 
-                type="button" 
-                onClick={handleReturnToHome} 
-                className="px-8 py-5 border-2 border-slate-300 text-slate-500 rounded-[32px] font-bold text-xl hover:bg-slate-50 hover:text-slate-700 hover:border-slate-400 transition-all active:scale-95 flex items-center gap-2 mr-1"
-            >
-                🏠 返回首頁
-            </button>
-          </div>
+    {/* 灰色線：維持原狀，緊跟在列印按鈕右側 */}
+    <div className="w-px h-12 bg-slate-200"></div>
+
+    {/* 返回首頁：加入 ml-auto，吸收底座內剩餘的空白空間，將自己推到最右側 */}
+    <button 
+        type="button" 
+        onClick={handleReturnToHome} 
+        className="ml-auto px-8 py-5 border-2 border-slate-300 text-slate-500 rounded-[32px] font-bold text-xl hover:bg-slate-50 hover:text-slate-700 hover:border-slate-400 transition-all active:scale-95 flex items-center gap-2"
+    >
+        🏠 返回首頁
+    </button>
+</div>
           
           {editingWord && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 print:hidden">
