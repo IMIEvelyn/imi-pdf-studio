@@ -2170,10 +2170,11 @@ const savePhonetic = () => {
                     <div style={{ padding: '0px' }}> 
                       <div className="content-inner-layer relative bg-white z-0 rounded-[32px] overflow-visible shadow-sm" style={{ border: '1px solid #E4E0EB', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact', minHeight: '800px' }}>
                         
-                       <div className="purple-header p-8 md:p-10 text-white border-b-[6px] border-[#8A7EA5]" style={{ backgroundColor: ({purple: '#9A8CB0', green: '#9DB2A1', blue: '#8AA0B1', yellow: '#C2B496'}[settings.themeColor] || '#9A8CB0'), borderColor: ({purple: '#8A7EA5', green: '#899C8D', blue: '#788C9C', yellow: '#A89B80'}[settings.themeColor] || '#8A7EA5'), WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                      <div className="purple-header p-8 md:p-10 text-white border-b-[6px] border-[#8A7EA5]" style={{ backgroundColor: ({purple: '#9A8CB0', green: '#9DB2A1', blue: '#8AA0B1', yellow: '#C2B496'}[settings.themeColor] || '#9A8CB0'), borderColor: ({purple: '#8A7EA5', green: '#899C8D', blue: '#788C9C', yellow: '#A89B80'}[settings.themeColor] || '#8A7EA5'), WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
                           <div className="flex justify-between items-end">
                             <div className="flex items-center gap-6">
-                              <div className="w-24 h-24 rounded-full bg-white flex items-center justify-center overflow-hidden shrink-0 border-4 border-[#F4F0FF]" style={{ boxShadow: `0 8px 16px rgba(0,0,0,0.15), inset 0 4px 8px rgba(0,0,0,0.05), inset 0 -4px 8px rgba(${({purple: '154,140,176', green: '157,178,161', blue: '138,160,177', yellow: '194,180,150'}[settings.themeColor] || '154,140,176'}),0.4)`, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                              {/* 🚀 修正括號錯誤：移除了導致編譯失敗的括號，讓變數完美嵌入 rgba 中 */}
+                              <div className="w-24 h-24 rounded-full bg-white flex items-center justify-center overflow-hidden shrink-0 border-4 border-[#F4F0FF]" style={{ boxShadow: `0 8px 16px rgba(0,0,0,0.15), inset 0 4px 8px rgba(0,0,0,0.05), inset 0 -4px 8px rgba(${ {purple: '154,140,176', green: '157,178,161', blue: '138,160,177', yellow: '194,180,150'}[settings.themeColor] || '154,140,176' }, 0.4)`, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
                                 {settings.logoUrl ? (
                                   <img src={settings.logoUrl} alt="Logo" className="w-[85%] h-[85%] object-contain drop-shadow-sm" />
                                 ) : (
