@@ -176,7 +176,15 @@
         });
       };
 
-      const tryLocalParse = (text) => {
+     const tryLocalParse = (rawText) => {
+          // 🚀 高容錯標準化濾水器：自動吸收標題的各種排版誤差（全半形、空格、額外文字）
+          const text = rawText
+              .replace(/#{2,5}[\s　]*[1１][.\s　]*核心課文[^\n]*/g, '### 1. 核心課文')
+              .replace(/#{2,5}[\s　]*[2２][.\s　]*核心詞彙[^\n]*/g, '### 2. 核心詞彙')
+              .replace(/#{2,5}[\s　]*[3３][.\s　]*情境對話[^\n]*/g, '### 3. 情境對話')
+              .replace(/#{2,5}[\s　]*[4４][.\s　]*核心語法[^\n]*/g, '### 4. 核心語法')
+              .replace(/#{2,5}[\s　]*[5５][.\s　]*語法診斷室[^\n]*/g, '### 5. 語法診斷室');
+
           if (!text.includes('### 1. 核心課文')) return null;
 
           const result = {
@@ -197,7 +205,7 @@
               
               return text.substring(actualStart, actualEnd).trim();
           };
-
+       
           const sec1 = extractSection('### 1. 核心課文', '### 2.');
           const sec2 = extractSection('### 2. 核心詞彙', '### 3.');
           const sec3 = extractSection('### 3. 情境對話', '### 4.');
@@ -1183,8 +1191,30 @@ ${phoneticInstruction}
                 <div className="space-y-3"><label className="font-black text-slate-500 ml-1">班級 / 學生名稱</label><input type="text" className="w-full p-5 bg-[#f8fafc] border-2 border-slate-100 rounded-2xl outline-none focus:border-[#FFAC59] text-xl font-bold text-slate-700 shadow-inner" value={settings.className} onChange={(e) => updateSetting('className', e.target.value)} placeholder="" /></div>
                 <div className="space-y-3"><label className="font-black text-slate-500 ml-1">老師姓名</label><input type="text" className="w-full p-5 bg-[#f8fafc] border-2 border-slate-100 rounded-2xl outline-none focus:border-[#FFAC59] text-xl font-bold text-slate-700 shadow-inner" value={settings.teacherName} onChange={(e) => updateSetting('teacherName', e.target.value)} placeholder="例如：Evelyn" /></div>
                 <div className="space-y-3"><label className="font-black text-slate-500 ml-1">講義日期</label><input type="date" className="w-full p-5 bg-[#f8fafc] border-2 border-slate-100 rounded-2xl outline-none focus:border-[#FFAC59] text-xl font-bold text-slate-700 shadow-inner" value={settings.date} onChange={(e) => updateSetting('date', e.target.value)} /></div>
-                <div className="space-y-3 md:col-span-2"><label className="font-black text-[#FFAC59] ml-1">教材等級</label><input type="text" className="w-full p-5 bg-[#FFF9F2] border-2 border-[#FFE1C2] rounded-2xl outline-none focus:border-[#FFAC59] text-xl font-black text-[#D47000] shadow-inner" value={settings.textLevel} onChange={(e) => updateSetting('textLevel', e.target.value)} /></div>
+               <div className="space-y-3 md:col-span-2"><label className="font-black text-[#FFAC59] ml-1">教材等級</label><input type="text" className="w-full p-5 bg-[#FFF9F2] border-2 border-[#FFE1C2] rounded-2xl outline-none focus:border-[#FFAC59] text-xl font-black text-[#D47000] shadow-inner" value={settings.textLevel} onChange={(e) => updateSetting('textLevel', e.target.value)} /></div>
               </div>
+
+              {/* 🚀 新增：四季主題色選擇器 */}
+              <div className="space-y-4 pt-4 border-t-2 border-slate-50">
+                <label className="font-black text-slate-500 ml-1">PDF 主標題色彩 </label>
+                <div className="flex gap-4">
+                  {[
+                    { id: 'purple', name: '經典紫', bg: '#9A8CB0' },
+                    { id: 'green', name: '莫蘭迪綠 ', bg: '#9DB2A1' },
+                    { id: 'blue', name: '霧霾藍 ', bg: '#8AA0B1' },
+                    { id: 'yellow', name: '麥穗黃 ', bg: '#C2B496' }
+                  ].map(theme => (
+                    <button
+                      key={theme.id}
+                      onClick={() => updateSetting('themeColor', theme.id)}
+                      className={`w-12 h-12 rounded-full border-4 transition-all duration-200 ${settings.themeColor === theme.id || (!settings.themeColor && theme.id === 'purple') ? 'border-slate-400 scale-110 shadow-md' : 'border-transparent hover:scale-105'}`}
+                      style={{ backgroundColor: theme.bg }}
+                      title={theme.name}
+                    />
+                  ))}
+                </div>
+              </div>
+              
               <div className="space-y-4">
                 <label className="font-black text-slate-500 ml-1 flex items-center gap-2"><ImageIcon size={22} className="text-[#FFAC59]"/> 教材標誌 (Logo) 上傳</label>
                 <div onClick={() => fileInputRef.current?.click()} className="group border-4 border-dashed border-slate-200 rounded-[32px] p-10 flex flex-col items-center justify-center bg-[#f8fafc] hover:bg-[#FFF9F2] hover:border-[#FFAC59] transition-all cursor-pointer relative overflow-hidden shadow-inner">
@@ -1639,7 +1669,7 @@ function Step4Preview({ onReset, data, settings, onPrev, setData, layoutTitleSiz
 const savePhonetic = () => {
     if (!editingWord) return;
     const newData = { ...data };
-    const clean = (s) => (s || '').replace(/([ㄚㄅAB]\s*:\s*)/gi, '').trim();
+    const clean = (s) => (s || '').replace(/([A-Za-zㄚ-ㄩ]\s*[:：]\s*)/gi, '').trim();
     const p = clean(editingWord.pinyin);
     const z = clean(editingWord.zhuyin);
 
@@ -2140,10 +2170,10 @@ const savePhonetic = () => {
                     <div style={{ padding: '0px' }}> 
                       <div className="content-inner-layer relative bg-white z-0 rounded-[32px] overflow-visible shadow-sm" style={{ border: '1px solid #E4E0EB', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact', minHeight: '800px' }}>
                         
-                        <div className="purple-header p-8 md:p-10 text-white border-b-[6px] border-[#8A7EA5]" style={{ backgroundColor: '#9A8CB0', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                       <div className="purple-header p-8 md:p-10 text-white border-b-[6px] border-[#8A7EA5]" style={{ backgroundColor: ({purple: '#9A8CB0', green: '#9DB2A1', blue: '#8AA0B1', yellow: '#C2B496'}[settings.themeColor] || '#9A8CB0'), borderColor: ({purple: '#8A7EA5', green: '#899C8D', blue: '#788C9C', yellow: '#A89B80'}[settings.themeColor] || '#8A7EA5'), WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
                           <div className="flex justify-between items-end">
                             <div className="flex items-center gap-6">
-                              <div className="w-24 h-24 rounded-full bg-white flex items-center justify-center overflow-hidden shrink-0 border-4 border-[#F4F0FF]" style={{ boxShadow: '0 8px 16px rgba(0,0,0,0.15), inset 0 4px 8px rgba(0,0,0,0.05), inset 0 -4px 8px rgba(154,140,176,0.4)', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                              <div className="w-24 h-24 rounded-full bg-white flex items-center justify-center overflow-hidden shrink-0 border-4 border-[#F4F0FF]" style={{ boxShadow: `0 8px 16px rgba(0,0,0,0.15), inset 0 4px 8px rgba(0,0,0,0.05), inset 0 -4px 8px rgba(${({purple: '154,140,176', green: '157,178,161', blue: '138,160,177', yellow: '194,180,150'}[settings.themeColor] || '154,140,176'}),0.4)`, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
                                 {settings.logoUrl ? (
                                   <img src={settings.logoUrl} alt="Logo" className="w-[85%] h-[85%] object-contain drop-shadow-sm" />
                                 ) : (
@@ -2162,6 +2192,7 @@ const savePhonetic = () => {
                             </div>
                           </div>
                         </div>
+                        
                         <section className={`${activeModule === 'coreText' ? 'block' : 'hidden'} print:block`}>
                        {/* 核心課文：標題與圖例並排區塊 */}
 <div className="flex flex-wrap items-end justify-between gap-4 w-full border-b-[3px] pb-2 mb-8" style={{ borderColor: '#7A7387', WebkitPrintColorAdjust: 'exact' }}>
