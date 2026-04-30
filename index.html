@@ -867,7 +867,19 @@ ${phoneticInstruction}
       };
       
       const handleSaveChunk = () => {
-        if (!editingChunk) return;
+  if (!editingChunk) return;
+
+  // 📍 新增：主標題專屬的存檔攔截邏輯
+  if (editingChunk.isTitle) {
+    const newTitleChunks = [...(data.themeTitleChunks || [])];
+    const tIdx = newTitleChunks.findIndex(c => c.id === editingChunk.id);
+    if (tIdx !== -1) {
+      newTitleChunks[tIdx] = { ...editingChunk };
+      setData({ ...data, themeTitleChunks: newTitleChunks });
+    }
+    setEditingChunk(null);
+    return; // 處理完標題就直接離開，不干擾下方的課文邏輯
+  }
         let newChunks = (data.coreTextChunks || []).map(c => ({ ...c }));
         let newVocabList = [...(data.vocabList || [])]; 
         const idx = newChunks.findIndex(c => c.id === editingChunk.id);
@@ -2237,15 +2249,42 @@ const savePhonetic = () => {
                                   </div>
                                 )}
                                   </div>
-                             <div className="space-y-2 flex flex-wrap items-end font-black tracking-tighter" style={{ fontSize: `${Number(layoutTitleSize) + 12}px` }}>
+                           <h1 className="space-y-2 flex flex-wrap items-end font-black tracking-tighter" style={{ fontSize: `${Number(layoutTitleSize) + 12}px`, lineHeight: '1.2' }}>
   {data.themeTitleChunks && data.themeTitleChunks.length > 0 ? (
-    data.themeTitleChunks.map((chunk, i) => (
-      <WordBlock key={`title-${i}`} text={chunk.text} pinyinStr={chunk.pinyin} zhuyinStr={chunk.zhuyin} />
-    ))
+    data.themeTitleChunks.map((chunk, i) => {
+      // 💡 1. 判斷標音顯示邏輯：是否為全文標音？或是該字元包含在核心生詞中？
+      const isFullText = settings.phoneticScope === 'full_text';
+      const isInVocab = (data.vocabList || []).some(v => v.word.includes(chunk.text));
+      const shouldShow = isFullText || isInVocab;
+      
+      const finalPinyin = shouldShow ? chunk.pinyin : '';
+      const finalZhuyin = shouldShow ? chunk.zhuyin : '';
+
+      return (
+        <span 
+          key={`title-${i}`} 
+          className="group relative cursor-pointer hover:bg-slate-100/60 rounded-xl transition-colors px-1"
+          onClick={() => setEditingChunk && setEditingChunk({ ...chunk, isTitle: true, titleIndex: i })}
+        >
+          {/* 💡 2. 強制 WordBlock 繼承 H1 的字體大小 */}
+          <span style={{ fontSize: 'inherit' }}>
+            <WordBlock text={chunk.text} pinyinStr={finalPinyin} zhuyinStr={finalZhuyin} />
+          </span>
+          
+          {/* 💡 3. 破音字修改小鉛筆 (Hover 顯示，列印時自動隱藏) */}
+          <div className="absolute -top-3 -right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white border border-[#FFAC59] rounded-full p-1.5 shadow-md z-10 print:hidden">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFAC59" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 20h9"></path>
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+            </svg>
+          </div>
+        </span>
+      );
+    })
   ) : (
-    <h1>{settings.themeTitle || '課後複習講義'}</h1>
+    <span>{settings.themeTitle || '課後複習講義'}</span>
   )}
-</div>
+</h1>
                             </div>
                             <div className="text-right flex flex-col items-end shrink-0 z-10 relative">
                              <span className="bg-white/20 text-white px-4 py-1.5 rounded-xl font-black text-sm mb-2 tracking-widest border border-white/40 shadow-sm" style={{ WebkitPrintColorAdjust: 'exact' }}>{settings.textLevel}</span>
