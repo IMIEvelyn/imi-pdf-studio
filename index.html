@@ -452,6 +452,8 @@
           const isFullText = exportSettings.phoneticScope === 'full_text';
 
           const dataToTranslate = {
+            // 📍 新增：將標題拆成單字陣列，委託 AI 標音
+            themeTitleChunks: (exportSettings.themeTitle || '課後複習講義').split('').map((char, i) => ({ id: `t_${i}`, text: char, pinyin: "", zhuyin: "" })),
             coreTextChunks: (parsedData.coreTextChunks || []).map(c => isFullText ? { ...c, pinyin: c.pinyin || "", zhuyin: c.zhuyin || "" } : { ...c }),
             coreTextTranslation: parsedData.coreTextTranslation || "",
             vocabList: (parsedData.vocabList || []).map(v => ({ ...v, pinyin: v.pinyin || "", zhuyin: v.zhuyin || "", translation: v.translation || "", posTranslation: v.posTranslation || "" })),
@@ -470,8 +472,8 @@
           };
     // 🌟 [新增] 動態標音指令：根據老師設定，決定呼叫 AI 生成的標音種類與範圍，大幅節省 API Token！
           const scopeInstruction = isFullText 
-              ? '包含 coreTextChunks, vocabList, dialogues, coreGrammar, grammarRules 的所有內容' 
-              : '【極度重要】僅包含 vocabList (詞彙) 以及 coreGrammar (語法標題)！絕對不要為對話、課文、例句或語法規則生成標音欄位';
+              ? '包含 themeTitleChunks, coreTextChunks, vocabList, dialogues, coreGrammar, grammarRules 的所有內容' 
+              : '【極度重要】僅包含 themeTitleChunks, vocabList (詞彙) 以及 coreGrammar (語法標題)！絕對不要為對話、課文、例句或語法規則生成標音欄位';
 
           let phoneticInstruction = '';
           if (exportSettings.phoneticType === 'pinyin') {
@@ -528,7 +530,9 @@ ${phoneticInstruction}
           }
 
           const mergedData = {
-            coreTextChunks: (parsedData.coreTextChunks || []).map((c, i) => {
+          // 📍 新增：接住 AI 處理好的標題陣列，供 PDF 預覽區使用
+          themeTitleChunks: responseData.themeTitleChunks || [],
+          coreTextChunks: (parsedData.coreTextChunks || []).map((c, i) => {
               const aiC = (responseData.coreTextChunks || []).find(ac => ac.id === c.id) || (responseData.coreTextChunks || [])[i] || {};
               return { ...c, pinyin: aiC.pinyin || c.pinyin || '', zhuyin: aiC.zhuyin || c.zhuyin || '' };
             }),
@@ -2232,8 +2236,16 @@ const savePhonetic = () => {
                                      <span className="text-[#FFD700] font-black text-3xl tracking-tighter" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>IMI</span>
                                   </div>
                                 )}
-                              </div>
-                           <div className="space-y-2"><h1 className="font-black tracking-tighter" style={{ fontSize: `${Number(layoutTitleSize) + 12}px` }}>{settings.themeTitle || '課後複習講義'}</h1></div>
+                                  </div>
+                             <div className="space-y-2 flex flex-wrap items-end font-black tracking-tighter" style={{ fontSize: `${Number(layoutTitleSize) + 12}px` }}>
+  {data.themeTitleChunks && data.themeTitleChunks.length > 0 ? (
+    data.themeTitleChunks.map((chunk, i) => (
+      <WordBlock key={`title-${i}`} text={chunk.text} pinyinStr={chunk.pinyin} zhuyinStr={chunk.zhuyin} />
+    ))
+  ) : (
+    <h1>{settings.themeTitle || '課後複習講義'}</h1>
+  )}
+</div>
                             </div>
                             <div className="text-right flex flex-col items-end shrink-0 z-10 relative">
                              <span className="bg-white/20 text-white px-4 py-1.5 rounded-xl font-black text-sm mb-2 tracking-widest border border-white/40 shadow-sm" style={{ WebkitPrintColorAdjust: 'exact' }}>{settings.textLevel}</span>
@@ -2282,8 +2294,8 @@ const savePhonetic = () => {
     <div className="float-right w-[240px] aspect-square ml-8 mb-8 relative rounded-xl overflow-hidden shadow-sm border border-slate-200 z-10" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
       <img src={settings.lessonImageUrl} alt="Lesson Context" className="w-full h-full object-cover" />
       {settings.lessonImageCaption && (
-        <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white px-4 py-2">
-          <p className="text-[14px] font-medium tracking-wider text-center drop-shadow-md leading-relaxed">{settings.lessonImageCaption}</p>
+        <div className="absolute bottom-0 left-0 right-0 bg-black/60 border-t-[0.5px] border-white/40 text-white px-4 py-2">
+          <p className="text-[15px] font-medium tracking-wider text-center drop-shadow-md leading-relaxed">{settings.lessonImageCaption}</p>
         </div>
       )}
     </div>
