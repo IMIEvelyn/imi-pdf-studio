@@ -2253,8 +2253,8 @@ const savePhonetic = () => {
                                   </div>
                                 )}
                                   </div>
-                           <h1 className="space-y-2 flex flex-wrap items-end font-black tracking-tighter" style={{ fontSize: `${Number(layoutTitleSize) + 12}px`, lineHeight: '1.2', '--hz-size': `${Number(layoutTitleSize) + 12}px` }}>
-                        <InlineRubyText text="{settings.themeTitle" || '課後複習講義'} settings="{settings}" vocabList="{data.vocabList}" coreTextChunks="{data.coreTextChunks}" coreGrammar="{data.coreGrammar}" grammarRules="{data.grammarRules}" sentencePinyin="{data.themeTitlePinyin" ''} sentenceZhuyin="{data.themeTitleZhuyin" sentenceEditPayload="{{" type: 'theme_title', id: 'title', text: settings.themeTitle '課後複習講義', pinyin: data.themeTitlePinyin '', zhuyin: data.themeTitleZhuyin '' }} phoneticOverride="{phoneticOverride}"/>
+                         <h1 className="space-y-2 flex flex-wrap items-end font-black tracking-tighter" style={{ fontSize: `${Number(layoutTitleSize) + 12}px`, lineHeight: '1.2', '--hz-size': `${Number(layoutTitleSize) + 12}px` }}>
+                          <InlineRubyText text={settings.themeTitle || '課後複習講義'} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={data.themeTitlePinyin || ''} sentenceZhuyin={data.themeTitleZhuyin || ''} sentenceEditPayload={{ type: 'theme_title', id: 'title', text: settings.themeTitle || '課後複習講義', pinyin: data.themeTitlePinyin || '', zhuyin: data.themeTitleZhuyin || '' }} phoneticOverride={phoneticOverride} />
                           </h1>
                             </div>
                             <div className="text-right flex flex-col items-end shrink-0 z-10 relative">
