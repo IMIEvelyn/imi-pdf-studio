@@ -450,10 +450,9 @@
           
   // 🛡️ API 節流與防呆判斷：檢查是否為「全文標音」模式
           const isFullText = exportSettings.phoneticScope === 'full_text';
-
           const dataToTranslate = {
-            // 📍 新增：將標題拆成單字陣列，委託 AI 標音
-            themeTitleChunks: (exportSettings.themeTitle || '課後複習講義').split('').map((char, i) => ({ id: `t_${i}`, text: char, pinyin: "", zhuyin: "" })),
+            // 📍 修正：將標題作為「完整單一區塊」送出，讓 AI 與 InlineRubyText 完美連動
+            themeTitleChunks: [{ id: 'title', text: exportSettings.themeTitle || '課後複習講義', pinyin: "", zhuyin: "" }],
             coreTextChunks: (parsedData.coreTextChunks || []).map(c => isFullText ? { ...c, pinyin: c.pinyin || "", zhuyin: c.zhuyin || "" } : { ...c }),
             coreTextTranslation: parsedData.coreTextTranslation || "",
             vocabList: (parsedData.vocabList || []).map(v => ({ ...v, pinyin: v.pinyin || "", zhuyin: v.zhuyin || "", translation: v.translation || "", posTranslation: v.posTranslation || "" })),
@@ -470,6 +469,7 @@
             }),
             grammarRules: (parsedData.grammarRules || []).map(r => isFullText ? { ...r, mistakePinyin: r.mistakePinyin || "", mistakeZhuyin: r.mistakeZhuyin || "", correctionPinyin: r.correctionPinyin || "", correctionZhuyin: r.correctionZhuyin || "", explanationPinyin: r.explanationPinyin || "", explanationZhuyin: r.explanationZhuyin || "", translation: r.translation || "" } : { ...r, translation: r.translation || "" })
           };
+          
     // 🌟 [新增] 動態標音指令：根據老師設定，決定呼叫 AI 生成的標音種類與範圍，大幅節省 API Token！
           const scopeInstruction = isFullText 
               ? '包含 themeTitleChunks, coreTextChunks, vocabList, dialogues, coreGrammar, grammarRules 的所有內容' 
@@ -529,9 +529,10 @@ ${phoneticInstruction}
             } catch (e) { fallbackToOriginalData(); return; }
           }
 
-          const mergedData = {
-          // 📍 新增：接住 AI 處理好的標題陣列，供 PDF 預覽區使用
-          themeTitleChunks: responseData.themeTitleChunks || [],
+         const mergedData = {
+            // 📍 修正：接住 AI 標好的整句讀音，存為獨立變數供 InlineRubyText 使用
+            themeTitlePinyin: responseData.themeTitleChunks?.[0]?.pinyin || '',
+            themeTitleZhuyin: responseData.themeTitleChunks?.[0]?.zhuyin || '',
           coreTextChunks: (parsedData.coreTextChunks || []).map((c, i) => {
               const aiC = (responseData.coreTextChunks || []).find(ac => ac.id === c.id) || (responseData.coreTextChunks || [])[i] || {};
               return { ...c, pinyin: aiC.pinyin || c.pinyin || '', zhuyin: aiC.zhuyin || c.zhuyin || '' };
@@ -1739,7 +1740,10 @@ const savePhonetic = () => {
     const p = clean(editingWord.pinyin);
     const z = clean(editingWord.zhuyin);
 
-    if (editingWord.type === 'chunk') {
+    if (editingWord.type === 'theme_title') {
+      newData.themeTitlePinyin = p;
+      newData.themeTitleZhuyin = z;
+    } else if (editingWord.type === 'chunk') {
       newData.coreTextChunks = (newData.coreTextChunks || []).map(c => c.id === editingWord.id ? { ...c, pinyin: p, zhuyin: z } : c);
     } else if (editingWord.type === 'vocab') {
       newData.vocabList = (newData.vocabList || []).map(v => v.id === editingWord.id ? { ...v, pinyin: p, zhuyin: z } : v);
@@ -2249,42 +2253,9 @@ const savePhonetic = () => {
                                   </div>
                                 )}
                                   </div>
-                           <h1 className="space-y-2 flex flex-wrap items-end font-black tracking-tighter" style={{ fontSize: `${Number(layoutTitleSize) + 12}px`, lineHeight: '1.2' }}>
-  {data.themeTitleChunks && data.themeTitleChunks.length > 0 ? (
-    data.themeTitleChunks.map((chunk, i) => {
-      // 💡 1. 判斷標音顯示邏輯：是否為全文標音？或是該字元包含在核心生詞中？
-      const isFullText = settings.phoneticScope === 'full_text';
-      const isInVocab = (data.vocabList || []).some(v => v.word.includes(chunk.text));
-      const shouldShow = isFullText || isInVocab;
-      
-      const finalPinyin = shouldShow ? chunk.pinyin : '';
-      const finalZhuyin = shouldShow ? chunk.zhuyin : '';
-
-      return (
-        <span 
-          key={`title-${i}`} 
-          className="group relative cursor-pointer hover:bg-slate-100/60 rounded-xl transition-colors px-1"
-          onClick={() => setEditingChunk && setEditingChunk({ ...chunk, isTitle: true, titleIndex: i })}
-        >
-          {/* 💡 2. 強制 WordBlock 繼承 H1 的字體大小 */}
-          <span style={{ fontSize: 'inherit' }}>
-            <WordBlock text={chunk.text} pinyinStr={finalPinyin} zhuyinStr={finalZhuyin} />
-          </span>
-          
-          {/* 💡 3. 破音字修改小鉛筆 (Hover 顯示，列印時自動隱藏) */}
-          <div className="absolute -top-3 -right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white border border-[#FFAC59] rounded-full p-1.5 shadow-md z-10 print:hidden">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#FFAC59" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 20h9"></path>
-              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
-            </svg>
-          </div>
-        </span>
-      );
-    })
-  ) : (
-    <span>{settings.themeTitle || '課後複習講義'}</span>
-  )}
-</h1>
+                           <h1 className="space-y-2 flex flex-wrap items-end font-black tracking-tighter" style={{ fontSize: `${Number(layoutTitleSize) + 12}px`, lineHeight: '1.2', '--hz-size': `${Number(layoutTitleSize) + 12}px` }}>
+                        <InlineRubyText text="{settings.themeTitle" || '課後複習講義'} settings="{settings}" vocabList="{data.vocabList}" coreTextChunks="{data.coreTextChunks}" coreGrammar="{data.coreGrammar}" grammarRules="{data.grammarRules}" sentencePinyin="{data.themeTitlePinyin" ''} sentenceZhuyin="{data.themeTitleZhuyin" sentenceEditPayload="{{" type: 'theme_title', id: 'title', text: settings.themeTitle '課後複習講義', pinyin: data.themeTitlePinyin '', zhuyin: data.themeTitleZhuyin '' }} phoneticOverride="{phoneticOverride}"/>
+                          </h1>
                             </div>
                             <div className="text-right flex flex-col items-end shrink-0 z-10 relative">
                              <span className="bg-white/20 text-white px-4 py-1.5 rounded-xl font-black text-sm mb-2 tracking-widest border border-white/40 shadow-sm" style={{ WebkitPrintColorAdjust: 'exact' }}>{settings.textLevel}</span>
