@@ -3107,9 +3107,9 @@ function ZhuyinBlock({ syllable }) {
             baseType = 'grammar';
           }
 
-          // 第四階段純淨排版：將所有詞彙的字體統一為純黑，保留粗體
-          if (baseType) {
-            highlightStyle = { color: '#000000', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' };
+         // 第四階段純淨排版：將所有詞彙的字體統一為純黑，保留粗體（若為主標題則強制純白）
+        if (baseType) {
+          highlightStyle = { color: className.includes('text-white') ? '#FFFFFF' : '#000000', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' };
           }
 
           // 語法點專屬：疊加灰色虛線（完美相容純黑字體）
