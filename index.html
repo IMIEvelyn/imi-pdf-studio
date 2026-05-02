@@ -3149,7 +3149,7 @@ function ZhuyinBlock({ syllable }) {
             return isPunc ? <span key={i} className="-ml-1.5 inline-block">{block}</span> : block;
       });
 
-     return (
+    return (
         <span 
           className={`${isCorrection ? 'text-[#1B4D3E]' : (className?.includes('text-white') ? 'text-white' : 'text-slate-900')} relative group ${className || ''}`} 
           style={{ display: 'inline', color: className?.includes('text-white') ? '#FFFFFF' : 'inherit' }}
