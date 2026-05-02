@@ -2976,7 +2976,7 @@ function ZhuyinBlock({ syllable }) {
           </span>
         );
       }
-    function InlineRubyText({ text, settings, vocabList, coreTextChunks, coreGrammar, grammarRules, sentencePinyin, sentenceZhuyin, isCorrection = false, alwaysShowRuby = false, sentenceEditPayload = null, phoneticOverride = 'both' }) {
+    function InlineRubyText({ text, settings, vocabList, coreTextChunks, coreGrammar, grammarRules, sentencePinyin, sentenceZhuyin, isCorrection = false, alwaysShowRuby = false, sentenceEditPayload = null, phoneticOverride = 'both', className = '' }) {
       const onEdit = React.useContext(EditPhoneticContext);
       if (!text) return null;
 
@@ -2995,7 +2995,7 @@ function ZhuyinBlock({ syllable }) {
 
       if (effectiveScope !== 'full_text' && targetWords.length === 0) {
          return (
-           <span className={`${isCorrection ? 'text-[#1B4D3E]' : 'text-slate-900'} relative group`} style={{ display: 'inline' }}>
+           <span className={`${isCorrection ? 'text-[#1B4D3E]' : 'text-slate-900'} relative group ${className}`} style={{ display: 'inline' }}>
              <WordBlock text={text} pinyinStr="" zhuyinStr="" showP={false} showZ={false} highlightStyle={{}} />
              {effectiveScope === 'full_text' && sentenceEditPayload && onEdit && (
                  <button onClick={(e) => { e.stopPropagation(); onEdit(sentenceEditPayload); }} className="ml-2 opacity-0 group-hover:opacity-100 text-[#FF9B82] transition-opacity print:hidden inline-flex align-middle pb-2" title="編輯整句標音">
