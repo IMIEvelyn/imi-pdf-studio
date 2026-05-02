@@ -611,17 +611,18 @@ ${phoneticInstruction}
         setError(null);
       };
 
-      const renderMistake = (text, isPDF = false) => {
-        if (!text) return null;
-        const parts = text.split(/(<u>.*?<\/u>)/g);
-        return parts.map((part, i) => {
-          if (part.startsWith('<u>') && part.endsWith('</u>')) {
-            const innerText = part.slice(3, -4);
-            return <span key={i} className={`bg-[#fecdd3] px-1.5 py-0.5 rounded-md ${isPDF ? 'text-inherit' : 'text-slate-900'}`}>{innerText}</span>;
-          }
-          return <span key={i}>{part}</span>;
-        });
-      };
+     const renderMistake = (text, isPDF = false) => {
+  if (!text) return null;
+  const parts = text.split(/(<u>.*?<\/u>)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('<u>') && part.endsWith('</u>')) {
+      const innerText = part.slice(3, -4);
+      // 核心修改：在 PDF 模式下繼承外層顏色，其餘維持深灰
+      return <span key={i} className={`bg-[#fecdd3] px-1.5 py-0.5 rounded-md ${isPDF ? 'text-inherit' : 'text-slate-900'}`}>{innerText}</span>;
+    }
+    return <span key={i}>{part}</span>;
+  });
+};
 
       return (
         <div className="min-h-screen bg-[#FFF6E9] font-sans text-slate-800">
@@ -2993,17 +2994,15 @@ function ZhuyinBlock({ syllable }) {
       targetWords = [...new Set(targetWords)];
       targetWords.sort((a, b) => b.length - a.length);
 
-      if (effectiveScope !== 'full_text' && targetWords.length === 0) {
-         return (
-           <span className={`${isCorrection ? 'text-[#1B4D3E]' : (className.includes('text-white') ? 'text-white' : 'text-slate-900')} relative group ${className}`} style={{ display: 'inline' }}>
-             <WordBlock text={text} pinyinStr="" zhuyinStr="" showP={false} showZ={false} highlightStyle={{}} />
-             {effectiveScope === 'full_text' && sentenceEditPayload && onEdit && (
-                 <button onClick={(e) => { e.stopPropagation(); onEdit(sentenceEditPayload); }} className="ml-2 opacity-0 group-hover:opacity-100 text-[#FF9B82] transition-opacity print:hidden inline-flex align-middle pb-2" title="編輯整句標音">
-                    <Edit3 size={18} strokeWidth={3} />
-                 </button>
-             )}
-           </span>
-         );
+     if (effectiveScope !== 'full_text' && targetWords.length === 0) {
+          return (
+            <span 
+              className={`${isCorrection ? 'text-[#1B4D3E]' : (className?.includes('text-white') ? 'text-white' : 'text-slate-900')} relative group ${className || ''}`} 
+              style={{ display: 'inline', color: className?.includes('text-white') ? '#FFFFFF' : 'inherit' }}
+            >
+              <WordBlock text={text} pinyinStr="" zhuyinStr="" showP={false} showZ={false} highlightStyle={{}} />
+            </span>
+          );
       }
 
       const getWordType = (word) => {
@@ -3108,9 +3107,10 @@ function ZhuyinBlock({ syllable }) {
           }
 
          // 第四階段純淨排版：將所有詞彙的字體統一為純黑，保留粗體（若為主標題則強制純白）
-        if (baseType) {
-          highlightStyle = { color: className.includes('text-white') ? '#FFFFFF' : '#000000', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' };
-          }
+      if (baseType) {
+          // 核心修改：若為主標題 (text-white) 則強制給予純白 #FFFFFF
+          highlightStyle = { color: className?.includes('text-white') ? '#FFFFFF' : '#000000', fontWeight: 'bold', WebkitPrintColorAdjust: 'exact' };
+        }
 
           // 語法點專屬：疊加灰色虛線（完美相容純黑字體）
           if (isGrammarPoint) {
@@ -3149,14 +3149,17 @@ function ZhuyinBlock({ syllable }) {
             return isPunc ? <span key={i} className="-ml-1.5 inline-block">{block}</span> : block;
       });
 
-      return (
-        <span className={`${isCorrection ? 'text-[#1B4D3E]' : (className.includes('text-white') ? 'text-white' : 'text-slate-900')} relative group ${className || ''}`} style={{ display: 'inline' }}>
+     return (
+        <span 
+          className={`${isCorrection ? 'text-[#1B4D3E]' : (className?.includes('text-white') ? 'text-white' : 'text-slate-900')} relative group ${className || ''}`} 
+          style={{ display: 'inline', color: className?.includes('text-white') ? '#FFFFFF' : 'inherit' }}
+        >
           {content}
           {/* 🚀 新增防線：必須在「全文標音」模式下，才允許渲染編輯小鉛筆 */}
           {effectiveScope === 'full_text' && sentenceEditPayload && onEdit && (
-             <button onClick={(e) => { e.stopPropagation(); onEdit(sentenceEditPayload); }} className="ml-2 opacity-0 group-hover:opacity-100 text-[#FF9B82] transition-opacity print:hidden inline-flex align-middle pb-2" title="編輯整句標音">
-                <Edit3 size={18} strokeWidth={3} />
-             </button>
+            <button onClick={(e) => { e.stopPropagation(); onEdit(sentenceEditPayload); }} className="ml-2 opacity-0 group-hover:opacity-100 text-[#FF9B82] transition-opacity print:hidden inline-flex align-middle pb-2" title="編輯整句標音">
+              <Edit3 size={18} strokeWidth={3} />
+            </button>
           )}
         </span>
       );
