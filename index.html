@@ -971,7 +971,25 @@ ${phoneticInstruction}
                   {!isSplitting ? (
                     <>
                       <div>
-                        <div className="flex justify-between items-end mb-3"><label className="text-base font-bold text-slate-500 ml-1">詞彙內容</label><button onClick={() => { setIsSplitting(true); setSplitText(editingChunk.text || ''); }} className="text-sm font-bold text-[#FFAC59] bg-[#FFF9F2] hover:bg-[#FFE8CC] px-3 py-1.5 rounded-xl transition-colors">✂️ 拆分此詞塊</button></div>
+                      <div className="flex justify-end items-center mb-3 gap-3">
+        <button onClick={() => {
+          if (!editingChunk.isIsolated && !sessionStorage.getItem('imi_isolate_ack')) {
+            if (window.confirm('解除此特定詞彙的標記連動？\n\n(點擊「確定」即表示了解，本次網頁工作階段將不再提示)')) {
+              sessionStorage.setItem('imi_isolate_ack', 'true');
+              setEditingChunk({...editingChunk, isIsolated: true});
+            }
+          } else {
+            setEditingChunk({...editingChunk, isIsolated: !editingChunk.isIsolated});
+          }
+        }} className={`text-sm font-bold px-3 py-1.5 rounded-xl transition-colors flex items-center gap-1.5 ${editingChunk.isIsolated ? 'bg-teal-500 border-[3px] border-teal-700 text-white shadow-md' : 'bg-teal-50 border-2 border-teal-200 text-teal-600'}`}>
+          {editingChunk.isIsolated ? (
+            <><svg className="w-4 h-4 text-[#800020]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>已解除連動標記</>
+          ) : (
+            <><svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" /></svg>解除標記連動</>
+          )}
+        </button>
+        <button onClick={() => { setIsSplitting(true); setSplitText(editingChunk.text || ''); }} className="text-sm font-bold text-[#FFAC59] bg-[#FFF9F2] hover:bg-[#FFE8CC] px-3 py-1.5 rounded-xl transition-colors">✂️ 拆分此詞塊</button>
+      </div>
                         <input type="text" value={editingChunk.text || ''} onChange={(e) => setEditingChunk({...editingChunk, text: e.target.value})} className="w-full px-5 py-4 bg-[#FFFcf9] border-2 border-orange-50 rounded-2xl text-2xl font-bold outline-none focus:border-[#FFAC59] shadow-inner" />
                       </div>
                      <div>
