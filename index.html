@@ -901,19 +901,31 @@ ${phoneticInstruction}
 
         const newText = editingChunk.text || ''; const newType = editingChunk.type; 
         
-        if (newText !== oldText && newText.startsWith(oldText)) {
-          let toEat = newText.slice(oldText.length);
-          let nextIdx = idx + 1;
-          while (toEat.length > 0 && nextIdx < newChunks.length) {
-            const nextC = newChunks[nextIdx];
-            if (toEat.startsWith(nextC.text)) {
-              toEat = toEat.slice(nextC.text.length);
-              newChunks.splice(nextIdx, 1);
-            } else break;
+        // 📍 新增：全域掃描與連動合併 (取代舊的局部吃字邏輯)
+        if (newText !== oldText && newText.length > 0) {
+          let i = 0;
+          while (i < newChunks.length) {
+            let currentStr = "";
+            let j = i;
+            let matched = false;
+            
+            // 往後抓取相鄰詞塊，比對是否能拼出目標詞彙 (如"中華"+"航空")
+            while (j < newChunks.length && currentStr.length < newText.length) {
+              currentStr += newChunks[j].text;
+              if (currentStr === newText) { matched = true; break; }
+              j++;
+            }
+            
+            // 若成功拼出，則將這幾個碎詞塊合併為一個完整的詞塊
+            if (matched) {
+              newChunks.splice(i, j - i + 1, { ...newChunks[i], text: newText });
+            }
+            i++; // 繼續往下掃描
           }
+        } else {
+          // 若老師只是修改屬性沒有改字，單純更新當前詞塊文字
+          newChunks[idx].text = newText;
         }
-        
-       newChunks[idx].text = newText;
     newChunks = newChunks.map(chunk => (chunk.text === newText ? { ...chunk, type: newType, isGrammar: editingChunk.isGrammar } : chunk));
 
     if (newType === 'keyword' || newType === 'vocab') {
