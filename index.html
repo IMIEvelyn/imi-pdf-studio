@@ -926,7 +926,21 @@ ${phoneticInstruction}
           // 若老師只是修改屬性沒有改字，單純更新當前詞塊文字
           newChunks[idx].text = newText;
         }
-    newChunks = newChunks.map(chunk => (chunk.text === newText ? { ...chunk, type: newType, isGrammar: editingChunk.isGrammar } : chunk));
+   // 📍 全域屬性同步 (加入「解除連動」防護網)
+    newChunks = newChunks.map(chunk => {
+      if (chunk.text === newText) {
+        // 1. 本尊更新：確保當前點擊的詞塊，儲存最新的 isIsolated 狀態
+        if (chunk.id === editingChunk.id) {
+          return { ...chunk, type: newType, isGrammar: editingChunk.isGrammar, isIsolated: editingChunk.isIsolated };
+        }
+        // 2. 防護網啟動：若其他同字詞塊已被獨立上鎖，跳過不處理，保證零干擾
+        if (chunk.isIsolated) return chunk;
+        
+        // 3. 正常連動：未上鎖的同名詞塊，跟隨本尊同步屬性
+        return { ...chunk, type: newType, isGrammar: editingChunk.isGrammar };
+      }
+      return chunk;
+    });
 
     if (newType === 'keyword' || newType === 'vocab') {
         const existingIdx = newVocabList.findIndex(v => v.word === newText);
