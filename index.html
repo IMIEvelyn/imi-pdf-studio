@@ -926,17 +926,22 @@ ${phoneticInstruction}
           // 若老師只是修改屬性沒有改字，單純更新當前詞塊文字
           newChunks[idx].text = newText;
         }
-   // 📍 全域屬性同步 (加入「解除連動」防護網)
+  
+    // 📍全域屬性同步 (加入「徹底雙向防護」邏輯)
     newChunks = newChunks.map(chunk => {
       if (chunk.text === newText) {
-        // 1. 本尊更新：確保當前點擊的詞塊，儲存最新的 isIsolated 狀態
+        // 1. 本尊更新：無論如何，先更新老師目前正在編輯的這個特定詞彙
         if (chunk.id === editingChunk.id) {
           return { ...chunk, type: newType, isGrammar: editingChunk.isGrammar, isIsolated: editingChunk.isIsolated };
         }
-        // 2. 防護網啟動：若其他同字詞塊已被獨立上鎖，跳過不處理，保證零干擾
+        
+        // 2. 切斷廣播：如果本尊「已解除連動」，就不影響其他兄弟姊妹，直接保留原樣
+        if (editingChunk.isIsolated) return chunk;
+        
+        // 3. 遇鎖則避：如果本尊「正常連動」，但兄弟姊妹自己本身「已上鎖」，也不去干擾它
         if (chunk.isIsolated) return chunk;
         
-        // 3. 正常連動：未上鎖的同名詞塊，跟隨本尊同步屬性
+        // 4. 正常連動：雙方都未上鎖，才允許跟隨本尊同步屬性
         return { ...chunk, type: newType, isGrammar: editingChunk.isGrammar };
       }
       return chunk;
@@ -985,7 +990,7 @@ ${phoneticInstruction}
                   {!isSplitting ? (
                     <>
                       <div>
-                      <div className="flex justify-end items-center mb-3 gap-3">
+                    <div className="flex justify-end items-center mb-3 gap-3">
         <button onClick={() => {
           if (!editingChunk.isIsolated && !sessionStorage.getItem('imi_isolate_ack')) {
             if (window.confirm('解除此特定詞彙的標記連動？\n\n(點擊「確定」即表示了解，本次網頁工作階段將不再提示)')) {
@@ -995,11 +1000,18 @@ ${phoneticInstruction}
           } else {
             setEditingChunk({...editingChunk, isIsolated: !editingChunk.isIsolated});
           }
-        }} className={`text-sm font-bold px-3 py-1.5 rounded-xl transition-colors flex items-center gap-1.5 ${editingChunk.isIsolated ? 'bg-teal-500 border-[3px] border-teal-700 text-white shadow-md' : 'bg-teal-50 border-2 border-teal-200 text-teal-600'}`}>
+        }} className={`group text-sm font-bold px-3 py-1.5 rounded-xl transition-colors flex items-center gap-1.5 ${editingChunk.isIsolated ? 'bg-teal-500 border-[3px] border-teal-700 text-white shadow-md' : 'bg-teal-50 border-2 border-teal-200 text-teal-600'}`}>
           {editingChunk.isIsolated ? (
-            <><svg className="w-4 h-4 text-[#800020]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>已解除連動標記</>
+            <>
+              <svg className="w-4 h-4 text-[#800020]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+              <span className="group-hover:hidden">無標記連動</span>
+              <span className="hidden group-hover:inline">恢復標記連動</span>
+            </>
           ) : (
-            <><svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" /></svg>解除標記連動</>
+            <>
+              <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" /></svg>
+              <span>解除此詞彙的標記連動</span>
+            </>
           )}
         </button>
         <button onClick={() => { setIsSplitting(true); setSplitText(editingChunk.text || ''); }} className="text-sm font-bold text-[#FFAC59] bg-[#FFF9F2] hover:bg-[#FFE8CC] px-3 py-1.5 rounded-xl transition-colors">✂️ 拆分此詞塊</button>
