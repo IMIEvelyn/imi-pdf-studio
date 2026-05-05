@@ -965,10 +965,22 @@ ${phoneticInstruction}
           }
         }
         const finalChunks = autoLink(newChunks, newVocabList, data.coreGrammar, data.grammarRules);
-        setData({ ...data, coreTextChunks: finalChunks, vocabList: newVocabList });
-        setEditingChunk(null);
-      };
 
+        // 📍 守護防護網的最終防線 (攔截 autoLink 的強制連動覆寫)
+        const securedChunks = finalChunks.map(chunk => {
+          const original = newChunks.find(c => c.id === chunk.id);
+          if (original) {
+            // 保留原本算好的獨立狀態，不讓 autoLink 破壞
+            if (chunk.text === newText || original.isIsolated) {
+              return { ...chunk, type: original.type, isGrammar: original.isGrammar, isIsolated: original.isIsolated };
+            }
+          }
+          return chunk;
+        });
+
+        setData({ ...data, coreTextChunks: securedChunks, vocabList: newVocabList });
+        setEditingChunk(null);
+    };
       return (
         <div className="space-y-8">
           <div className="flex justify-between items-center"><h3 className="text-3xl font-black text-slate-700">核心課文編輯</h3><button onClick={() => isEditingRaw ? handleSaveRaw() : setIsEditingRaw(true)} className={`px-6 py-3 rounded-2xl font-black text-lg shadow-[0_4px_0_0_rgba(0,0,0,0.1)] active:translate-y-[4px] active:shadow-none transition-all ${isEditingRaw ? 'bg-[#FFAC59] text-white shadow-[0_4px_0_0_#E68A34]' : 'bg-[#FFFcf9] text-slate-600 shadow-[0_4px_0_0_#F0E5D8]'}`}>{isEditingRaw ? '儲存文本' : '修改整個文本 (純文字)'}</button></div>
