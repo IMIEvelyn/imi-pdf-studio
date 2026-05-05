@@ -2405,6 +2405,11 @@ const savePhonetic = () => {
                                 
                                 let finalPinyin = chunk.pinyin || '';
                                 let finalZhuyin = chunk.zhuyin || '';
+                // 📍 核心修復：偵測到「獨立無連動」且已移除標記的詞彙，強制清除其底層預設的拼注音
+                                if (chunk.isIsolated && !isTarget) {
+                                  finalPinyin = '';
+                                  finalZhuyin = '';
+                                }
                               const matchedVocab = isTarget ? (data.vocabList || []).find(v => v.word === textStr) : null;
                   if (matchedVocab) {
                       // 👑 老師在生詞卡的手動修改優先於 AI 靜態記憶
