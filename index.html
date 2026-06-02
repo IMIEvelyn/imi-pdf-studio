@@ -75,15 +75,16 @@
       logoUrl: null,
       phoneticType: 'zhuyin_pinyin',
       phoneticScope: 'core_only',
-      translationLanguage: '韓文 (한국어)', 
-      translateTargets: {
+      translationLanguage: '英文 (English)', 
+     translateTargets: {
         coreText: true,
         vocab: true,
         dialogue: false,
-       grammar: true,
+        grammar: true,
         coreGrammar: true 
       },
-      explanationMode: 'dual'
+      explanationMode: 'dual',
+      charType: 'traditional' // 新增：預設為正體中文
     };
 
     function App() {
@@ -484,12 +485,13 @@
             phoneticInstruction = `1. pinyin 與 zhuyin (雙軌標音任務)：只要有中文的地方，${scopeInstruction}，請務必將對應的 pinyin 與 zhuyin 欄位填滿！`;
           }
 
+const baseRules = exportSettings.charType === 'simplified' 
+  ? `【最高準則：保留簡體字與拼音標準】\n▶ 讀音：請遵守《現代漢語詞典》拼音標準。\n▶ 用詞：請絕對保留老師原文中的「簡體字」與慣用語，嚴禁擅自轉換為繁體字！\n▶ 翻譯：請保持自然流暢。`
+  : `【最高準則：臺灣華語標準 (TBCL & TOCFL)】\n▶ 讀音：請嚴格遵守中華民國教育部《國語辭典》標準（如「垃圾 lèsè」、「和 hàn」）。\n▶ 用詞：嚴禁使用中國大陸慣用語。請絕對使用臺灣在地詞彙（如：軟體、公車、列印）。\n▶ 翻譯：風格請貼近臺灣《新版當代中文課程》等主流教材。`;
+
 const systemInstruction = `你是一位專業華語出版助手。請負責將以下 JSON 結構中的內容補齊標音與翻譯。
 
-【最高準則：臺灣華語標準 (TBCL & TOCFL)】
-▶ 讀音：請嚴格遵守中華民國教育部《國語辭典》標準（如「垃圾 lèsè」、「和 hàn」）。
-▶ 用詞：嚴禁使用中國大陸慣用語。請絕對使用臺灣在地詞彙（如：軟體、公車、列印）。
-▶ 翻譯：風格請貼近臺灣《新版當代中文課程》等主流教材。
+${baseRules}
 
 【極度重要任務：強制補齊，禁止留空！】
 ${phoneticInstruction}
@@ -1373,7 +1375,7 @@ ${phoneticInstruction}
                   <div className="space-y-4"><label className="text-base font-black text-slate-500 ml-1">標音範圍</label><div className="flex bg-[#f1f5f9] p-2 rounded-3xl shadow-inner"><button className={`flex-1 py-4 rounded-2xl font-black text-lg transition-all ${settings.phoneticScope === 'core_only' ? 'bg-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] text-[#DCA427]' : 'text-slate-500'}`} onClick={() => updateSetting('phoneticScope', 'core_only')}>核心詞彙為主</button><button className={`flex-1 py-4 rounded-2xl font-black text-lg transition-all ${settings.phoneticScope === 'full_text' ? 'bg-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] text-[#DCA427]' : 'text-slate-500'}`} onClick={() => updateSetting('phoneticScope', 'full_text')}>全文皆需標音</button></div></div>
                 </div>
                 <div className="space-y-8"><h4 className="font-black text-2xl text-slate-700 flex items-center gap-3"><Download className="text-[#56D0A0]" size={32}/>翻譯設定</h4>
-                  <div className="space-y-4"><label className="text-base font-black text-slate-500 ml-1">目標語言</label>
+                <div className="space-y-4"><label className="text-base font-black text-slate-500 ml-1">目標語言</label>
                     <select className="w-full p-5 bg-[#f8fafc] border-2 border-slate-100 rounded-2xl outline-none focus:border-[#56D0A0] font-bold text-xl text-slate-700 shadow-inner" value={settings.translationLanguage} onChange={(e) => updateSetting('translationLanguage', e.target.value)}>
                       <option value="英文 (English)">英文 (English)</option>
                       <option value="韓文 (한국어)">韓文 (한국어)</option>
@@ -1381,6 +1383,14 @@ ${phoneticInstruction}
                       <option value="越南文 (Tiếng Việt)">越南文 (Tiếng Việt)</option>
                       <option value="法文 (Français)">法文 (Français)</option>
                       <option value="義大利語 (Italiano)">義大利語 (Italiano)</option>
+                     <option value="捷克語 (Čeština)">捷克語 (Čeština)</option>
+                      <option value="匈牙利語 (Magyar)">匈牙利語 (Magyar)</option>
+                    </select>
+                  </div>
+                  <div className="space-y-4 pt-4 border-t-2 border-dashed border-slate-100"><label className="text-base font-black text-slate-500 ml-1">教材字體來源</label>
+                    <select className="w-full p-5 bg-[#f8fafc] border-2 border-slate-100 rounded-2xl outline-none focus:border-[#56D0A0] font-bold text-xl text-slate-700 shadow-inner" value={settings.charType || 'traditional'} onChange={(e) => updateSetting('charType', e.target.value)}>
+                      <option value="traditional">🇹🇼 正體中文 (嚴格使用台灣用語與繁體)</option>
+                      <option value="simplified">🇨🇳 簡體中文 (保留簡體字與拼音標準)</option>
                     </select>
                   </div>
                 <div className="space-y-4"><label className="text-base font-black text-slate-500 ml-1">翻譯模組</label><div className="grid grid-cols-2 gap-4">{Object.entries({coreText: '核心課文', dialogue: '情境對話', coreGrammar: '核心語法', grammar: '語法診斷室'}).map(([key, label]) => (<label key={key} className={`flex items-center gap-4 p-5 border-2 rounded-2xl cursor-pointer transition-all ${settings.translateTargets[key] ? 'border-[#56D0A0] bg-[#EAFBF4] shadow-[0_4px_0_0_#34A879]' : 'border-slate-100 hover:bg-slate-50 shadow-sm'}`}><input type="checkbox" className="w-6 h-6 accent-[#56D0A0] shrink-0 rounded-md" checked={settings.translateTargets[key]} onChange={() => updateTarget(key)} /><span className="font-bold text-lg text-slate-700">{label}</span></label>))}</div></div>
@@ -1471,24 +1481,26 @@ function Step4Preview({ onReset, data, settings, onPrev, setData, layoutTitleSiz
 
       const getTranslatedModuleTitle = (zhTitle, lang) => {
         const dict = {
-          '📖 核心課文': { '英文 (English)': 'Core Text', '韓文 (한국어)': '핵심 本文', '日文 (日本語)': 'コアテキスト', '越南文 (Tiếng Việt)': 'Bài văn cốt lõi', '法文 (Français)': 'Texte principal', '義大利語 (Italiano)': 'Testo principale' },
-          '📝 核心生詞': { '英文 (English)': 'Core Vocabulary', '韓文 (한국어)': '핵심 語彙', '日文 (日本語)': 'コア単語', '越南文 (Tiếng Việt)': 'Từ vựng cốt lõi', '法文 (Français)': 'Vocabulaire principal', '義大利語 (Italiano)': 'Vocabolario principale' },
-          '📙 核心語法': { '英文 (English)': 'Core Grammar', '韓文 (한국어)': '핵심 文法', '日文 (日本語)': 'コア文法', '越南文 (Tiếng Việt)': 'Ngữ pháp cốt lõi', '法文 (Français)': 'Grammaire principale', '義大利語 (Italiano)': 'Grammatica principale' },
-          '💬 情境對話': { '英文 (English)': 'Situational Dialogue', '韓文 (한국어)': '상황별 대화', '日文 (日本語)': 'シチュエーション会話', '越南文 (Tiếng Việt)': 'Hội thoại tình huống', '法文 (Français)': 'Dialogue en situation', '義大利語 (Italiano)': 'Dialogo situazionale' },
-          '🛠️ 語法診斷室': { '英文 (English)': 'Grammar Diagnostics', '韓文 (한국어)': '문법 진단실', '日文 (日本語)': '文法診断室', '越南文 (Tiếng Việt)': 'Phòng chẩn đoán ngữ pháp', '法文 (Français)': 'Diagnostic grammatical', '義大利語 (Italiano)': 'Diagnostica grammaticale' }
+          '📖 核心課文': { '英文 (English)': 'Core Text', '韓文 (한국어)': '핵심 本文', '日文 (日本語)': 'コアテキスト', '越南文 (Tiếng Việt)': 'Bài văn cốt lõi', '法文 (Français)': 'Texte principal', '義大利語 (Italiano)': 'Testo principale', '捷克語 (Čeština)': 'Hlavní text', '匈牙利語 (Magyar)': 'Fő szöveg' },
+          '📝 核心生詞': { '英文 (English)': 'Core Vocabulary', '韓文 (한국어)': '핵심 語彙', '日文 (日本語)': 'コア単語', '越南文 (Tiếng Việt)': 'Từ vựng cốt lõi', '法文 (Français)': 'Vocabulaire principal', '義大利語 (Italiano)': 'Vocabolario principale', '捷克語 (Čeština)': 'Základní slovíčka', '匈牙利語 (Magyar)': 'Alapszókincs' },
+          '📙 核心語法': { '英文 (English)': 'Core Grammar', '韓文 (한국어)': '핵심 文法', '日文 (日本語)': 'コア文法', '越南文 (Tiếng Việt)': 'Ngữ pháp cốt lõi', '法文 (Français)': 'Grammaire principale', '義大利語 (Italiano)': 'Grammatica principale', '捷克語 (Čeština)': 'Základní gramatika', '匈牙利語 (Magyar)': 'Alapnyelvtan' },
+          '💬 情境對話': { '英文 (English)': 'Situational Dialogue', '韓文 (한국어)': '상황별 대화', '日文 (日本語)': 'シチュエーション会話', '越南文 (Tiếng Việt)': 'Hội thoại tình huống', '法文 (Français)': 'Dialogue en situation', '義大利語 (Italiano)': 'Dialogo situazionale', '捷克語 (Čeština)': 'Situační dialog', '匈牙利語 (Magyar)': 'Szituációs párbeszéd' },
+          '🛠️ 語法診斷室': { '英文 (English)': 'Grammar Diagnostics', '韓文 (한국어)': '문법 진단실', '日文 (日本語)': '文法診断室', '越南文 (Tiếng Việt)': 'Phòng chẩn đoán ngữ pháp', '法文 (Français)': 'Diagnostic grammatical', '義大利語 (Italiano)': 'Diagnostica grammaticale', '捷克語 (Čeština)': 'Gramatická diagnostika', '匈牙利語 (Magyar)': 'Nyelvtani diagnosztika' }
         };
         const translated = dict[zhTitle]?.[lang];
         return translated ? `${zhTitle} (${translated})` : zhTitle;
       };
       
-      const getLegendTranslations = (lang) => {
+     const getLegendTranslations = (lang) => {
         const dict = {
           '英文 (English)': ['Keyword', 'Vocabulary', 'Grammar'],
           '韓文 (한국어)': ['핵심어', '어휘', '문법'],
           '日文 (日本語)': ['キーワード', '語彙', '文法'],
           '越南文 (Tiếng Việt)': ['Từ khóa', 'Từ vựng', 'Ngữ pháp'],
           '法文 (Français)': ['Mot-clé', 'Vocabulaire', 'Grammaire'],
-          '義大利語 (Italiano)': ['Parola chiave', 'Vocabolario', 'Grammatica']
+          '義大利語 (Italiano)': ['Parola chiave', 'Vocabolario', 'Grammatica'],
+          '捷克語 (Čeština)': ['Klíčové slovo', 'Slovní zásoba', 'Gramatika'],
+          '匈牙利語 (Magyar)': ['Kulcsszó', 'Szókincs', 'Nyelvtan']
         };
         return dict[lang] || dict['英文 (English)'];
       };
@@ -1807,36 +1819,39 @@ function Step4Preview({ onReset, data, settings, onPrev, setData, layoutTitleSiz
       };
 
 const savePhonetic = () => {
-    if (!editingWord) return;
-    const newData = { ...data };
-    const clean = (s) => (s || '').replace(/([A-Za-zㄚ-ㄩ]\s*[:：]\s*)/gi, '').trim();
-    const p = clean(editingWord.pinyin);
-    const z = clean(editingWord.zhuyin);
-
-    if (editingWord.type === 'theme_title') {
-      newData.themeTitlePinyin = p;
-      newData.themeTitleZhuyin = z;
-    } else if (editingWord.type === 'chunk') {
-      newData.coreTextChunks = (newData.coreTextChunks || []).map(c => c.id === editingWord.id ? { ...c, pinyin: p, zhuyin: z } : c);
-    } else if (editingWord.type === 'vocab') {
-      newData.vocabList = (newData.vocabList || []).map(v => v.id === editingWord.id ? { ...v, pinyin: p, zhuyin: z } : v);
-    } else if (editingWord.type === 'grammar_title') {
-      newData.coreGrammar = (newData.coreGrammar || []).map(g => g.id === editingWord.id ? { ...g, titlePinyin: p, titleZhuyin: z } : g);
-    } else if (editingWord.type === 'grammar_desc') {
-      newData.coreGrammar = (newData.coreGrammar || []).map(g => g.id === editingWord.id ? { ...g, descPinyin: p, descZhuyin: z } : g);
-    } else if (editingWord.type === 'grammar_example') {
-      newData.coreGrammar = (newData.coreGrammar || []).map(g => g.id === editingWord.parentId ? { ...g, examples: g.examples.map((ex, i) => i === editingWord.id ? { ...ex, pinyin: p, zhuyin: z } : ex) } : g);
-    } else if (editingWord.type === 'dialogue_title') {
-      newData.dialogues = (newData.dialogues || []).map(d => (d.id === editingWord.id || d.title === editingWord.text) ? { ...d, titlePinyin: p, titleZhuyin: z } : d);
-    } else if (editingWord.type === 'dialogue_line') {
-      newData.dialogues = (newData.dialogues || []).map(d => d.id === editingWord.parentId ? { ...d, lines: d.lines.map(l => l.id === editingWord.id ? { ...l, pinyin: p, zhuyin: z } : l) } : d);
-    } else if (editingWord.type === 'rule_mistake' || editingWord.type === 'rule_correction' || editingWord.type === 'rule_explanation') {
-      const f = editingWord.type.split('_')[1];
-      newData.grammarRules = (newData.grammarRules || []).map(r => (r.id === editingWord.id || r.text === editingWord.text) ? { ...r, [`${f}Pinyin`]: p, [`${f}Zhuyin`]: z } : r);
-    }
-    if (setData) setData(newData);
-    setEditingWord(null);
-  };
+      if (!editingWord) return;
+      const newData = { ...data };
+      const clean = (s) => (s || '').replace(/([A-Za-zㄚ-ㄩ]\s*[:：]\s*)/gi, '').trim();
+      const p = clean(editingWord.pinyin);
+      const z = clean(editingWord.zhuyin);
+      const t = editingWord.text; // 👑 新增：接收老師手動調整後的最新中文字
+      
+      if (editingWord.type === 'theme_title') {
+        settings.themeTitle = t; // 直攻核心：更新講義主標題
+        newData.themeTitlePinyin = p;
+        newData.themeTitleZhuyin = z;
+      } else if (editingWord.type === 'chunk') {
+        newData.coreTextChunks = (newData.coreTextChunks || []).map(c => c.id === editingWord.id ? { ...c, text: t, pinyin: p, zhuyin: z } : c);
+      } else if (editingWord.type === 'vocab') {
+        newData.vocabList = (newData.vocabList || []).map(v => v.id === editingWord.id ? { ...v, word: t, pinyin: p, zhuyin: z } : v);
+      }
+  else if (editingWord.type === 'grammar_title') {
+        newData.coreGrammar = (newData.coreGrammar || []).map(g => g.id === editingWord.id ? { ...g, title: t, titlePinyin: p, titleZhuyin: z } : g);
+      } else if (editingWord.type === 'grammar_desc') {
+        newData.coreGrammar = (newData.coreGrammar || []).map(g => g.id === editingWord.id ? { ...g, description: t, descPinyin: p, descZhuyin: z } : g);
+      } else if (editingWord.type === 'grammar_example') {
+        newData.coreGrammar = (newData.coreGrammar || []).map(g => g.id === editingWord.parentId ? { ...g, examples: g.examples.map((ex, i) => i === editingWord.id ? { ...ex, text: t, pinyin: p, zhuyin: z } : ex) } : g);
+      } else if (editingWord.type === 'dialogue_title') {
+        newData.dialogues = (newData.dialogues || []).map(d => d.id === editingWord.id ? { ...d, title: t, titlePinyin: p, titleZhuyin: z } : d);
+      } else if (editingWord.type === 'dialogue_line') {
+        newData.dialogues = (newData.dialogues || []).map(d => d.id === editingWord.parentId ? { ...d, lines: d.lines.map(l => l.id === editingWord.id ? { ...l, text: t, pinyin: p, zhuyin: z } : l) } : d);
+      } else if (editingWord.type === 'rule_mistake' || editingWord.type === 'rule_correction' || editingWord.type === 'rule_explanation') {
+        const f = editingWord.type.split('_')[1];
+        newData.grammarRules = (newData.grammarRules || []).map(r => r.id === editingWord.id ? { ...r, [f]: t, [`${f}Pinyin`]: p, [`${f}Zhuyin`]: z } : r);
+      }
+      if (setData) setData(newData);
+      setEditingWord(null);
+    };
       
       const isTypePinyin = (settings.phoneticType === 'pinyin' || settings.phoneticType === 'zhuyin_pinyin') && phoneticOverride !== 'zhuyin_only';
       const isTypeZhuyin = (settings.phoneticType === 'zhuyin' || settings.phoneticType === 'zhuyin_pinyin') && phoneticOverride !== 'pinyin_only';
@@ -2842,8 +2857,16 @@ const savePhonetic = () => {
                   校正標音 (整句 / 破音字編輯)
                 </h4>
                 <div className="space-y-6">
-                  <div className="p-5 bg-orange-50 rounded-2xl text-center overflow-hidden max-h-40 overflow-y-auto">
-                    <span className="text-2xl font-black text-slate-800 break-all leading-relaxed">{editingWord.text}</span>
+                 <div className="space-y-2">
+                    <label className="block text-base font-bold text-slate-500 ml-1">中文文字 (可手動修改)</label>
+                    <textarea 
+                      className="w-full px-5 py-4 bg-[#f8fafc] border-2 border-slate-100 focus:border-[#FF9B82] rounded-2xl text-2xl font-black text-slate-800 outline-none shadow-inner resize-none h-28 leading-relaxed transition-all"
+                      value={editingWord.text || ''}
+                      onChange={(e) => setEditingWord({...editingWord, text: e.target.value})}
+                    />
+                    <p className="text-rose-500 text-sm font-bold mt-1 px-1">
+                      ⚠️ 提醒：修改中文不會連動更新標音及翻譯，請手動修改此兩個欄位。
+                    </p>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
