@@ -178,119 +178,105 @@
       };
 
      // 🚀 升級雙語濾水器：自動吸收標題誤差，並同時支援正體與簡體中文字
-          const text = rawText
-              .replace(/#{2,5}[\s　]*[1１][.\s　]*核心[課课]文[^\n]*/g, '### 1. 核心課文')
-              .replace(/#{2,5}[\s　]*[2２][.\s　]*核心[詞词][彙汇][^\n]*/g, '### 2. 核心詞彙')
-              .replace(/#{2,5}[\s　]*[3３][.\s　]*情境[對对][話话][^\n]*/g, '### 3. 情境對話')
-              .replace(/#{2,5}[\s　]*[4４][.\s　]*核心[語语]法[^\n]*/g, '### 4. 核心語法')
-              .replace(/#{2,5}[\s　]*[5５][.\s　]*[語语]法[診诊][斷断]室[^\n]*/g, '### 5. 語法診斷室');
 
-          if (!text.includes('### 1. 核心課文')) return null;
-
-          const result = {
-              textLevel: '', coreTextChunks: [], vocabList: [], dialogues: [], coreGrammar: [], grammarRules: []
-          };
-
-          const levelMatch = text.match(/TBCL\s*(.+?)\n/i) || text.match(/(TBCL.*?)\n/i);
-          if (levelMatch) result.textLevel = levelMatch[1].trim();
-
+const tryLocalParse = (rawText) => {
+        const text = rawText
+            .replace(/#{2,5}[\s　]*[1１][.\s　]*核心[課课]文[^\n]*/g, '### 1. 核心課文')
+            .replace(/#{2,5}[\s　]*[2２][.\s　]*核心[詞词][彙汇][^\n]*/g, '### 2. 核心詞彙')
+            .replace(/#{2,5}[\s　]*[3３][.\s　]*情境[對对][話话][^\n]*/g, '### 3. 情境對話')
+            .replace(/#{2,5}[\s　]*[4４][.\s　]*核心[語语]法[^\n]*/g, '### 4. 核心語法')
+            .replace(/#{2,5}[\s　]*[5５][.\s　]*[語语]法[診诊][斷断]室[^\n]*/g, '### 5. 語法診斷室');
+        if (!text.includes('### 1. 核心課文')) return null;
+        const result = { textLevel: '', coreTextChunks: [], vocabList: [], dialogues: [], coreGrammar: [], grammarRules: [] };
+        const levelMatch = text.match(/TBCL\s*(.+?)\n/i) || text.match(/(TBCL.*?)\n/i);
+        if (levelMatch) result.textLevel = levelMatch[1].trim();
         const extractSection = (startMarker, endMarker) => {
-              const start = text.indexOf(startMarker);
-              if (start === -1) return '';
-              const end = endMarker ? text.indexOf(endMarker, start) : text.length;
-              const actualEnd = end !== -1 ? end : text.length;
-              
-              const lineEnd = text.indexOf('\n', start);
-              const actualStart = (lineEnd !== -1 && lineEnd < actualEnd) ? lineEnd + 1 : start + startMarker.length;
-              
-              return text.substring(actualStart, actualEnd).trim();
-          };
-       
-          const sec1 = extractSection('### 1. 核心課文', '### 2.');
-          const sec2 = extractSection('### 2. 核心詞彙', '### 3.');
-          const sec3 = extractSection('### 3. 情境對話', '### 4.');
-          const sec4 = extractSection('### 4. 核心語法', '### 5.');
-          const sec5 = extractSection('### 5. 語法診斷室', null);
+            const start = text.indexOf(startMarker);
+            if (start === -1) return '';
+            const end = endMarker ? text.indexOf(endMarker, start) : text.length;
+            const actualEnd = end !== -1 ? end : text.length;
+            const lineEnd = text.indexOf('\n', start);
+            const actualStart = (lineEnd !== -1 && lineEnd < actualEnd) ? lineEnd + 1 : start + startMarker.length;
+            return text.substring(actualStart, actualEnd).trim();
+        };
+        const sec1 = extractSection('### 1. 核心課文', '### 2.');
+        const sec2 = extractSection('### 2. 核心詞彙', '### 3.');
+        const sec3 = extractSection('### 3. 情境對話', '### 4.');
+        const sec4 = extractSection('### 4. 核心語法', '### 5.');
+        const sec5 = extractSection('### 5. 語法診斷室', null);
+        const generateStrId = (prefix, i) => `${prefix}-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 5)}`;
+        const generateNumId = (i) => Date.now() + Math.floor(Math.random() * 1000000) + i;
+  if (sec1) {
+           try {
+                const segmenter = new Intl.Segmenter('zh-TW', { granularity: 'word' });
+                const cleanSec1 = sec1.replace(/^[\s　\n]+/, '');
+                const segments = Array.from(segmenter.segment(cleanSec1));
+                result.coreTextChunks = segments.map((seg, i) => ({ id: generateStrId('chunk', i), text: seg.segment, type: 'normal' }));
+           } catch (e) {
+                const cleanSec1 = sec1.replace(/^[\s　\n]+/, '');
+                result.coreTextChunks = cleanSec1.split(/(?=[，。！？；：「」『』、])/).map((t, i) => ({ id: generateStrId('chunk', i), text: t, type: 'normal' }));
+           }
+        }
+        if (sec2) {
+             const words = sec2.split(/[,、\n]/).map(w => w.trim()).filter(Boolean);
+             result.vocabList = words.map((w, i) => ({ id: generateNumId(i), word: w, pos: '生詞', type: 'vocab' }));
+        }
+  if (sec3) {
+             const blocks = sec3.split('---').map(b => b.trim()).filter(Boolean);
+             result.dialogues = blocks.map((b, i) => {
+                 const lines = b.split('\n').map(l => l.trim()).filter(Boolean);
+                 const titleLine = lines.find(l => l.match(/^(主題|主题)：/));
+                 const title = titleLine ? titleLine.replace(/^(主題|主题)：/, '').trim() : `情境對話 ${i+1}`;
+                 
+                 const speakerLines = lines.filter(l => /^[A-Z甲乙]：|:/.test(l) || /^.*：/.test(l)).map((l, j) => {
+                     const match = l.match(/^([^:：]+)[:：]\s*(.*)$/);
+                     if (match && !match[1].match(/^(主題|主题)$/)) {
+                         return { id: generateNumId(j), speaker: match[1].trim(), text: match[2].trim() };
+                     }
+                     return null;
+                 }).filter(Boolean);
+                 return { id: generateNumId(i), title, lines: speakerLines.length > 0 ? speakerLines : [{id: generateNumId(99), speaker: 'A', text: b}] };
+             });
+        }
+  if (sec4) {
+             const blocks = sec4.split('---').map(b => b.trim()).filter(Boolean);
+             blocks.forEach(b => {
+                 const lines = b.split('\n').map(l => l.trim()).filter(Boolean);
+                 let currentGrammar = null;
+                 lines.forEach(l => {
+                     if (l.match(/^(語法|语法)：/)) {
+                         if (currentGrammar) result.coreGrammar.push(currentGrammar);
+                         currentGrammar = { id: generateNumId(result.coreGrammar.length), title: l.replace(/^(語法|语法)：/, '').trim(), description: '', examples: [] };
+                     } else if (l.startsWith('* 例句：') && currentGrammar) {
+                         currentGrammar.examples.push(l.replace('* 例句：', '').trim());
+                     } else if (l.match(/^\* (說明|说明)：/) && currentGrammar) {
+                         currentGrammar.description = l.replace(/^\* (說明|说明)：/, '').trim();
+                     }
+                 });
+                 if (currentGrammar) result.coreGrammar.push(currentGrammar);
+             });
+        }
+  if (sec5) {
+             const lines = sec5.split('\n').map(l => l.trim()).filter(Boolean);
+             let currentRule = null;
+             lines.forEach(l => {
+                 if (l.match(/^【辨析主[題题]】：/)) {
+                     if (currentRule) result.grammarRules.push(currentRule);
+                     currentRule = { id: generateNumId(result.grammarRules.length), theme: l.replace(/^【辨析主[題题]】：/, '').trim(), mistake: '', correction: '', explanation: '' };
+                 } else if (l.includes('（x）') || l.includes('(x)')) {
+                     if (currentRule) currentRule.mistake = l.replace(/（x）|\(x\)/i, '').trim();
+                 } else if (l.includes('（o）') || l.includes('(o)')) {
+                     if (currentRule) currentRule.correction = l.replace(/（o）|\(o\)/i, '').trim();
+                 } else if (l.match(/^\* 情境[說说]明：/)) {
+                     if (currentRule) currentRule.explanation = l.replace(/^\* 情境[說说]明：/, '').trim();
+                 }
+             });
+             if (currentRule) result.grammarRules.push(currentRule);
+        }
+        return result;
+    };
 
-          const generateStrId = (prefix, i) => `${prefix}-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 5)}`;
-          const generateNumId = (i) => Date.now() + Math.floor(Math.random() * 1000000) + i;
-
-          if (sec1) {
-             try {
-                  const segmenter = new Intl.Segmenter('zh-TW', { granularity: 'word' });
-                  const cleanSec1 = sec1.replace(/^[\s　\n]+/, '');
-                  const segments = Array.from(segmenter.segment(cleanSec1));
-                  result.coreTextChunks = segments.map((seg, i) => ({ id: generateStrId('chunk', i), text: seg.segment, type: 'normal' }));
-              } catch (e) {
-                  const cleanSec1 = sec1.replace(/^[\s　\n]+/, '');
-                  result.coreTextChunks = cleanSec1.split(/(?=[，。！？；：「」『』、])/).map((t, i) => ({ id: generateStrId('chunk', i), text: t, type: 'normal' }));
-               }
-          }
-
-          if (sec2) {
-               const words = sec2.split(/[,、\n]/).map(w => w.trim()).filter(Boolean);
-               result.vocabList = words.map((w, i) => ({ id: generateNumId(i), word: w, pos: '生詞', type: 'vocab' }));
-          }
-
-          if (sec3) {
-               const blocks = sec3.split('---').map(b => b.trim()).filter(Boolean);
-               result.dialogues = blocks.map((b, i) => {
-                   const lines = b.split('\n').map(l => l.trim()).filter(Boolean);
-                   const titleLine = lines.find(l => l.match(/^(主題|主题)：/));
-                   const title = titleLine ? titleLine.replace(/^(主題|主题)：/, '').trim() : `情境對話 ${i+1}`;
-                   
-                   const speakerLines = lines.filter(l => /^[A-Z甲乙]：|:/.test(l) || /^.*：/.test(l)).map((l, j) => {
-                       const match = l.match(/^([^:：]+)[:：]\s*(.*)$/);
-                       if (match && !match[1].match(/^(主題|主题)$/)) {
-                           return { id: generateNumId(j), speaker: match[1].trim(), text: match[2].trim() };
-                       }
-                       return null;
-                   }).filter(Boolean);
-                   
-                   return { id: generateNumId(i), title, lines: speakerLines.length > 0 ? speakerLines : [{id: generateNumId(99), speaker: 'A', text: b}] };
-               });
-          }
-
-          if (sec4) {
-               const blocks = sec4.split('---').map(b => b.trim()).filter(Boolean);
-               blocks.forEach(b => {
-                   const lines = b.split('\n').map(l => l.trim()).filter(Boolean);
-                   let currentGrammar = null;
-                  lines.forEach(l => {
-                       if (l.match(/^(語法|语法)：/)) {
-                           if (currentGrammar) result.coreGrammar.push(currentGrammar);
-                           currentGrammar = { id: generateNumId(result.coreGrammar.length), title: l.replace(/^(語法|语法)：/, '').trim(), description: '', examples: [] };
-                       } else if (l.startsWith('* 例句：') && currentGrammar) {
-                           currentGrammar.examples.push(l.replace('* 例句：', '').trim());
-                       } else if (l.match(/^\* (說明|说明)：/) && currentGrammar) {
-                           currentGrammar.description = l.replace(/^\* (說明|说明)：/, '').trim();
-                       }
-                   });
-                   if (currentGrammar) result.coreGrammar.push(currentGrammar);
-               });
-          }
-
-          if (sec5) {
-               const lines = sec5.split('\n').map(l => l.trim()).filter(Boolean);
-               let currentRule = null;
-              lines.forEach(l => {
-                   if (l.match(/^【辨析主[題题]】：/)) {
-                       if (currentRule) result.grammarRules.push(currentRule);
-                       currentRule = { id: generateNumId(result.grammarRules.length), theme: l.replace(/^【辨析主[題题]】：/, '').trim(), mistake: '', correction: '', explanation: '' };
-                   } else if (l.includes('（x）') || l.includes('(x)')) {
-                       if (currentRule) currentRule.mistake = l.replace(/（x）|\(x\)/i, '').trim();
-                   } else if (l.includes('（o）') || l.includes('(o)')) {
-                       if (currentRule) currentRule.correction = l.replace(/（o）|\(o\)/i, '').trim();
-                   } else if (l.match(/^\* 情境[說说]明：/)) {
-                       if (currentRule) currentRule.explanation = l.replace(/^\* 情境[說说]明：/, '').trim();
-                   }
-               });
-               if (currentRule) result.grammarRules.push(currentRule);
-          }
-          
-          return result;
-      };
-
+    
       const handleAnalyze = async () => {
         if (!rawInput.trim() && selectedFiles.length === 0) {
           setError("老師，請匯入或貼上專屬 GEM 生成的教材模組內容喔！");
