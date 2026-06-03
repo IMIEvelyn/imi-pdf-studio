@@ -1374,8 +1374,8 @@ ${phoneticInstruction}
                   </div>
                   <div className="space-y-4 pt-4 border-t-2 border-dashed border-slate-100"><label className="text-base font-black text-slate-500 ml-1">教材字體來源</label>
                     <select className="w-full p-5 bg-[#f8fafc] border-2 border-slate-100 rounded-2xl outline-none focus:border-[#56D0A0] font-bold text-xl text-slate-700 shadow-inner" value={settings.charType || 'traditional'} onChange={(e) => updateSetting('charType', e.target.value)}>
-                      <option value="traditional">🇹🇼 正體中文 (嚴格使用台灣用語與繁體)</option>
-                      <option value="simplified">🇨🇳 簡體中文 (保留簡體字與拼音標準)</option>
+                      <option value="traditional">正體中文 (臺灣規範用語)</option>
+                      <option value="simplified">简体中文 (簡體規範用語)</option>
                     </select>
                   </div>
                 <div className="space-y-4"><label className="text-base font-black text-slate-500 ml-1">翻譯模組</label><div className="grid grid-cols-2 gap-4">{Object.entries({coreText: '核心課文', dialogue: '情境對話', coreGrammar: '核心語法', grammar: '語法診斷室'}).map(([key, label]) => (<label key={key} className={`flex items-center gap-4 p-5 border-2 rounded-2xl cursor-pointer transition-all ${settings.translateTargets[key] ? 'border-[#56D0A0] bg-[#EAFBF4] shadow-[0_4px_0_0_#34A879]' : 'border-slate-100 hover:bg-slate-50 shadow-sm'}`}><input type="checkbox" className="w-6 h-6 accent-[#56D0A0] shrink-0 rounded-md" checked={settings.translateTargets[key]} onChange={() => updateTarget(key)} /><span className="font-bold text-lg text-slate-700">{label}</span></label>))}</div></div>
@@ -1472,8 +1472,13 @@ function Step4Preview({ onReset, data, settings, onPrev, setData, layoutTitleSiz
           '💬 情境對話': { '英文 (English)': 'Situational Dialogue', '韓文 (한국어)': '상황별 대화', '日文 (日本語)': 'シチュエーション会話', '越南文 (Tiếng Việt)': 'Hội thoại tình huống', '法文 (Français)': 'Dialogue en situation', '義大利語 (Italiano)': 'Dialogo situazionale', '捷克語 (Čeština)': 'Situační dialog', '匈牙利語 (Magyar)': 'Szituációs párbeszéd' },
           '🛠️ 語法診斷室': { '英文 (English)': 'Grammar Diagnostics', '韓文 (한국어)': '문법 진단실', '日文 (日本語)': '文法診断室', '越南文 (Tiếng Việt)': 'Phòng chẩn đoán ngữ pháp', '法文 (Français)': 'Diagnostic grammatical', '義大利語 (Italiano)': 'Diagnostica grammaticale', '捷克語 (Čeština)': 'Gramatická diagnostika', '匈牙利語 (Magyar)': 'Nyelvtani diagnosztika' }
         };
+        const simpDict = {
+          '📖 核心課文': '📖 核心课文', '📝 核心生詞': '📝 核心词汇', '📙 核心語法': '📙 核心语法',
+          '💬 情境對話': '💬 情境对话', '🛠️ 語法診斷室': '🛠️ 语法诊断室'
+        };
         const translated = dict[zhTitle]?.[lang];
-        return translated ? `${zhTitle} (${translated})` : zhTitle;
+        const displayTitle = settings?.charType === 'simplified' ? (simpDict[zhTitle] || zhTitle) : zhTitle;
+        return translated ? `${displayTitle} (${translated})` : displayTitle;
       };
       
      const getLegendTranslations = (lang) => {
@@ -1798,9 +1803,10 @@ function Step4Preview({ onReset, data, settings, onPrev, setData, layoutTitleSiz
         URL.revokeObjectURL(url);
       }; 
 
-      const handleWordClick = (payload) => {
+     const handleWordClick = (payload) => {
         if (!payload) return;
-        setEditingWord(payload);
+        // 👑 新增：在打開編輯視窗的瞬間，偷偷把原始的舊文字記在 originalText 裡面
+        setEditingWord({ ...payload, originalText: payload.text });
       };
 
 const savePhonetic = () => {
@@ -1830,10 +1836,22 @@ const savePhonetic = () => {
         newData.dialogues = (newData.dialogues || []).map(d => d.id === editingWord.id ? { ...d, title: t, titlePinyin: p, titleZhuyin: z } : d);
       } else if (editingWord.type === 'dialogue_line') {
         newData.dialogues = (newData.dialogues || []).map(d => d.id === editingWord.parentId ? { ...d, lines: d.lines.map(l => l.id === editingWord.id ? { ...l, text: t, pinyin: p, zhuyin: z } : l) } : d);
-      } else if (editingWord.type === 'rule_mistake' || editingWord.type === 'rule_correction' || editingWord.type === 'rule_explanation') {
+     } else if (editingWord.type === 'rule_mistake' || editingWord.type === 'rule_correction' || editingWord.type === 'rule_explanation') {
         const f = editingWord.type.split('_')[1];
         newData.grammarRules = (newData.grammarRules || []).map(r => r.id === editingWord.id ? { ...r, [f]: t, [`${f}Pinyin`]: p, [`${f}Zhuyin`]: z } : r);
       }
+      
+      // 👑 新增：全域文字同步替換 (如果偵測到中文被修改，就全部連動)
+      const oldT = editingWord.originalText;
+      if (oldT && t !== oldT) {
+        const replaceStr = (str) => str ? str.split(oldT).join(t) : str;
+        if (newData.coreTextChunks) newData.coreTextChunks = newData.coreTextChunks.map(c => ({ ...c, text: replaceStr(c.text) }));
+        if (newData.vocabList) newData.vocabList = newData.vocabList.map(v => ({ ...v, word: replaceStr(v.word) }));
+        if (newData.coreGrammar) newData.coreGrammar = newData.coreGrammar.map(g => ({ ...g, title: replaceStr(g.title), description: replaceStr(g.description), examples: g.examples.map(ex => ({ ...ex, text: replaceStr(ex.text) })) }));
+        if (newData.dialogues) newData.dialogues = newData.dialogues.map(d => ({ ...d, title: replaceStr(d.title), lines: d.lines.map(l => ({ ...l, text: replaceStr(l.text) })) }));
+        if (newData.grammarRules) newData.grammarRules = newData.grammarRules.map(r => ({ ...r, theme: replaceStr(r.theme), mistake: replaceStr(r.mistake), correction: replaceStr(r.correction), explanation: replaceStr(r.explanation) }));
+      }
+
       if (setData) setData(newData);
       setEditingWord(null);
     };
@@ -2341,7 +2359,11 @@ const savePhonetic = () => {
                             <div className="text-right flex flex-col items-end shrink-0 z-10 relative">
                              <span className="bg-white/20 text-white px-4 py-1.5 rounded-xl font-black text-sm mb-2 tracking-widest border border-white/40 shadow-sm" style={{ WebkitPrintColorAdjust: 'exact' }}>{settings.textLevel}</span>
                               <p className="text-2xl font-black opacity-95">{settings.className || '班級/學生'}</p>
-                              <p className="text-xl font-bold opacity-90">{settings.teacherName ? `${settings.teacherName} 老師` : '老師'}</p>
+                              <p className="text-xl font-bold opacity-90">
+                                {settings.teacherName ? 
+                                  `${settings.teacherName} ${settings.charType === 'simplified' ? '老师' : '老師'}` : 
+                                  (settings.charType === 'simplified' ? '老师' : '老師')}
+                              </p>
                               <p className="text-lg font-medium opacity-85">{settings.date}</p>
                             </div>
                           </div>
