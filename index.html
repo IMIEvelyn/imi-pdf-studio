@@ -748,7 +748,7 @@ ${phoneticInstruction}
             <h2 className="text-3xl font-black mb-4 flex items-center gap-3 text-slate-700 drop-shadow-sm"><Zap className="text-[#FF9B82]" size={32} strokeWidth={2.5}/>請貼上您的教材內容</h2>
             <p className="text-slate-500 mb-8 text-xl font-medium">請匯入專屬GEM內容，系統將為您開始製作精美PDF！</p>
             
-            <textarea className="w-full h-72 p-6 bg-[#FFFcf9] border-2 border-orange-50 rounded-[32px] shadow-[inset_0_4px_8px_rgba(0,0,0,0.03)] focus:border-[#FF9B82] outline-none mb-6 text-xl font-medium text-slate-700 transition-all resize-none" placeholder="請貼上內容..." value={rawInput} onChange={(e) => setRawInput(e.target.value)} disabled={isAnalyzing} />
+            <textarea className="w-full h-72 p-6 bg-[#FFFcf9] border-2 border-orange-50 rounded-[32px] shadow-[inset_0_4px_8px_rgba(0,0,0,0.03)] focus:border-[#FF9B82] outline-none mb-6 text-xl font-medium text-slate-700 transition-all resize-none" placeholder="接受 正體中文/简体中文..." value={rawInput} onChange={(e) => setRawInput(e.target.value)} disabled={isAnalyzing} />
             
             <div className="flex flex-col gap-4">
               <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" multiple accept="image/*,.pdf,.csv,.txt" disabled={isAnalyzing} />
