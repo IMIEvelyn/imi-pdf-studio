@@ -177,14 +177,13 @@
         });
       };
 
-     const tryLocalParse = (rawText) => {
-          // 🚀 高容錯標準化濾水器：自動吸收標題的各種排版誤差（全半形、空格、額外文字）
+     // 🚀 升級雙語濾水器：自動吸收標題誤差，並同時支援正體與簡體中文字
           const text = rawText
-              .replace(/#{2,5}[\s　]*[1１][.\s　]*核心課文[^\n]*/g, '### 1. 核心課文')
-              .replace(/#{2,5}[\s　]*[2２][.\s　]*核心詞彙[^\n]*/g, '### 2. 核心詞彙')
-              .replace(/#{2,5}[\s　]*[3３][.\s　]*情境對話[^\n]*/g, '### 3. 情境對話')
-              .replace(/#{2,5}[\s　]*[4４][.\s　]*核心語法[^\n]*/g, '### 4. 核心語法')
-              .replace(/#{2,5}[\s　]*[5５][.\s　]*語法診斷室[^\n]*/g, '### 5. 語法診斷室');
+              .replace(/#{2,5}[\s　]*[1１][.\s　]*核心[課课]文[^\n]*/g, '### 1. 核心課文')
+              .replace(/#{2,5}[\s　]*[2２][.\s　]*核心[詞词][彙汇][^\n]*/g, '### 2. 核心詞彙')
+              .replace(/#{2,5}[\s　]*[3３][.\s　]*情境[對对][話话][^\n]*/g, '### 3. 情境對話')
+              .replace(/#{2,5}[\s　]*[4４][.\s　]*核心[語语]法[^\n]*/g, '### 4. 核心語法')
+              .replace(/#{2,5}[\s　]*[5５][.\s　]*[語语]法[診诊][斷断]室[^\n]*/g, '### 5. 語法診斷室');
 
           if (!text.includes('### 1. 核心課文')) return null;
 
@@ -237,12 +236,12 @@
                const blocks = sec3.split('---').map(b => b.trim()).filter(Boolean);
                result.dialogues = blocks.map((b, i) => {
                    const lines = b.split('\n').map(l => l.trim()).filter(Boolean);
-                   const titleLine = lines.find(l => l.startsWith('主題：'));
-                   const title = titleLine ? titleLine.replace('主題：', '').trim() : `情境對話 ${i+1}`;
+                   const titleLine = lines.find(l => l.match(/^(主題|主题)：/));
+                   const title = titleLine ? titleLine.replace(/^(主題|主题)：/, '').trim() : `情境對話 ${i+1}`;
                    
                    const speakerLines = lines.filter(l => /^[A-Z甲乙]：|:/.test(l) || /^.*：/.test(l)).map((l, j) => {
                        const match = l.match(/^([^:：]+)[:：]\s*(.*)$/);
-                       if (match && match[1] !== '主題') {
+                       if (match && !match[1].match(/^(主題|主题)$/)) {
                            return { id: generateNumId(j), speaker: match[1].trim(), text: match[2].trim() };
                        }
                        return null;
@@ -257,14 +256,14 @@
                blocks.forEach(b => {
                    const lines = b.split('\n').map(l => l.trim()).filter(Boolean);
                    let currentGrammar = null;
-                   lines.forEach(l => {
-                       if (l.startsWith('語法：')) {
+                  lines.forEach(l => {
+                       if (l.match(/^(語法|语法)：/)) {
                            if (currentGrammar) result.coreGrammar.push(currentGrammar);
-                           currentGrammar = { id: generateNumId(result.coreGrammar.length), title: l.replace('語法：', '').trim(), description: '', examples: [] };
+                           currentGrammar = { id: generateNumId(result.coreGrammar.length), title: l.replace(/^(語法|语法)：/, '').trim(), description: '', examples: [] };
                        } else if (l.startsWith('* 例句：') && currentGrammar) {
                            currentGrammar.examples.push(l.replace('* 例句：', '').trim());
-                       } else if (l.startsWith('* 說明：') && currentGrammar) {
-                           currentGrammar.description = l.replace('* 說明：', '').trim();
+                       } else if (l.match(/^\* (說明|说明)：/) && currentGrammar) {
+                           currentGrammar.description = l.replace(/^\* (說明|说明)：/, '').trim();
                        }
                    });
                    if (currentGrammar) result.coreGrammar.push(currentGrammar);
@@ -274,16 +273,16 @@
           if (sec5) {
                const lines = sec5.split('\n').map(l => l.trim()).filter(Boolean);
                let currentRule = null;
-               lines.forEach(l => {
-                   if (l.startsWith('【辨析主題】：')) {
+              lines.forEach(l => {
+                   if (l.match(/^【辨析主[題题]】：/)) {
                        if (currentRule) result.grammarRules.push(currentRule);
-                       currentRule = { id: generateNumId(result.grammarRules.length), theme: l.replace('【辨析主題】：', '').trim(), mistake: '', correction: '', explanation: '' };
+                       currentRule = { id: generateNumId(result.grammarRules.length), theme: l.replace(/^【辨析主[題题]】：/, '').trim(), mistake: '', correction: '', explanation: '' };
                    } else if (l.includes('（x）') || l.includes('(x)')) {
                        if (currentRule) currentRule.mistake = l.replace(/（x）|\(x\)/i, '').trim();
                    } else if (l.includes('（o）') || l.includes('(o)')) {
                        if (currentRule) currentRule.correction = l.replace(/（o）|\(o\)/i, '').trim();
-                   } else if (l.startsWith('* 情境說明：')) {
-                       if (currentRule) currentRule.explanation = l.replace('* 情境說明：', '').trim();
+                   } else if (l.match(/^\* 情境[說说]明：/)) {
+                       if (currentRule) currentRule.explanation = l.replace(/^\* 情境[說说]明：/, '').trim();
                    }
                });
                if (currentRule) result.grammarRules.push(currentRule);
