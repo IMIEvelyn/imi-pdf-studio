@@ -306,8 +306,8 @@ const tryLocalParse = (rawText) => {
                           const wordsStr = localParsedData.vocabList.map(v => v.word).join(', ');
                           const miniPrompt = `你是一位專業的華語語言學專家。請判斷以下生詞的詞性（如：名詞、動詞、形容詞、副詞等）。請直接回傳 JSON 陣列格式（例：["名詞", "動詞"]），不要有任何其他文字。生詞：${wordsStr}`;
 
-                          // 1. 精準對齊您的專案設定，使用 gemini-2.5-flash
-                          const modelName = "gemini-2.5-flash"; 
+                          // 1. 精準對齊您的專案設定，使用 gemini-3.6-flash
+                          const modelName = "gemini-3.6-flash"; 
                           const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
                           const payload = {
                               contents: [{ role: "user", parts: [{ text: miniPrompt }] }],
@@ -362,7 +362,7 @@ const tryLocalParse = (rawText) => {
               return;
           }
 
-          const modelName = "gemini-2.5-flash"; 
+          const modelName = "gemini-3.6-flash"; 
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
           
          const systemInstruction = `你是一位專業的資料歸位助手。老師提供的是已經整理好的結構化教材內容，請精準地歸位。
@@ -431,7 +431,7 @@ const tryLocalParse = (rawText) => {
         };
 
         try {
-          const modelName = "gemini-2.5-flash"; 
+          const modelName = "gemini-3.6-flash"; 
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${activeKey}`;
           
   // 🛡️ API 節流與防呆判斷：檢查是否為「全文標音」模式
