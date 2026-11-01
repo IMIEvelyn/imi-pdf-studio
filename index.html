@@ -2474,8 +2474,8 @@ const savePhonetic = () => {
     <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity text-[#56D0A0] font-bold text-sm bg-white/80 px-2 py-1 rounded-lg print:hidden">✏️ 編輯</div>
   </div>
 )}
-    </section>                       
-                          <ModuleDivider />
+    </section>
+                          {hasContent.coreText && hasContent.vocab && <ModuleDivider />}
 
                          <section className={`${hasContent.vocab ? (activeModule === 'vocab' ? 'block' : 'hidden') : 'hidden'} ${hasContent.vocab ? 'print:block' : 'print:hidden'}`}>
                        <SectionHeader title={getTranslatedModuleTitle("📝 核心生詞", settings.translationLanguage)} color="#38A385" border="#48C0A3" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize}>
@@ -2527,7 +2527,7 @@ const savePhonetic = () => {
                             </div>
                           </section>
 
-                          {((data.coreGrammar || []).length > 0) && <ModuleDivider />}
+                          {hasContent.coreGrammar && (hasContent.coreText || hasContent.vocab) && <ModuleDivider />}
 
                           {(data.coreGrammar || []).length > 0 && (
                          <section className={`${hasContent.coreGrammar ? (activeModule === 'coreGrammar' ? 'block' : 'hidden') : 'hidden'} ${hasContent.coreGrammar ? 'print:block' : 'print:hidden'}`}>
@@ -2646,7 +2646,7 @@ const savePhonetic = () => {
                             </section>
                           )}
 
-                          {((data.dialogues || []).length > 0) && <ModuleDivider />}
+                          {hasContent.dialogue && (hasContent.coreText || hasContent.vocab || hasContent.coreGrammar) && <ModuleDivider />}
 
                           {(data.dialogues || []).length > 0 && (
                             <section className={`${hasContent.dialogue ? (activeModule === 'dialogue' ? 'block' : 'hidden') : 'hidden'} ${hasContent.dialogue ? 'print:block' : 'print:hidden'}`}>
@@ -2713,7 +2713,7 @@ const savePhonetic = () => {
                             </section>
                           )}
 
-{((data.grammarRules || []).length > 0) && <ModuleDivider />}
+{hasContent.grammarDiagnose && (hasContent.coreText || hasContent.vocab || hasContent.coreGrammar || hasContent.dialogue) && <ModuleDivider />}
 
 {((data.grammarRules || []).length > 0) && (
   <section className={`${hasContent.grammarDiagnose ? (activeModule === 'grammarDiagnose' ? 'block' : 'hidden') : 'hidden'} ${hasContent.grammarDiagnose ? 'print:block' : 'print:hidden'}`}>
