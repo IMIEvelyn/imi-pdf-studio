@@ -179,7 +179,28 @@
 
      // 🚀 升級雙語濾水器：自動吸收標題誤差，並同時支援正體與簡體中文字
 
-const tryLocalParse = (rawText) => {
+// 本地基礎詞性標示；未收錄的詞保留「生詞」供教師原有編輯器校正。
+    // 不以外語翻譯推測中文詞性，也不會發出網路請求。
+    const LOCAL_POS_WORDS = Object.freeze({
+      '感冒':'動詞','咳嗽':'動詞','痰':'名詞','保重':'動詞','頭痛':'形容詞','心煩':'形容詞',
+      '護照':'名詞','护照':'名詞','辦事處':'名詞','办事处':'名詞','認證':'動詞','认证':'動詞',
+      '考試':'名詞','考试':'名詞','大使館':'名詞','大使馆':'名詞','餐廳':'名詞','餐厅':'名詞',
+      '道地':'形容詞','孤單':'形容詞','孤单':'形容詞','臉色':'名詞','脸色':'名詞',
+      '留學生':'名詞','留学生':'名詞','遊學生':'名詞','游学生':'名詞','交換生':'名詞','交换生':'名詞',
+      '專科學校':'名詞','专科学校':'名詞','科技大學':'名詞','科技大学':'名詞','大學':'名詞','大学':'名詞',
+      '一趟':'數量詞','大都':'副詞','並不':'副詞','并不':'副詞','總是':'副詞','总是':'副詞',
+      '夢想':'名詞','梦想':'名詞','理想':'名詞','合適':'形容詞','合适':'形容詞',
+      '適當':'形容詞','适当':'形容詞','適合':'動詞','适合':'動詞','適應':'動詞','适应':'動詞',
+      '覺得':'動詞','觉得':'動詞','矇對':'動詞','蒙对':'動詞'
+    });
+    const localPosForWord = word => {
+      const trimmed = String(word || '').trim();
+      if (LOCAL_POS_WORDS[trimmed]) return LOCAL_POS_WORDS[trimmed];
+      // 不憑單一字尾強行分類；模糊詞保留老師可編輯的原值。
+      return '生詞';
+    };
+
+    const tryLocalParse = (rawText) => {
         const text = rawText
             .replace(/#{2,5}[\s　]*[1１][.\s　]*核心[課课]文[^\n]*/g, '### 1. 核心課文')
             .replace(/#{2,5}[\s　]*[2２][.\s　]*核心[詞词][彙汇][^\n]*/g, '### 2. 核心詞彙')
@@ -219,7 +240,7 @@ const tryLocalParse = (rawText) => {
         }
         if (sec2) {
              const words = sec2.split(/[,、\n]/).map(w => w.trim()).filter(Boolean);
-             result.vocabList = words.map((w, i) => ({ id: generateNumId(i), word: w, pos: '生詞', type: 'vocab' }));
+             result.vocabList = words.map((w, i) => ({ id: generateNumId(i), word: w, pos: localPosForWord(w), type: 'vocab' }));
         }
   if (sec3) {
              const blocks = sec3.split('---').map(b => b.trim()).filter(Boolean);
