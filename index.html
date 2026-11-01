@@ -85,8 +85,11 @@
       }
       return {pinyin:syllables.join(' '),zhuyin:syllables.map(pinyinToZhuyinLocal).join(' '),unavailable:false};
     };
-    const localizePreviewData = (data, title) => {
-      const read = x => localPhoneticsFor(x);
+    const localizePreviewData = (data, title, phoneticType = 'zhuyin_pinyin') => {
+      const read = x => {
+        const result = localPhoneticsFor(x);
+        return {...result, pinyin:phoneticType==='zhuyin'?'':result.pinyin, zhuyin:phoneticType==='pinyin'?'':result.zhuyin};
+      };
       return {
         themeTitlePinyin: read(title).pinyin, themeTitleZhuyin:read(title).zhuyin,
         coreTextChunks:(data.coreTextChunks||[]).map(c=>({...c,...read(c.text)})),
@@ -450,7 +453,7 @@
         const activeKey = customApiKey.trim();
         // A key is held only for this user-triggered translation operation.
         setCustomApiKey('');
-        const localData = localizePreviewData(parsedData, exportSettings.themeTitle || '課後複習講義');
+        const localData = localizePreviewData(parsedData, exportSettings.themeTitle || '課後複習講義', exportSettings.phoneticType);
         // Teacher may preview and print even when foreign-language translations are missing.
         setFinalPreviewData(localData);
         try {
@@ -1338,6 +1341,25 @@
 
 function Step4Preview({ onReset, data, settings, onPrev, setData, layoutTitleSize, setLayoutTitleSize, layoutLegendSize, setLayoutLegendSize, layoutContentSize, setLayoutContentSize, layoutTransSize, setLayoutTransSize, layoutSpacing, setLayoutSpacing }) {
   const [editingWord, setEditingWord] = React.useState(null);
+  const [selectedCharacter, setSelectedCharacter] = React.useState(0);
+  const [syncSameWord, setSyncSameWord] = React.useState(true);
+  const pronunciationChoices = {
+    '覺':['jué','jiào'], '得':['dé','děi','de'], '行':['xíng','háng'], '長':['cháng','zhǎng'],
+    '重':['zhòng','chóng'], '還':['hái','huán'], '好':['hǎo','hào'], '樂':['lè','yuè'],
+    '地':['dì','de'], '的':['de','dí','dì'], '著':['zhe','zháo','zhuó'], '了':['le','liǎo'],
+    '都':['dōu','dū'], '便':['biàn','pián'], '中':['zhōng','zhòng'], '一':['yī','yí','yì'], '不':['bù','bú']
+  };
+  const updateSelectedReading = (reading) => {
+    if (!editingWord) return;
+    const chars = Array.from(editingWord.text||'').filter(ch=>/[\u3400-\u9fff]/.test(ch));
+    if (!chars[selectedCharacter]) return;
+    const readings = (editingWord.pinyin||localPhoneticsFor(editingWord.text).pinyin).split(/\s+/).filter(Boolean);
+    while(readings.length<chars.length)readings.push('');
+    readings[selectedCharacter]=reading;
+    const py=readings.join(' ');
+    setEditingWord({...editingWord,pinyin:settings.phoneticType==='zhuyin'?'':py,zhuyin:settings.phoneticType==='pinyin'?'':readings.map(pinyinToZhuyinLocal).join(' ')});
+  };
+
   
   // 🌟 [新增] 萬用翻譯編輯器專用狀態
   const [transModalOpen, setTransModalOpen] = React.useState(false);
@@ -1747,6 +1769,8 @@ function Step4Preview({ onReset, data, settings, onPrev, setData, layoutTitleSiz
      const handleWordClick = (payload) => {
         if (!payload) return;
         // 👑 新增：在打開編輯視窗的瞬間，偷偷把原始的舊文字記在 originalText 裡面
+        setSelectedCharacter(0);
+        setSyncSameWord(true);
         setEditingWord({ ...payload, originalText: payload.text });
       };
 
@@ -1793,6 +1817,21 @@ const savePhonetic = () => {
         if (newData.grammarRules) newData.grammarRules = newData.grammarRules.map(r => ({ ...r, theme: replaceStr(r.theme), mistake: replaceStr(r.mistake), correction: replaceStr(r.correction), explanation: replaceStr(r.explanation) }));
       }
 
+      // 同詞讀音套用：以完整詞彙相同為條件；已人工例外校正的位置不覆蓋。
+      if (syncSameWord && t && t === editingWord.originalText) {
+        const updateExact = (item, textField, pyField, zyField) => {
+          if (!item || item[textField] !== t || item.phoneticException) return item;
+          return {...item, [pyField]:p, [zyField]:z};
+        };
+        newData.vocabList = (newData.vocabList||[]).map(item=>updateExact(item,'word','pinyin','zhuyin'));
+        newData.coreTextChunks = (newData.coreTextChunks||[]).map(item=>updateExact(item,'text','pinyin','zhuyin'));
+        newData.coreGrammar = (newData.coreGrammar||[]).map(item=>updateExact(item,'title','titlePinyin','titleZhuyin'));
+        newData.dialogues = (newData.dialogues||[]).map(item=>updateExact(item,'title','titlePinyin','titleZhuyin'));
+      } else if(!syncSameWord) {
+        // 單處例外校正標記：後續其他詞彙的同步不得覆蓋。
+        if(editingWord.type==='vocab')newData.vocabList=(newData.vocabList||[]).map(v=>v.id===editingWord.id?{...v,phoneticException:true}:v);
+        if(editingWord.type==='chunk')newData.coreTextChunks=(newData.coreTextChunks||[]).map(c=>c.id===editingWord.id?{...c,phoneticException:true}:c);
+      }
       if (setData) setData(newData);
       setEditingWord(null);
     };
@@ -2815,6 +2854,21 @@ const savePhonetic = () => {
                   校正標音 (整句 / 破音字編輯)
                 </h4>
                 <div className="space-y-6">
+                  <div className="rounded-2xl bg-[#F7F3FA] p-4 space-y-3">
+                    <label className="block font-black text-slate-600">逐字校正（點選需要修改的字）</label>
+                    <div className="flex flex-wrap gap-2">
+                      {Array.from(editingWord.text||'').filter(ch=>/[\u3400-\u9fff]/.test(ch)).map((ch,i)=>(
+                        <button type="button" key={i} onClick={()=>setSelectedCharacter(i)} className={`min-w-12 h-12 rounded-xl border-2 font-black text-2xl ${selectedCharacter===i?'border-[#9677AB] bg-[#E9DCF4] text-[#684A83]':'border-slate-200 bg-white text-slate-700'}`}>{ch}</button>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {(pronunciationChoices[Array.from(editingWord.text||'').filter(ch=>/[\u3400-\u9fff]/.test(ch))[selectedCharacter]]||[localPhoneticsFor(Array.from(editingWord.text||'').filter(ch=>/[\u3400-\u9fff]/.test(ch))[selectedCharacter]||'').pinyin].filter(Boolean)).map(reading=>(
+                        <button key={reading} type="button" onClick={()=>updateSelectedReading(reading)} className="px-4 py-2 bg-white rounded-xl border-2 border-[#D8C7E5] font-bold text-[#684A83] hover:bg-[#E9DCF4]">{settings.phoneticType==='zhuyin'?pinyinToZhuyinLocal(reading):reading}</button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-slate-500">一、不會依句子套用變調；人工校正的讀音優先。</p>
+                    <label className="flex gap-2 items-center text-sm font-bold text-slate-700"><input type="checkbox" checked={syncSameWord} onChange={e=>setSyncSameWord(e.target.checked)} />套用本教材相同完整詞彙（取消勾選則僅此處）</label>
+                  </div>
                  <div className="space-y-2">
                     <label className="block text-base font-bold text-slate-500 ml-1">中文文字 (可手動修改)</label>
                     <textarea 
