@@ -81,7 +81,17 @@
       const syllables=[];
       for (const group of String(text||'').match(/[\u3400-\u9fff]+/g)||[]) {
         const readings=pinyinTool(group,{type:'array',toneSandhi:{yi:true,bu:true,thirdTone:false}});
-        syllables.push(...(Array.isArray(readings)?readings:String(readings).split(/\s+/)).filter(Boolean));
+        const sequence=(Array.isArray(readings)?readings:String(readings).split(/\s+/)).filter(Boolean);
+        // 量詞「個／个」預設輕聲；「個人／个人、個性／个性」等非量詞維持四聲。
+        // 先處理整個詞組，避免把「一個」的「一」錯誤還原為第一聲。
+        const chars=Array.from(group);
+        for(let i=0;i<sequence.length;i++){
+          if((chars[i]==='個'||chars[i]==='个') && i>0 && /[一二三四五六七八九十百千兩两幾几這这那哪每]/.test(chars[i-1])){
+            sequence[i]='ge';
+            if(chars[i-1]==='一')sequence[i-1]='yí';
+          }
+        }
+        syllables.push(...sequence);
       }
       return {pinyin:syllables.join(' '),zhuyin:syllables.map(pinyinToZhuyinLocal).join(' '),unavailable:false};
     };
@@ -99,6 +109,59 @@
         coreGrammar:(data.coreGrammar||[]).map(g=>({...g,titlePinyin:read(g.title).pinyin,titleZhuyin:read(g.title).zhuyin,descPinyin:read(g.description).pinyin,descZhuyin:read(g.description).zhuyin,translation:g.translation||'',examples:(g.examples||[]).map(e=>{const item=typeof e==='string'?{text:e}:e;return {...item,...read(item.text),translation:item.translation||''}})})),
         grammarRules:(data.grammarRules||[]).map(r=>({...r,mistakePinyin:read(r.mistake).pinyin,mistakeZhuyin:read(r.mistake).zhuyin,correctionPinyin:read(r.correction).pinyin,correctionZhuyin:read(r.correction).zhuyin,explanationPinyin:read(r.explanation).pinyin,explanationZhuyin:read(r.explanation).zhuyin,translation:r.translation||''}))
       };
+    };
+
+    // 對「完整詞彙」做位置級標音同步，而不是要求整句文字等於詞彙。
+    // 每個漢字對應一個拼音／注音 token；原有標音與個別例外一律優先保護。
+    const syncExactPhoneticWord = (source,word,pinyin,zhuyin,phoneticType,apply=true) => {
+      const target=String(word||'');
+      if(!target || !/^[\u3400-\u9fff]+$/.test(target))return {data:source,count:0};
+      const hanCount=s=>Array.from(String(s||'')).filter(ch=>/[\u3400-\u9fff]/.test(ch)).length;
+      const expected=hanCount(target);
+      const pyNew=filterPhoneticTokens(pinyin),zyNew=filterPhoneticTokens(zhuyin);
+      const usePy=phoneticType!=='zhuyin' && pyNew.length===expected;
+      const useZy=phoneticType!=='pinyin' && zyNew.length===expected;
+      if(!usePy&&!useZy)return {data:source,count:0};
+      let count=0;
+      const update=(item,textKey,pyKey,zyKey)=>{
+        const content=String(item?.[textKey]||'');
+        if(!content || item?.phoneticException)return item;
+        const positions=[];
+        let cursor=0;
+        while((cursor=content.indexOf(target,cursor))!==-1){
+          if(target.length>1 || (()=>{
+            if(typeof Intl==='undefined'||!Intl.Segmenter)return false;
+            return Array.from(new Intl.Segmenter('zh-TW',{granularity:'word'}).segment(content)).some(s=>s.index===cursor&&s.segment===target);
+          })()){
+            if(!item?.phoneticExceptions?.includes(cursor))positions.push(cursor);
+          }
+          cursor+=target.length;
+        }
+        if(!positions.length)return item;
+        count+=positions.length;
+        if(!apply)return item;
+        const expectedCount=hanCount(content);
+        const existingPy=filterPhoneticTokens(item[pyKey]);
+        const existingZy=filterPhoneticTokens(item[zyKey]);
+        const fallback=localPhoneticsFor(content);
+        const pyTokens=existingPy.length===expectedCount?existingPy:filterPhoneticTokens(fallback.pinyin);
+        const zyTokens=existingZy.length===expectedCount?existingZy:filterPhoneticTokens(fallback.zhuyin);
+        for(const pos of positions){
+          const start=hanCount(content.slice(0,pos));
+          if(usePy)pyTokens.splice(start,expected,...pyNew);
+          if(useZy)zyTokens.splice(start,expected,...zyNew);
+        }
+        return {...item,...(usePy?{[pyKey]:pyTokens.join(' ')}:{}),...(useZy?{[zyKey]:zyTokens.join(' ')}:{})};
+      };
+      const entries=(item,fields)=>fields.reduce((acc,[text,py,zy])=>update(acc,text,py,zy),item);
+      const next={...source,
+        vocabList:(source.vocabList||[]).map(v=>entries(v,[['word','pinyin','zhuyin']])),
+        coreTextChunks:(source.coreTextChunks||[]).map(c=>entries(c,[['text','pinyin','zhuyin']])),
+        coreGrammar:(source.coreGrammar||[]).map(g=>({...entries(g,[['title','titlePinyin','titleZhuyin'],['description','descPinyin','descZhuyin']]),examples:(g.examples||[]).map(e=>typeof e==='string'?e:entries(e,[['text','pinyin','zhuyin']]))})),
+        dialogues:(source.dialogues||[]).map(d=>({...entries(d,[['title','titlePinyin','titleZhuyin']]),lines:(d.lines||[]).map(l=>entries(l,[['text','pinyin','zhuyin']]))})),
+        grammarRules:(source.grammarRules||[]).map(r=>entries(r,[['theme','themePinyin','themeZhuyin'],['mistake','mistakePinyin','mistakeZhuyin'],['correction','correctionPinyin','correctionZhuyin'],['explanation','explanationPinyin','explanationZhuyin']]))
+      };
+      return {data:next,count};
     };
 
     const fetchWithBackoff = async (url, options, retries = 5, delay = 1000) => {
@@ -1193,6 +1256,7 @@
       const [languageHighlight, setLanguageHighlight] = useState(0);
       const [languageEditing, setLanguageEditing] = useState(false);
       const previousLanguageRef = useRef(settings.translationLanguage);
+      const languageInputRef = useRef(null);
       const languageMenuRef = useRef(null);
       useEffect(()=>{
         if(!languageFocused)return;
@@ -1213,6 +1277,14 @@
         try { localStorage.setItem('imi-custom-language-names', JSON.stringify(next)); } catch(e) { console.warn('語言清單無法儲存',e); }
       };
       const updateSetting = (key, value) => setSettings(prev => ({ ...prev, [key]: value }));
+      const confirmLanguage = (raw) => {
+        const name=String(raw||'').trim() || previousLanguageRef.current;
+        updateSetting('translationLanguage',name);
+        previousLanguageRef.current=name;
+        rememberLanguage(name);
+        setLanguageEditing(false);
+        setLanguageFocused(false);
+      };
       const updateTarget = (key) => setSettings(prev => ({ ...prev, translateTargets: { ...prev.translateTargets, [key]: !prev.translateTargets[key] } }));
       const handleLogoUpload = (e) => { const file = e.target.files[0]; if (file) { const reader = new FileReader(); reader.onload = (event) => updateSetting('logoUrl', event.target.result); reader.readAsDataURL(file); } };
       return (
@@ -1323,11 +1395,11 @@
                 <div className="space-y-4"><label className="text-base font-black text-slate-500 ml-1">目標語言</label>
                     <div className="relative" ref={languageMenuRef}>
                       <div className="flex items-center rounded-2xl border-2 border-slate-100 bg-[#f8fafc] shadow-inner focus-within:border-[#56D0A0]">
-                        <input type="text" role="combobox" aria-expanded={languageFocused} aria-controls="imi-language-options" aria-autocomplete="none" className="min-w-0 flex-1 p-5 bg-transparent outline-none font-bold text-xl text-slate-700" value={settings.translationLanguage} onFocus={() => {if(!languageEditing&&!languageFocused){previousLanguageRef.current=settings.translationLanguage;updateSetting('translationLanguage','');setLanguageEditing(true);}}} onBlur={(e) => {const value=e.target.value.trim();if(value){rememberLanguage(value);updateSetting('translationLanguage',value);}else updateSetting('translationLanguage',previousLanguageRef.current);setLanguageEditing(false);setLanguageFocused(false);}} onKeyDown={(e)=>{if(e.key==='Escape'){updateSetting('translationLanguage',previousLanguageRef.current);setLanguageEditing(false);setLanguageFocused(false);e.currentTarget.blur();}if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur();}}} onChange={(e) => updateSetting('translationLanguage',e.target.value)} placeholder="直接輸入語言，例如：泰文" aria-label="目標語言文字區，點擊清空後輸入" />
+                        <input ref={languageInputRef} type="text" role="combobox" aria-expanded={languageFocused} aria-controls="imi-language-options" aria-autocomplete="none" className="min-w-0 flex-1 p-5 bg-transparent outline-none font-bold text-xl text-slate-700" value={settings.translationLanguage} onFocus={() => {if(!languageEditing&&!languageFocused){previousLanguageRef.current=settings.translationLanguage;updateSetting('translationLanguage','');setLanguageEditing(true);}}} onBlur={(e) => {if(languageEditing)confirmLanguage(e.target.value);}} onKeyDown={(e)=>{if(e.nativeEvent.isComposing||e.keyCode===229)return;if(e.key==='Escape'){confirmLanguage(previousLanguageRef.current);e.currentTarget.blur();}if(e.key==='Enter'){e.preventDefault();confirmLanguage(e.currentTarget.value);e.currentTarget.blur();}}} onChange={(e) => updateSetting('translationLanguage',e.target.value)} placeholder="直接輸入語言，例如：泰文" aria-label="目標語言文字區，點擊清空後輸入，Enter 確認" />
                         <button type="button" aria-label="展開或收合語言清單" aria-expanded={languageFocused} onMouseDown={e=>e.preventDefault()} onClick={()=>{if(!languageFocused){if(languageEditing&&!settings.translationLanguage)updateSetting('translationLanguage',previousLanguageRef.current);setLanguageEditing(false);}setLanguageFocused(v=>!v);setLanguageHighlight(0);}} className="px-4 text-slate-500 hover:text-[#34A879] text-xl">⌄</button>
                       </div>
                       {languageFocused && <div id="imi-language-options" role="listbox" className="absolute z-40 top-full left-0 right-0 mt-2 max-h-64 overflow-y-auto rounded-2xl border-2 border-[#56D0A0]/60 bg-white p-2 shadow-xl custom-scrollbar">
-                        {allLanguages.map((name,i)=><button type="button" role="option" aria-selected={name===settings.translationLanguage} key={name} onMouseDown={e=>e.preventDefault()} onClick={()=>{updateSetting('translationLanguage',name);previousLanguageRef.current=name;setLanguageFocused(false);setLanguageEditing(false);}} className={`w-full text-left rounded-xl px-4 py-3 font-bold transition-colors ${name===settings.translationLanguage?'bg-[#EAFBF4] text-[#1B6B47]':'text-slate-700 hover:bg-[#EAFBF4]'}`}>{name}</button>)}
+                        {allLanguages.map((name,i)=><button type="button" role="option" aria-selected={name===settings.translationLanguage} key={name} onMouseDown={e=>e.preventDefault()} onClick={()=>{confirmLanguage(name);}} className={`w-full text-left rounded-xl px-4 py-3 font-bold transition-colors ${name===settings.translationLanguage?'bg-[#EAFBF4] text-[#1B6B47]':'text-slate-700 hover:bg-[#EAFBF4]'}`}>{name}</button>)}
                       </div>}
                     </div>
                     <p className="text-sm font-medium text-slate-500">可直接輸入新語言；輸入或選擇時不會呼叫 API。</p>
@@ -1356,6 +1428,7 @@
 
 function Step4Preview({ onReset, data, settings, onPrev, setData, layoutTitleSize, setLayoutTitleSize, layoutLegendSize, setLayoutLegendSize, layoutContentSize, setLayoutContentSize, layoutTransSize, setLayoutTransSize, layoutSpacing, setLayoutSpacing }) {
   const [editingWord, setEditingWord] = React.useState(null);
+  const [syncFeedback,setSyncFeedback] = React.useState(null);
   React.useEffect(()=>{
     if(!editingWord)return;
     const previous=document.body.style.overflow;
@@ -1364,6 +1437,14 @@ function Step4Preview({ onReset, data, settings, onPrev, setData, layoutTitleSiz
   },[!!editingWord]);
   const [selectedCharacter, setSelectedCharacter] = React.useState(0);
   const [syncSameWord, setSyncSameWord] = React.useState(true);
+  const syncEstimate=editingWord&&syncSameWord?syncExactPhoneticWord(data,editingWord.text,editingWord.pinyin,editingWord.zhuyin,settings.phoneticType,false).count:0;
+  const selectedReadingMatches=(reading)=>{
+    if(!editingWord)return false;
+    const tokens=filterPhoneticTokens(editingWord.pinyin);
+    if(settings.phoneticType!=='zhuyin'&&tokens[selectedCharacter])return tokens[selectedCharacter]===reading;
+    const zyTokens=filterPhoneticTokens(editingWord.zhuyin);
+    return zyTokens[selectedCharacter]===pinyinToZhuyinLocal(reading);
+  };
   const pronunciationChoices = {
     '覺':['jué','jiào'], '得':['dé','děi','de'], '行':['xíng','háng'], '長':['cháng','zhǎng'],
     '重':['zhòng','chóng'], '還':['hái','huán'], '好':['hǎo','hào'], '樂':['lè','yuè'],
@@ -1477,7 +1558,7 @@ function Step4Preview({ onReset, data, settings, onPrev, setData, layoutTitleSiz
         };
         const translated = dict[zhTitle]?.[lang];
         const displayTitle = settings?.charType === 'simplified' ? (simpDict[zhTitle] || zhTitle) : zhTitle;
-        return translated ? `${displayTitle} (${translated})` : displayTitle;
+        return `${displayTitle} (${translated || dict[zhTitle]?.['英文 (English)'] || ''})`;
       };
       
      const getLegendTranslations = (lang) => {
@@ -1807,6 +1888,7 @@ function Step4Preview({ onReset, data, settings, onPrev, setData, layoutTitleSiz
         // 👑 新增：在打開編輯視窗的瞬間，偷偷把原始的舊文字記在 originalText 裡面
         setSelectedCharacter(0);
         setSyncSameWord(true);
+        setSyncFeedback(null);
         setEditingWord({ ...payload, originalText: payload.text });
       };
 
@@ -1853,23 +1935,22 @@ const savePhonetic = () => {
         if (newData.grammarRules) newData.grammarRules = newData.grammarRules.map(r => ({ ...r, theme: replaceStr(r.theme), mistake: replaceStr(r.mistake), correction: replaceStr(r.correction), explanation: replaceStr(r.explanation) }));
       }
 
-      // 同詞讀音套用：以完整詞彙相同為條件；已人工例外校正的位置不覆蓋。
+      // 同詞讀音套用：掃描五大模組內每個完整詞彙出現位置，保留個別例外。
+      let syncedCount=0;
       if (syncSameWord && t && t === editingWord.originalText) {
-        const updateExact = (item, textField, pyField, zyField) => {
-          if (!item || item[textField] !== t || item.phoneticException) return item;
-          return {...item, [pyField]:p, [zyField]:z};
-        };
-        newData.vocabList = (newData.vocabList||[]).map(item=>updateExact(item,'word','pinyin','zhuyin'));
-        newData.coreTextChunks = (newData.coreTextChunks||[]).map(item=>updateExact(item,'text','pinyin','zhuyin'));
-        newData.coreGrammar = (newData.coreGrammar||[]).map(item=>updateExact(item,'title','titlePinyin','titleZhuyin'));
-        newData.dialogues = (newData.dialogues||[]).map(item=>updateExact(item,'title','titlePinyin','titleZhuyin'));
+        const synced=syncExactPhoneticWord(newData,t,p,z,settings.phoneticType,true);
+        Object.assign(newData,synced.data);
+        syncedCount=synced.count;
       } else if(!syncSameWord) {
         // 單處例外校正標記：後續其他詞彙的同步不得覆蓋。
         if(editingWord.type==='vocab')newData.vocabList=(newData.vocabList||[]).map(v=>v.id===editingWord.id?{...v,phoneticException:true}:v);
         if(editingWord.type==='chunk')newData.coreTextChunks=(newData.coreTextChunks||[]).map(c=>c.id===editingWord.id?{...c,phoneticException:true}:c);
+        if(editingWord.type==='grammar_example')newData.coreGrammar=(newData.coreGrammar||[]).map(g=>g.id===editingWord.parentId?{...g,examples:g.examples.map((e,i)=>i===editingWord.id?{...e,phoneticException:true}:e)}:g);
+        if(editingWord.type==='dialogue_line')newData.dialogues=(newData.dialogues||[]).map(d=>d.id===editingWord.parentId?{...d,lines:d.lines.map(l=>l.id===editingWord.id?{...l,phoneticException:true}:l)}:d);
       }
       if (setData) setData(newData);
-      setEditingWord(null);
+      setSyncFeedback(syncSameWord?`已同步 ${syncedCount} 處`:'已儲存此處');
+      window.setTimeout(()=>{setEditingWord(null);setSyncFeedback(null);},700);
     };
       
       const isTypePinyin = (settings.phoneticType === 'pinyin' || settings.phoneticType === 'zhuyin_pinyin') && phoneticOverride !== 'zhuyin_only';
@@ -2154,6 +2235,12 @@ const savePhonetic = () => {
             @media screen {
               .eastern-border-layer { display:none !important; }
             }
+            /* 只有 PDF 主標題使用動態緊湊間距；其他模組原有注音及聲調位置不變。 */
+            .purple-header .imi-lesson-title { line-height:1.12 !important; }
+            .purple-header .hz-wrapper { margin:0 2px 2px 2px !important; break-inside:avoid; }
+            .purple-header .char-unit { padding-right:calc(var(--hz-size,24px) * .19); }
+            .purple-header .word-container { overflow-wrap:normal; }
+            .purple-header .res-py { margin-top:2px !important; }
             @media print {
               .imi-module-new-page { break-before: page !important; page-break-before: always !important; }
               .imi-preview-workspace { display:block !important; height:auto !important; overflow:visible !important; }
@@ -2262,7 +2349,7 @@ const savePhonetic = () => {
   </div>
 </div>
         {/* 🌟 [新增] 方案 B：螢幕專用模組導覽列 (列印時隱藏) */}
-        <div className="imi-preview-tabs print:hidden w-[210mm] max-w-full mx-auto mb-6 flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
+        <div className="imi-preview-tabs print:hidden w-[210mm] max-w-full mx-auto mb-3 flex flex-wrap items-center justify-center gap-2 pb-1">
           {[
             { id: 'coreText', label: '📖 核心課文', color: 'bg-slate-700', activeBg: 'bg-slate-700 text-white shadow-lg shadow-slate-700/30', inactiveBg: 'bg-white text-slate-500 hover:bg-slate-100 border-2 border-slate-200' },
             { id: 'vocab', label: '📝 核心生詞', color: 'bg-[#48C0A3]', activeBg: 'bg-[#48C0A3] text-white shadow-lg shadow-[#48C0A3]/30', inactiveBg: 'bg-white text-slate-500 hover:bg-[#EAFBF4] border-2 border-slate-200' },
@@ -2385,7 +2472,7 @@ const savePhonetic = () => {
                                   <img src="https://imi-pdf-studio-upgrade-20261101.mauvelady1123.chatgpt.site/imi-logo.png" alt="IMI 品牌標誌" className="w-[86%] h-[86%] object-contain" />
                                 )}
                                   </div>
-                          <h1 className="imi-lesson-title flex-1 min-w-0 font-black tracking-tight text-white" style={{ fontSize: `${Math.max(18,Math.min(Number(layoutTitleSize)+8,Math.round((Number(layoutTitleSize)+8)*Math.min(1,18/Math.max(18,Array.from(settings.themeTitle||'').length))))) }px`, lineHeight: '2.05', overflowWrap:'anywhere', '--hz-size': `${Math.max(18,Math.min(Number(layoutTitleSize)+8,Math.round((Number(layoutTitleSize)+8)*Math.min(1,18/Math.max(18,Array.from(settings.themeTitle||'').length))))) }px` }}>
+                          <h1 className="imi-lesson-title flex-1 min-w-0 font-black tracking-tight text-white" style={{ fontSize: `${Math.max(18,Math.min(Number(layoutTitleSize)+8,Math.round((Number(layoutTitleSize)+8)*Math.min(1,18/Math.max(18,Array.from(settings.themeTitle||'').length))))) }px`, lineHeight: '1.12', overflowWrap:'normal', '--hz-size': `${Math.max(18,Math.min(Number(layoutTitleSize)+8,Math.round((Number(layoutTitleSize)+8)*Math.min(1,18/Math.max(18,Array.from(settings.themeTitle||'').length))))) }px` }}>
                              <style>{`.purple-header .hz-font, .purple-header .punc-text, .purple-header .z-char, .purple-header .tone-side, .purple-header .tone-top, .purple-header .res-py { color: #FFFFFF !important; }`}</style>
                              <InlineRubyText className="text-white" text={settings.themeTitle || '課後複習講義'} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={data.themeTitlePinyin || ''} sentenceZhuyin={data.themeTitleZhuyin || ''} sentenceEditPayload={{ type: 'theme_title', id: 'title', text: settings.themeTitle || '課後複習講義', pinyin: data.themeTitlePinyin || '', zhuyin: data.themeTitleZhuyin || '' }} phoneticOverride={phoneticOverride} />
                            </h1>
@@ -2513,7 +2600,7 @@ const savePhonetic = () => {
 
                          <section className={`${hasContent.vocab ? (activeModule === 'vocab' ? 'block' : 'hidden') : 'hidden'} ${hasContent.vocab ? 'print:block' : 'print:hidden'} ${firstVisibleModule!=='vocab'?'imi-module-new-page':''}`}>
                        <SectionHeader title={getTranslatedModuleTitle("📝 核心生詞", settings.translationLanguage)} color="#38A385" border="#48C0A3" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize}>
-  <div className="flex items-center justify-end ml-auto gap-4 font-bold text-slate-500 tracking-wider whitespace-nowrap mb-1 w-full" style={{ fontSize: `${layoutLegendSize}px` }}>
+  <div className="flex items-center justify-end ml-auto gap-3 font-bold text-slate-500 tracking-wider whitespace-nowrap mb-1" style={{ fontSize: `${layoutLegendSize}px` }}>
     <span className="flex items-center gap-1.5"><span className="rounded-full shrink-0 shadow-sm" style={{ width: `${layoutLegendSize}px`, height: `${layoutLegendSize}px`, backgroundColor: '#FFCD57', WebkitPrintColorAdjust: 'exact' }}></span>{kwStr}</span>
     <span className="flex items-center gap-1.5"><span className="rounded-full shrink-0 shadow-sm" style={{ width: `${layoutLegendSize}px`, height: `${layoutLegendSize}px`, backgroundColor: '#48C0A3', WebkitPrintColorAdjust: 'exact' }}></span>{vbStr}</span>
     <span className="flex items-center gap-1.5"><span className="rounded-full shrink-0 shadow-sm" style={{ width: `${layoutLegendSize}px`, height: `${layoutLegendSize}px`, backgroundColor: '#7A7387', WebkitPrintColorAdjust: 'exact' }}></span>{grStr}</span>
@@ -2870,7 +2957,7 @@ const savePhonetic = () => {
           
           {editingWord && (
             <div className="fixed inset-0 z-[120] overflow-y-auto overscroll-contain bg-slate-900/40 backdrop-blur-sm px-3 py-4 print:hidden" role="dialog" aria-modal="true" aria-label="校正標音">
-              <div className="bg-white rounded-[28px] max-w-3xl mx-auto w-full min-h-0 pb-28 shadow-[0_24px_48px_rgba(0,0,0,0.2)] border-2 border-[#FF9B82] animate-in zoom-in-95 duration-200">
+              <div className="bg-white rounded-[28px] max-w-3xl mx-auto my-auto w-full shadow-[0_24px_48px_rgba(0,0,0,0.2)] border-2 border-[#FF9B82] animate-in zoom-in-95 duration-200">
                 <h4 className="text-xl font-black text-slate-700 px-5 py-3 border-b border-slate-100 flex items-center gap-3">
                   <Edit3 className="text-[#FF9B82]" size={32} strokeWidth={3}/>
                   校正標音 (整句 / 破音字編輯)
@@ -2883,13 +2970,17 @@ const savePhonetic = () => {
                         <button type="button" key={i} onClick={()=>setSelectedCharacter(i)} className={`min-w-9 h-9 rounded-lg border-2 font-black text-lg ${selectedCharacter===i?'border-[#9677AB] bg-[#E9DCF4] text-[#684A83]':'border-slate-200 bg-white text-slate-700'}`}>{ch}</button>
                       ))}
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
-                      <div className="flex flex-wrap gap-2 items-center">
+                    <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 items-center">
+                      <div className="flex flex-wrap gap-1.5 items-center">
                         {(pronunciationChoices[Array.from(editingWord.text||'').filter(ch=>/[\u3400-\u9fff]/.test(ch))[selectedCharacter]]||[localPhoneticsFor(Array.from(editingWord.text||'').filter(ch=>/[\u3400-\u9fff]/.test(ch))[selectedCharacter]||'').pinyin].filter(Boolean)).map(reading=>(
-                          <button key={reading} type="button" onClick={()=>updateSelectedReading(reading)} className="px-3 py-1.5 bg-white rounded-xl border-2 border-[#D8C7E5] font-bold text-[#684A83] hover:bg-[#E9DCF4]">{settings.phoneticType==='zhuyin'?pinyinToZhuyinLocal(reading):reading}</button>
+                          <button key={reading} type="button" aria-pressed={selectedReadingMatches(reading)} onClick={()=>updateSelectedReading(reading)} className={`px-3 py-1.5 rounded-xl border-2 font-bold text-[#684A83] ${selectedReadingMatches(reading)?'bg-[#E9DCF4] border-[#9677AB] shadow-sm':'bg-white border-[#D8C7E5] hover:bg-[#E9DCF4]'}`}>{selectedReadingMatches(reading)?'✓ ':''}{settings.phoneticType==='zhuyin'?pinyinToZhuyinLocal(reading):reading}</button>
                         ))}
                       </div>
-                      <label className="flex gap-2 items-center text-sm font-bold text-slate-700"><input type="checkbox" checked={syncSameWord} onChange={e=>setSyncSameWord(e.target.checked)} />套用本教材相同完整詞彙</label>
+                      <div className="flex items-center gap-1.5 min-w-0 whitespace-nowrap">
+                        <label className="flex gap-1 items-center text-xs font-bold text-slate-700 whitespace-nowrap"><input type="checkbox" checked={syncSameWord} onChange={e=>setSyncSameWord(e.target.checked)} />套用本教材相同完整詞彙</label>
+                        {syncSameWord&&<span className="inline-flex items-center rounded-lg bg-[#E4F8EE] px-1.5 py-1 text-[11px] font-black text-[#18794E] whitespace-nowrap">✓ {syncFeedback || `預計 ${syncEstimate} 處`}</span>}
+                        {!syncSameWord&&syncFeedback&&<span className="rounded-lg bg-[#E4F8EE] px-1.5 py-1 text-[11px] font-black text-[#18794E]">✓ {syncFeedback}</span>}
+                      </div>
                     </div>
                     <p className="text-xs text-slate-500">一、不會依句子套用變調；人工校正的讀音優先。</p>
                   </div>
@@ -2911,7 +3002,7 @@ const savePhonetic = () => {
                       <label className="block text-base font-bold text-slate-500 mb-2 ml-1">拼音 (Pinyin)</label>
                       <textarea 
                         disabled={settings.phoneticType === 'zhuyin'}
-                        rows={Math.max(2,Math.ceil((editingWord.pinyin||'').length/30))} style={{fieldSizing:'content'}} className={`w-full px-4 py-3 border-2 border-slate-100 rounded-2xl text-lg font-bold outline-none shadow-inner resize-none overflow-hidden min-h-14 leading-relaxed transition-all ${settings.phoneticType === 'zhuyin' ? 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-60' : 'bg-[#f8fafc] focus:border-[#FF9B82]'}`} 
+                        rows={Math.max(2,Math.ceil((editingWord.pinyin||'').length/30))} style={{fieldSizing:'content'}} className={`w-full px-4 py-3 border-2 border-slate-100 rounded-2xl text-lg font-bold outline-none shadow-inner resize-none overflow-hidden min-h-14 leading-relaxed transition-all ${settings.phoneticType === 'zhuyin' ? 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-60' : 'bg-[#f8fafc] focus:border-[#FF9B82]'}`}
                         value={settings.phoneticType === 'zhuyin' ? '' : (editingWord.pinyin || '')} 
                         onChange={(e) => setEditingWord({...editingWord, pinyin: e.target.value})} 
                         placeholder={settings.phoneticType === 'zhuyin' ? "🔒 單一標音：注音模式" : "請以空格隔開"} 
@@ -2921,7 +3012,7 @@ const savePhonetic = () => {
                       <label className="block text-base font-bold text-slate-500 mb-2 ml-1">注音 (Zhuyin)</label>
                       <textarea 
                         disabled={settings.phoneticType === 'pinyin'}
-                        rows={Math.max(2,Math.ceil((editingWord.zhuyin||'').length/30))} style={{fieldSizing:'content'}} className={`w-full px-4 py-3 border-2 border-slate-100 rounded-2xl text-lg font-bold outline-none shadow-inner resize-none overflow-hidden min-h-14 leading-relaxed transition-all ${settings.phoneticType === 'pinyin' ? 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-60' : 'bg-[#f8fafc] focus:border-[#FF9B82]'}`} 
+                        rows={Math.max(2,Math.ceil((editingWord.zhuyin||'').length/30))} style={{fieldSizing:'content'}} className={`w-full px-4 py-3 border-2 border-slate-100 rounded-2xl text-lg font-bold outline-none shadow-inner resize-none overflow-hidden min-h-14 leading-relaxed transition-all ${settings.phoneticType === 'pinyin' ? 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-60' : 'bg-[#f8fafc] focus:border-[#FF9B82]'}`}
                         value={settings.phoneticType === 'pinyin' ? '' : (editingWord.zhuyin || '')} 
                         onChange={(e) => setEditingWord({...editingWord, zhuyin: e.target.value})} 
                         placeholder={settings.phoneticType === 'pinyin' ? "🔒 單一標音：拼音模式" : "請以空格隔開"} 
@@ -2930,7 +3021,7 @@ const savePhonetic = () => {
                   </div>
                  </details>
                 </div>
-                  <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-[130] w-[calc(100%-1.5rem)] max-w-3xl flex gap-3 px-4 py-3 bg-white border-2 border-[#FF9B82] rounded-2xl shadow-[0_12px_32px_rgba(0,0,0,0.2)]">
+                  <div className="sticky bottom-0 z-[130] w-full flex gap-3 px-4 py-3 bg-white border-t border-[#FF9B82] rounded-b-[25px] shadow-[0_-5px_14px_rgba(0,0,0,0.08)]">
                     <button onClick={() => setEditingWord(null)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-lg shadow-[0_4px_0_0_#cbd5e1] active:translate-y-[4px] active:shadow-none transition-all">取消</button>
                     <button onClick={savePhonetic} className="flex-1 py-4 bg-[#FF9B82] text-white rounded-2xl font-black text-lg shadow-[0_4px_0_0_#E2755D] active:translate-y-[4px] active:shadow-none transition-all">確認儲存</button>
                   </div>
@@ -2986,8 +3077,8 @@ const savePhonetic = () => {
 
 function SectionHeader({ title, color, border, children, layoutSpacing, layoutTitleSize }) {
       return (
-        <div className="pb-3 mb-2 print-avoid-break-after flex flex-wrap items-end justify-start gap-x-6 gap-y-3" style={{ borderBottom: `4px solid ${border}`, WebkitPrintColorAdjust: 'exact', marginTop: `${layoutSpacing}px` }}>
-          <h3 className="font-black tracking-tight leading-none shrink-0" style={{ color: color, fontSize: `${layoutTitleSize}px` }}>{title}</h3>
+        <div className="pb-3 mb-2 print-avoid-break-after flex flex-wrap items-center justify-between gap-x-4 gap-y-2" style={{ borderBottom: `4px solid ${border}`, WebkitPrintColorAdjust: 'exact', marginTop: `${layoutSpacing}px` }}>
+          <h3 className="font-black tracking-tight leading-tight min-w-0" style={{ color: color, fontSize: `${layoutTitleSize}px` }}>{title}</h3>
           {children}
         </div>
       );
