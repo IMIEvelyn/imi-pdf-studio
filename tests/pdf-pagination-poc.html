@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IMI PDF pagination feasibility proof</title>
+<style>
+:root{--ink:#373242;--purple:#a89cc7;--sand:#fff6e9}
+*{box-sizing:border-box}body{margin:0;background:#eee9e4;color:var(--ink);font-family:Arial,"Noto Sans TC",sans-serif}
+aside{position:fixed;left:0;top:0;bottom:0;width:255px;padding:24px;background:var(--sand);z-index:10}
+main{margin-left:255px;padding:24px;display:flex;flex-direction:column;align-items:center;gap:24px}
+.sheet{position:relative;width:210mm;height:297mm;padding:18mm 20mm 20mm;background:white;box-shadow:0 12px 25px #0002;overflow:hidden;break-after:page;page-break-after:always}
+.sheet::before{content:"";position:absolute;pointer-events:none;inset:8mm;border:2px solid var(--purple);border-radius:9mm}
+.sheet::after{content:"";position:absolute;pointer-events:none;inset:11mm;border:1px solid #e7dbe4;border-radius:7mm}
+.sheet-content{position:relative;height:100%;overflow:hidden}
+.page-index{position:absolute;bottom:10mm;right:18mm;color:#82748e;font-size:11px}
+h1{font-size:23px;color:#786582;margin:0 0 14mm}
+h2{font-size:17px;margin:7mm 0 4mm;color:#786582;break-after:avoid}
+.item{padding:4mm;border:1px solid #e4e0eb;border-bottom:3px solid #7a7387;border-radius:5mm;margin-bottom:4mm;break-inside:avoid}
+.speaker{font-weight:800;display:inline-block;width:2em}
+.chinese{font-size:18px;line-height:2.4}
+ruby{ruby-position:over;white-space:nowrap}rt{font-size:9px;color:#986a79}
+.zhuyin{display:inline-grid;grid-template-columns:auto auto;gap:2px;align-items:center}
+.zhuyin b{font-size:22px;line-height:1.5}.zhuyin em{font-style:normal;writing-mode:vertical-rl;font-size:12px;line-height:1.2}
+button{padding:9px 15px;border:0;border-radius:12px;background:#786582;color:white;cursor:pointer}
+.note{font-size:12px;line-height:1.6}.pass{color:#207b54}.fail{color:#ae3535}
+#measure{position:absolute;visibility:hidden;pointer-events:none;width:170mm}
+@media(max-width:960px){aside{position:static;width:auto}main{margin:0;padding:12px;overflow-x:auto}.sheet{transform-origin:top center;max-width:none}}
+@media print{@page{size:A4;margin:0}body{background:white}aside{display:none}main{margin:0;padding:0;display:block}.sheet{margin:0;box-shadow:none;break-after:page;page-break-after:always} .sheet:last-child{break-after:auto}#measure{display:none}}
+</style></head><body>
+<aside><h2>IMI 分頁可行性測試</h2><p class="note">本頁僅用於技術驗證，不更動任何正式教材設定。使用模擬內容，不呼叫 Gemini。</p>
+<button onclick="window.print()">列印／另存 PDF</button><p id="status" class="note">正在排版…</p>
+<p class="note">需另驗證：現有 InlineRubyText 原樣接入、PDF 文字可選取、不同字型與行高、瀏覽器列印差異。</p></aside>
+<main id="pages"></main><div id="measure"></div>
+<script>
+const source = [
+{kind:"title",text:"TBCL 第 4 級／進階級 B1"},
+{kind:"heading",text:"1. 核心課文"},
+...Array.from({length:60},(_,i)=>({kind:"line",text:(i%2?"Ｂ":"Ａ")+"："+(i%3===0?"我上個禮拜自己回韓國一趟，讓人很頭痛、心煩。":"澤澤又得了別的感冒，現在咳嗽有痰。")})),
+{kind:"heading",text:"2. 核心詞彙"},
+...Array.from({length:46},(_,i)=>({kind:"word",text:["感冒","咳嗽","一趟","覺得","保重","認證"][i%6]})),
+{kind:"heading",text:"3. 情境對話"},
+...Array.from({length:55},(_,i)=>({kind:"line",text:"Ａ：在韓國，各國的大使館大都在哪？　Ｂ：大都在首爾。"}))
+];
+function nodeFor(item){
+const d=document.createElement(item.kind==="title"?"h1":item.kind==="heading"?"h2":"div");
+if(item.kind==="line"){d.className="item chinese";const m=item.text.match(/^([ＡＢ]):?：?(.*)$/);d.textContent=item.text}
+else if(item.kind==="word"){d.className="item";const r=document.createElement("ruby");r.textContent=item.text;const rt=document.createElement("rt");rt.textContent=item.text==="一趟"?"yí tàng":item.text==="覺得"?"jué de":"cè shì";r.append(rt);d.append(r);const zy=document.createElement("span");zy.className="zhuyin";zy.innerHTML="<b>"+item.text+"</b><em>ㄧˊ ㄊㄤˋ</em>";d.append(zy)}
+else d.textContent=item.text;
+return d;
+}
+function paginate(){
+const root=document.getElementById("pages");root.replaceChildren();
+const first=document.createElement("section");first.className="sheet";first.innerHTML='<div class="sheet-content"></div><div class="page-index">1</div>';root.append(first);
+let page=first,body=first.querySelector(".sheet-content"),pageNum=1,failures=[];
+const makePage=()=>{pageNum++;page=document.createElement("section");page.className="sheet";page.innerHTML='<div class="sheet-content"></div><div class="page-index">'+pageNum+'</div>';root.append(page);body=page.querySelector(".sheet-content")};
+for(let i=0;i<source.length;i++){
+const item=source[i],el=nodeFor(item);body.append(el);
+const over=()=>body.scrollHeight>body.clientHeight+1;
+if(over()){
+el.remove();
+if(body.children.length===0){failures.push("too-tall item: "+i);body.append(el);continue}
+makePage();body.append(el);
+if(over())failures.push("too-tall item at new page: "+i);
+}
+if(item.kind==="heading"&&i+1<source.length){const next=nodeFor(source[i+1]);body.append(next);if(over()){next.remove();el.remove();makePage();body.append(el)}else next.remove()}
+}
+for(const sheet of root.children){const b=sheet.querySelector(".sheet-content");if(b.scrollHeight>b.clientHeight+1)failures.push("overflow page "+sheet.querySelector(".page-index").textContent)}
+document.getElementById("status").innerHTML='<strong class="'+(failures.length?'fail':'pass')+'">'+pageNum+' pages · '+(failures.length?failures.join("; "):"No DOM overflow")+'</strong><br>注意：DOM 無溢出只是第一項檢查，尚非 PDF 視覺驗收通過。';
+}
+document.fonts.ready.then(paginate);
+</script></body></html>
