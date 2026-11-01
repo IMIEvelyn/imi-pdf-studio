@@ -1367,6 +1367,20 @@ function Step4Preview({ onReset, data, settings, onPrev, setData, layoutTitleSiz
 
   // 🌟 [新增] 模組化卡片專用狀態：記錄目前顯示哪個模組 (預設顯示核心課文)
   const [activeModule, setActiveModule] = React.useState('coreText');
+  const hasContent = {
+    coreText:(data.coreTextChunks||[]).some(c=>(c.text||'').trim()),
+    vocab:(data.vocabList||[]).some(v=>(v.word||'').trim()),
+    coreGrammar:(data.coreGrammar||[]).some(g=>(g.title||'').trim()||(g.examples||[]).length),
+    dialogue:(data.dialogues||[]).some(d=>(d.lines||[]).some(l=>(l.text||'').trim())),
+    grammarDiagnose:(data.grammarRules||[]).some(r=>(r.mistake||'').trim()||(r.correction||'').trim())
+  };
+  React.useEffect(()=>{
+    if(!hasContent[activeModule]){
+      const first=Object.keys(hasContent).find(k=>hasContent[k]);
+      if(first)setActiveModule(first);
+    }
+  },[activeModule, data]);
+
 
   // 🌟 [新增] 標音顯示覆蓋記憶體：記住老師在中控台點了哪種顯示模式 (預設為 'both')
   const [phoneticOverride, setPhoneticOverride] = React.useState('both');
@@ -2213,7 +2227,7 @@ const savePhonetic = () => {
             { id: 'coreGrammar', label: '📙 核心語法', color: 'bg-[#D4A017]', activeBg: 'bg-[#D4A017] text-white shadow-lg shadow-[#D4A017]/30', inactiveBg: 'bg-white text-slate-500 hover:bg-[#FFFBEA] border-2 border-slate-200' },
             { id: 'dialogue', label: '💬 情境對話', color: 'bg-[#615A6B]', activeBg: 'bg-[#615A6B] text-white shadow-lg shadow-[#615A6B]/30', inactiveBg: 'bg-white text-slate-500 hover:bg-[#F3F1F5] border-2 border-slate-200' },
             { id: 'grammarDiagnose', label: '🛠️ 語法診斷室', color: 'bg-[#D95A50]', activeBg: 'bg-[#D95A50] text-white shadow-lg shadow-[#D95A50]/30', inactiveBg: 'bg-white text-slate-500 hover:bg-[#FFF2F4] border-2 border-slate-200' }
-          ].map(module => (
+          ].filter(module=>hasContent[module.id]).map(module => (
             <button
               key={module.id}
               onClick={() => setActiveModule(module.id)}
@@ -2296,17 +2310,7 @@ const savePhonetic = () => {
               </svg>
             </div>
 
-          {/* 🌟 [新增] 螢幕專屬：A4 虛擬分頁輔助比例尺 (解決預覽干擾，列印時自動隱藏) */}
-<div className="absolute top-0 left-0 right-0 pointer-events-none z-40 overflow-hidden print:hidden" style={{ bottom: '-297mm', height: 'round(up, 100%, 297mm)' }}>
-  {Array.from({ length: 30 }).map((_, i) => (
-    <div key={i} className="w-full relative box-border border-b-2 border-dashed border-slate-300/70" style={{ height: '297mm' }}>
-      <div className="absolute right-4 px-3 py-1 bg-white/90 text-slate-400 text-xs font-bold rounded-t-lg shadow-sm backdrop-blur-sm" style={{ bottom: '0px' }}>
-        ✂️ 第 {i + 1} 頁 參考裁切線
-      </div>
-    </div>
-  ))}
-</div>
-
+          {/* 裁切參考線已移除；由瀏覽器列印分頁引擎處理 A4 換頁。 */}
 {/* ⚠️ 原本的頁碼系統 (完全保留給列印使用，螢幕預覽時隱藏) */}
 <div className="hidden print:block absolute top-0 left-0 right-0 pointer-events-none z-[100] overflow-hidden" style={{ bottom: '-297mm', height: 'round(up, 100%, 297mm)', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
   {Array.from({ length: 30 }).map((_, i) => (
@@ -2326,10 +2330,10 @@ const savePhonetic = () => {
                 <tr>
                   <td className="border-none p-0 relative">
                     <div style={{ padding: '0px' }}> 
-                      <div className="content-inner-layer relative bg-white z-0 rounded-[32px] overflow-visible shadow-sm" style={{ border: '1px solid #E4E0EB', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact', minHeight: '800px' }}>
+                      <div className="content-inner-layer relative bg-white z-0 rounded-[32px] overflow-visible shadow-sm" style={{ border: '1px solid #E4E0EB', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact', minHeight: '0px' }}>
                         
-                      <div className="purple-header p-8 md:p-10 text-white border-b-[6px] border-[#8A7EA5]" style={{ backgroundColor: ({purple: '#9A8CB0', green: '#86B093', blue: '#7A9CCC', yellow: '#D4AA6A'}[settings.themeColor] || '#9A8CB0'), borderColor: ({purple: '#8A7EA5', green: '#759D81', blue: '#6A8AB8', yellow: '#C49755'}[settings.themeColor] || '#8A7EA5'), WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-                          <div className="flex justify-between items-end">
+                      <div className="purple-header p-5 md:p-6 text-white border-b-[6px] border-[#8A7EA5]" style={{ backgroundColor: ({purple: '#9A8CB0', green: '#86B093', blue: '#7A9CCC', yellow: '#D4AA6A'}[settings.themeColor] || '#9A8CB0'), borderColor: ({purple: '#8A7EA5', green: '#759D81', blue: '#6A8AB8', yellow: '#C49755'}[settings.themeColor] || '#8A7EA5'), WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                          <div className="flex flex-wrap justify-between items-center gap-5">
                             <div className="flex items-center gap-6">
                               {/* 🚀 修正括號錯誤：移除了導致編譯失敗的括號，讓變數完美嵌入 rgba 中 */}
                               <div className="w-24 h-24 rounded-full bg-white flex items-center justify-center overflow-hidden shrink-0 border-4 border-[#F4F0FF]" style={{ boxShadow: `0 8px 16px rgba(0,0,0,0.15), inset 0 4px 8px rgba(0,0,0,0.05), inset 0 -4px 8px rgba(${ {purple: '154,140,176', green: '134,176,147', blue: '122,156,204', yellow: '212,170,106'}[settings.themeColor] || '154,140,176' }, 0.4)`, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
@@ -2359,7 +2363,7 @@ const savePhonetic = () => {
                           </div>
                         </div>
                         
-                        <section className={`${activeModule === 'coreText' ? 'block' : 'hidden'} print:block`}>
+                        <section className={`${hasContent.coreText ? (activeModule === 'coreText' ? 'block' : 'hidden') : 'hidden'} ${hasContent.coreText ? 'print:block' : 'print:hidden'}`}>
                        {/* 核心課文：標題與圖例並排區塊 */}
 <div className="flex flex-wrap items-end justify-between gap-4 w-full border-b-[3px] pb-2 mb-8" style={{ borderColor: '#7A7387', WebkitPrintColorAdjust: 'exact' }}>
   <div className="shrink-0">
@@ -2473,7 +2477,7 @@ const savePhonetic = () => {
     </section>                       
                           <ModuleDivider />
 
-                         <section className={`print-section-break ${activeModule === 'vocab' ? 'block' : 'hidden'} print:block`}>
+                         <section className={`${hasContent.vocab ? (activeModule === 'vocab' ? 'block' : 'hidden') : 'hidden'} ${hasContent.vocab ? 'print:block' : 'print:hidden'}`}>
                        <SectionHeader title={getTranslatedModuleTitle("📝 核心生詞", settings.translationLanguage)} color="#38A385" border="#48C0A3" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize}>
   <div className="flex items-center justify-end ml-auto gap-4 font-bold text-slate-500 tracking-wider whitespace-nowrap mb-1 w-full" style={{ fontSize: `${layoutLegendSize}px` }}>
     <span className="flex items-center gap-1.5"><span className="rounded-full shrink-0 shadow-sm" style={{ width: `${layoutLegendSize}px`, height: `${layoutLegendSize}px`, backgroundColor: '#FFCD57', WebkitPrintColorAdjust: 'exact' }}></span>{kwStr}</span>
@@ -2526,7 +2530,7 @@ const savePhonetic = () => {
                           {((data.coreGrammar || []).length > 0) && <ModuleDivider />}
 
                           {(data.coreGrammar || []).length > 0 && (
-                         <section className={`print-section-break ${activeModule === 'coreGrammar' ? 'block' : 'hidden'} print:block`}>
+                         <section className={`${hasContent.coreGrammar ? (activeModule === 'coreGrammar' ? 'block' : 'hidden') : 'hidden'} ${hasContent.coreGrammar ? 'print:block' : 'print:hidden'}`}>
                               <div className="flex flex-wrap items-end justify-between gap-4 w-full border-b-[3px] pb-2 mb-8" style={{ borderColor: '#FFEE99', WebkitPrintColorAdjust: 'exact' }}>
             <div className="shrink-0">
               <SectionHeader title={getTranslatedModuleTitle("📙 核心語法", settings.translationLanguage)} color="#D4A017" border="none" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize} />
@@ -2645,7 +2649,7 @@ const savePhonetic = () => {
                           {((data.dialogues || []).length > 0) && <ModuleDivider />}
 
                           {(data.dialogues || []).length > 0 && (
-                            <section className={`print-section-break ${activeModule === 'dialogue' ? 'block' : 'hidden'} print:block`}>
+                            <section className={`${hasContent.dialogue ? (activeModule === 'dialogue' ? 'block' : 'hidden') : 'hidden'} ${hasContent.dialogue ? 'print:block' : 'print:hidden'}`}>
                              <div className="flex flex-wrap items-end justify-between gap-4 w-full border-b-[3px] pb-2 mb-8" style={{ borderColor: '#7A7387', WebkitPrintColorAdjust: 'exact' }}>
             <div className="shrink-0">
               <SectionHeader title={getTranslatedModuleTitle("💬 情境對話", settings.translationLanguage)} color="#615A6B" border="none" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize} />
@@ -2712,7 +2716,7 @@ const savePhonetic = () => {
 {((data.grammarRules || []).length > 0) && <ModuleDivider />}
 
 {((data.grammarRules || []).length > 0) && (
-  <section className={`print-section-break ${activeModule === 'grammarDiagnose' ? 'block' : 'hidden'} print:block`}>
+  <section className={`${hasContent.grammarDiagnose ? (activeModule === 'grammarDiagnose' ? 'block' : 'hidden') : 'hidden'} ${hasContent.grammarDiagnose ? 'print:block' : 'print:hidden'}`}>
    <div className="flex flex-wrap items-end justify-between gap-4 w-full border-b-[3px] pb-2 mb-8" style={{ borderColor: '#F07167', WebkitPrintColorAdjust: 'exact' }}>
             <div className="shrink-0">
               <SectionHeader title={getTranslatedModuleTitle("🛠️ 語法診斷室", settings.translationLanguage)} color="#D95A50" border="none" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize} />
