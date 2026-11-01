@@ -1827,7 +1827,7 @@ const savePhonetic = () => {
 
       return (
         <EditPhoneticContext.Provider value={handleWordClick}>
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700 print:bg-white print:p-0">
+        <div className="space-y-8 imi-preview-workspace animate-in fade-in slide-in-from-bottom-8 duration-700 print:bg-white print:p-0">
           
           <style>{`
             :root {
@@ -2072,9 +2072,19 @@ const savePhonetic = () => {
                     display: none !important;
                 }
             }
+            /* 左側老師控制區、右側教材預覽：僅調整螢幕位置，列印樣式不變。 */
+            @media screen and (min-width: 1180px) {
+              .imi-preview-workspace { display:grid; grid-template-columns: 300px minmax(0,1fr); align-items:start; gap:16px; }
+              .imi-preview-workspace > style { display:none; }
+              .imi-preview-controls { grid-column:1; grid-row:1 / span 3; position:sticky !important; top:16px; width:100% !important; max-height:calc(100vh - 32px); overflow-y:auto; margin:0 !important; z-index:25; }
+              .imi-preview-controls > .grid { grid-template-columns:minmax(0,1fr); }
+              .imi-preview-tabs { grid-column:2; grid-row:1; width:100% !important; margin:0 !important; }
+              #imi-print-area { grid-column:2; grid-row:2; max-width:100%; }
+              .imi-preview-footer { grid-column:2; grid-row:3; justify-self:center; }
+            }
           `}</style>
 {/* === 所見即所得：智慧排版指揮中心 (美感升級 2x2 網格版) === */}
-<div className="print:hidden w-[210mm] max-w-full mx-auto bg-slate-100/50 p-5 rounded-[24px] mb-6 border-2 border-slate-200 shadow-sm mt-8 relative z-50">
+<div className="imi-preview-controls print:hidden w-[210mm] max-w-full mx-auto bg-slate-100/50 p-5 rounded-[24px] mb-6 border-2 border-slate-200 shadow-sm mt-8 relative z-50">
   <h4 className="font-black text-slate-700 text-base flex items-center gap-2 mb-4 px-1">
     <span className="text-emerald-500">🎛️</span> 版面微調控制台
   </h4>
@@ -2168,7 +2178,7 @@ const savePhonetic = () => {
   </div>
 </div>
         {/* 🌟 [新增] 方案 B：螢幕專用模組導覽列 (列印時隱藏) */}
-        <div className="print:hidden w-[210mm] max-w-full mx-auto mb-6 flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
+        <div className="imi-preview-tabs print:hidden w-[210mm] max-w-full mx-auto mb-6 flex gap-3 overflow-x-auto pb-2 custom-scrollbar">
           {[
             { id: 'coreText', label: '📖 核心課文', color: 'bg-slate-700', activeBg: 'bg-slate-700 text-white shadow-lg shadow-slate-700/30', inactiveBg: 'bg-white text-slate-500 hover:bg-slate-100 border-2 border-slate-200' },
             { id: 'vocab', label: '📝 核心生詞', color: 'bg-[#48C0A3]', activeBg: 'bg-[#48C0A3] text-white shadow-lg shadow-[#48C0A3]/30', inactiveBg: 'bg-white text-slate-500 hover:bg-[#EAFBF4] border-2 border-slate-200' },
@@ -2791,7 +2801,7 @@ const savePhonetic = () => {
               </tfoot>
             </table>
           </div>
-       <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-2xl p-4 rounded-full shadow-[0_16px_32px_rgba(0,0,0,0.1),inset_0_4px_8px_rgba(255,255,255,1)] border border-slate-200 flex items-center gap-6 z-20 print:hidden relative">
+       <div className="imi-preview-footer fixed bottom-8 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-2xl p-4 rounded-full shadow-[0_16px_32px_rgba(0,0,0,0.1),inset_0_4px_8px_rgba(255,255,255,1)] border border-slate-200 flex items-center gap-6 z-20 print:hidden relative">
     <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (onPrev) onPrev(); }} className="px-10 py-5 text-slate-600 font-black text-xl hover:bg-[#FFF6E9] rounded-[32px] transition-colors relative z-50 cursor-pointer">返回設定</button>
     <button onClick={() => window.print()} className="px-12 py-5 bg-[#FF9B82] text-white rounded-[32px] font-black text-2xl shadow-[0_8px_0_0_#E2755D] hover:translate-y-1 hover:shadow-[0_4px_0_0_#E2755D] active:translate-y-[8px] active:shadow-none transition-all flex items-center gap-3"><Download size={28} strokeWidth={3}/>列印 / 下載 PDF</button>
 
