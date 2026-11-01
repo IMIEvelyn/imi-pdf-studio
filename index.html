@@ -558,19 +558,19 @@
 };
 
       return (
-        <div className="min-h-screen bg-[#FFF6E9] font-sans text-slate-800">
-          <header className="bg-white/95 backdrop-blur-xl shadow-[0_4px_32px_rgba(0,0,0,0.04)] sticky top-0 z-[60] rounded-b-[32px] mx-4 mb-6 mt-0 border border-white/50 print:hidden">
-            <div className="max-w-6xl mx-auto px-6 py-6 flex flex-col items-center gap-5">
+        <div className={`min-h-screen bg-[#FFF6E9] font-sans text-slate-800 ${currentStep===4?'imi-step4-shell':''}`}>
+          <header className={`bg-white/95 backdrop-blur-xl shadow-[0_4px_32px_rgba(0,0,0,0.04)] sticky top-0 z-[60] rounded-b-[32px] mx-4 mt-0 border border-white/50 print:hidden ${currentStep===4?'mb-2':'mb-6'}`}>
+            <div className={`max-w-6xl mx-auto px-6 ${currentStep===4?'py-2 gap-2':'py-6 gap-5'} flex flex-col items-center`}>
               <div className="flex items-center gap-5">
-                <div className="relative flex items-center justify-center w-16 h-16 rounded-full bg-white shadow-[0_6px_0_0_#e2e8f0,0_8px_16px_rgba(0,0,0,0.08),inset_0_-4px_6px_rgba(0,0,0,0.05),inset_0_4px_6px_rgba(255,255,255,1)] shrink-0 transition-transform hover:scale-105">
-                  <img src="https://imi-pdf-studio-upgrade-20261101.mauvelady1123.chatgpt.site/imi-logo.png" alt="IMI 墨金色品牌標誌" className="w-[52px] h-[52px] object-contain" />
+                <div className={`flex items-center justify-center shrink-0 transition-transform hover:scale-105 ${currentStep===4?'w-[66px] h-10':'w-[88px] h-[60px]'}`}>
+                  <img src="https://imi-pdf-studio-upgrade-20261101.mauvelady1123.chatgpt.site/imi-logo.png" alt="IMI 金色品牌標誌" className={`${currentStep===4?'w-16 h-16':'w-24 h-24'} max-w-none shrink-0 object-contain`} />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-black text-slate-700 tracking-wide drop-shadow-sm">IMI. 華語PDF教材坊</h1>
-                  <p className="text-base font-black text-[#FF9B82] tracking-wider mt-1">InkHeart Mandarin Immersion.Teacher Studio</p>
+                  <h1 className={`${currentStep===4?'text-lg':'text-3xl'} font-black text-slate-700 tracking-wide drop-shadow-sm`}>IMI. 華語PDF教材坊</h1>
+                  <p className={`${currentStep===4?'text-[10px]':'text-base'} font-black text-[#FF9B82] tracking-wider mt-1`}>InkHeart Mandarin Immersion.Teacher Studio</p>
                 </div>
               </div>
-              <div className="flex flex-wrap items-center justify-center gap-3 text-sm font-bold w-full pt-2 border-t border-slate-100/60">
+              <div className={`flex flex-wrap items-center justify-center font-bold w-full border-t border-slate-100/60 ${currentStep===4?'gap-1 text-xs pt-1':'gap-3 text-sm pt-2'}`}>
                 <StepIndicator step={1} currentStep={currentStep} label="匯入內容" />
                 <ChevronRight size={18} className="text-slate-300" />
                 <StepIndicator step={2} currentStep={currentStep} label="編輯內容" />
@@ -596,12 +596,12 @@
             </div>
           )}
 
-          <main className="max-w-6xl mx-auto px-4 py-4 pb-24 print:max-w-none print:px-0 print:py-0 print:pb-0">
+          <main className={`max-w-6xl mx-auto px-4 py-4 print:max-w-none print:px-0 print:py-0 print:pb-0 ${currentStep===4?'imi-step4-main':'pb-24'}`}>
             {currentStep === 1 && <Step1Input rawInput={rawInput} setRawInput={setRawInput} selectedFiles={selectedFiles} setSelectedFiles={setSelectedFiles} handleAnalyze={handleAnalyze} isAnalyzing={isAnalyzing} customApiKey={customApiKey} setCustomApiKey={setCustomApiKey} />}
             {currentStep === 2 && <Step2Editor data={parsedData} setData={setParsedData} onNext={() => setCurrentStep(3)} onPrev={() => setCurrentStep(1)} renderMistake={renderMistake} autoLink={autoLinkChunks} />}
           {currentStep === 3 && <Step3Settings settings={exportSettings} setSettings={setExportSettings} onNext={handleGeneratePreview} onPrev={() => setCurrentStep(2)} isGenerating={isGeneratingPreview} customApiKey={customApiKey} setCustomApiKey={setCustomApiKey} />}
        {currentStep === 4 && finalPreviewData && <Step4Preview onReset={handleResetAll} onPrev={() => setCurrentStep(3)} data={finalPreviewData} setData={setFinalPreviewData} settings={exportSettings} layoutTitleSize={layoutTitleSize} setLayoutTitleSize={setLayoutTitleSize} layoutLegendSize={layoutLegendSize} setLayoutLegendSize={setLayoutLegendSize} layoutContentSize={layoutContentSize} setLayoutContentSize={setLayoutContentSize} layoutTransSize={layoutTransSize} setLayoutTransSize={setLayoutTransSize} layoutSpacing={layoutSpacing} setLayoutSpacing={setLayoutSpacing} />}
-            <div className="mt-20 text-center print:hidden">
+            <div className={`mt-20 text-center print:hidden ${currentStep===4?'hidden':''}`}>
               <p className="text-slate-400/80 font-bold tracking-widest text-sm">
                 @ Made by InkHeart Mandarin Immersion ( <a href="https://imiteacherevelyn.wixsite.com/mandarin-hub" target="_blank" rel="noopener noreferrer" className="hover:text-[#FF9B82] underline underline-offset-2 transition-colors">IMI網站</a> )<br />
                 Teacher Evelyn 曾老師
@@ -1191,6 +1191,15 @@
       const fileInputRef = useRef(null);
       const [languageFocused, setLanguageFocused] = useState(false);
       const [languageHighlight, setLanguageHighlight] = useState(0);
+      const [languageEditing, setLanguageEditing] = useState(false);
+      const previousLanguageRef = useRef(settings.translationLanguage);
+      const languageMenuRef = useRef(null);
+      useEffect(()=>{
+        if(!languageFocused)return;
+        const closeWhenOutside=(event)=>{if(!languageMenuRef.current?.contains(event.target))setLanguageFocused(false);};
+        document.addEventListener('pointerdown',closeWhenOutside);
+        return ()=>document.removeEventListener('pointerdown',closeWhenOutside);
+      },[languageFocused]);
       const [customLanguages, setCustomLanguages] = useState(() => {
         try { const v=JSON.parse(localStorage.getItem('imi-custom-language-names')||'[]'); return Array.isArray(v)?v.filter(x=>typeof x==='string'):[]; } catch(e) { return []; }
       });
@@ -1312,14 +1321,13 @@
                 </div>
                 <div className="space-y-8"><h4 className="font-black text-2xl text-slate-700 flex items-center gap-3"><Download className="text-[#56D0A0]" size={32}/>翻譯設定</h4>
                 <div className="space-y-4"><label className="text-base font-black text-slate-500 ml-1">目標語言</label>
-                    <div className="relative">
+                    <div className="relative" ref={languageMenuRef}>
                       <div className="flex items-center rounded-2xl border-2 border-slate-100 bg-[#f8fafc] shadow-inner focus-within:border-[#56D0A0]">
-                        <input type="text" role="combobox" aria-expanded={languageFocused} aria-controls="imi-language-options" aria-autocomplete="list" className="min-w-0 flex-1 p-5 bg-transparent outline-none font-bold text-xl text-slate-700" value={settings.translationLanguage} onFocus={() => {setLanguageFocused(true);setLanguageHighlight(0);}} onBlur={(e) => {setLanguageFocused(false); rememberLanguage(e.target.value);}} onKeyDown={(e)=>{const choices=allLanguages.filter(name=>!settings.translationLanguage||name.toLowerCase().includes(settings.translationLanguage.toLowerCase()));if(e.key==='Escape')setLanguageFocused(false);if(e.key==='ArrowDown'){e.preventDefault();setLanguageHighlight(i=>Math.min(choices.length-1,i+1));}if(e.key==='ArrowUp'){e.preventDefault();setLanguageHighlight(i=>Math.max(0,i-1));}if(e.key==='Enter'&&languageFocused&&choices[languageHighlight]){e.preventDefault();updateSetting('translationLanguage',choices[languageHighlight]);setLanguageFocused(false);}}} onChange={(e) => {updateSetting('translationLanguage', e.target.value);setLanguageFocused(true);setLanguageHighlight(0);}} placeholder="選擇或輸入語言，例如：泰文" aria-label="目標語言，可選擇或手動輸入" />
-                        <button type="button" aria-label="展開語言清單" onMouseDown={e=>e.preventDefault()} onClick={()=>setLanguageFocused(v=>!v)} className="px-4 text-slate-500 hover:text-[#34A879] text-xl">⌄</button>
+                        <input type="text" role="combobox" aria-expanded={languageFocused} aria-controls="imi-language-options" aria-autocomplete="none" className="min-w-0 flex-1 p-5 bg-transparent outline-none font-bold text-xl text-slate-700" value={settings.translationLanguage} onFocus={() => {if(!languageEditing&&!languageFocused){previousLanguageRef.current=settings.translationLanguage;updateSetting('translationLanguage','');setLanguageEditing(true);}}} onBlur={(e) => {const value=e.target.value.trim();if(value){rememberLanguage(value);updateSetting('translationLanguage',value);}else updateSetting('translationLanguage',previousLanguageRef.current);setLanguageEditing(false);setLanguageFocused(false);}} onKeyDown={(e)=>{if(e.key==='Escape'){updateSetting('translationLanguage',previousLanguageRef.current);setLanguageEditing(false);setLanguageFocused(false);e.currentTarget.blur();}if(e.key==='Enter'){e.preventDefault();e.currentTarget.blur();}}} onChange={(e) => updateSetting('translationLanguage',e.target.value)} placeholder="直接輸入語言，例如：泰文" aria-label="目標語言文字區，點擊清空後輸入" />
+                        <button type="button" aria-label="展開或收合語言清單" aria-expanded={languageFocused} onMouseDown={e=>e.preventDefault()} onClick={()=>{if(!languageFocused){if(languageEditing&&!settings.translationLanguage)updateSetting('translationLanguage',previousLanguageRef.current);setLanguageEditing(false);}setLanguageFocused(v=>!v);setLanguageHighlight(0);}} className="px-4 text-slate-500 hover:text-[#34A879] text-xl">⌄</button>
                       </div>
                       {languageFocused && <div id="imi-language-options" role="listbox" className="absolute z-40 top-full left-0 right-0 mt-2 max-h-64 overflow-y-auto rounded-2xl border-2 border-[#56D0A0]/60 bg-white p-2 shadow-xl custom-scrollbar">
-                        {allLanguages.filter(name=>!settings.translationLanguage||name.toLowerCase().includes(settings.translationLanguage.toLowerCase())).map((name,i)=><button type="button" role="option" aria-selected={i===languageHighlight} key={name} onMouseDown={e=>e.preventDefault()} onClick={()=>{updateSetting('translationLanguage',name);setLanguageFocused(false);}} className={`w-full text-left rounded-xl px-4 py-3 font-bold transition-colors ${i===languageHighlight?'bg-[#EAFBF4] text-[#1B6B47]':'text-slate-700 hover:bg-[#EAFBF4]'}`}>{name}</button>)}
-                        {!allLanguages.some(name=>name.toLowerCase().includes((settings.translationLanguage||'').toLowerCase()))&&<div className="px-4 py-3 text-sm font-bold text-[#1B6B47]">按 Enter 或點選其他位置，使用「{settings.translationLanguage}」</div>}
+                        {allLanguages.map((name,i)=><button type="button" role="option" aria-selected={name===settings.translationLanguage} key={name} onMouseDown={e=>e.preventDefault()} onClick={()=>{updateSetting('translationLanguage',name);previousLanguageRef.current=name;setLanguageFocused(false);setLanguageEditing(false);}} className={`w-full text-left rounded-xl px-4 py-3 font-bold transition-colors ${name===settings.translationLanguage?'bg-[#EAFBF4] text-[#1B6B47]':'text-slate-700 hover:bg-[#EAFBF4]'}`}>{name}</button>)}
                       </div>}
                     </div>
                     <p className="text-sm font-medium text-slate-500">可直接輸入新語言；輸入或選擇時不會呼叫 API。</p>
@@ -1348,6 +1356,12 @@
 
 function Step4Preview({ onReset, data, settings, onPrev, setData, layoutTitleSize, setLayoutTitleSize, layoutLegendSize, setLayoutLegendSize, layoutContentSize, setLayoutContentSize, layoutTransSize, setLayoutTransSize, layoutSpacing, setLayoutSpacing }) {
   const [editingWord, setEditingWord] = React.useState(null);
+  React.useEffect(()=>{
+    if(!editingWord)return;
+    const previous=document.body.style.overflow;
+    document.body.style.overflow='hidden';
+    return ()=>{document.body.style.overflow=previous;};
+  },[!!editingWord]);
   const [selectedCharacter, setSelectedCharacter] = React.useState(0);
   const [syncSameWord, setSyncSameWord] = React.useState(true);
   const pronunciationChoices = {
@@ -2122,14 +2136,23 @@ const savePhonetic = () => {
                     display: none !important;
                 }
             }
-            /* 左側老師控制區、右側教材預覽：僅調整螢幕位置，列印樣式不變。 */
+            /* 只在生成教材桌面階段鎖定外層頁面；右側 PDF 是唯一主要捲動區。 */
             @media screen and (min-width: 1180px) {
-              .imi-preview-workspace { display:grid; grid-template-columns: 300px minmax(0,1fr); grid-template-rows:auto minmax(0,1fr); align-items:start; gap:16px; height:calc(100dvh - 180px); min-height:540px; overflow:hidden; }
+              .imi-step4-shell { height:100dvh; min-height:0; display:flex; flex-direction:column; overflow:hidden; }
+              .imi-step4-shell > header { flex:0 0 auto; }
+              .imi-step4-main { flex:1 1 auto; min-height:0; max-width:100%; width:100%; padding-top:4px; padding-bottom:8px; overflow:hidden; }
+              .imi-preview-workspace { display:grid; grid-template-columns:300px minmax(0,1fr); grid-template-rows:auto minmax(0,1fr); align-items:stretch; gap:10px 16px; height:100%; min-height:0; overflow:hidden; }
               .imi-preview-workspace > style { display:none; }
-              .imi-preview-controls { grid-column:1; grid-row:1 / span 2; position:relative !important; top:auto; width:100% !important; max-height:100%; overflow-y:auto; margin:0 !important; z-index:2; align-self:stretch; }
-              .imi-preview-controls > .grid { grid-template-columns:minmax(0,1fr); }
+              .imi-preview-controls { grid-column:1; grid-row:1 / span 2; display:flex; flex-direction:column; position:relative !important; top:auto; width:100% !important; max-height:100%; min-height:0; overflow:hidden; margin:0 !important; z-index:2; align-self:stretch; padding:14px; }
+              .imi-preview-controls > .grid { grid-template-columns:minmax(0,1fr); align-content:start; flex:1 1 auto; min-height:0; }
+              .imi-preview-controls > .imi-preview-actions { flex:0 0 auto; margin-top:auto; }
               .imi-preview-tabs { grid-column:2; grid-row:1; width:100% !important; margin:0 !important; }
-              #imi-print-area { grid-column:2; grid-row:2; max-width:100%; height:100%; min-height:0; overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain; }
+              #imi-print-area { grid-column:2; grid-row:2; max-width:100%; height:100%; min-height:0; overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain; scrollbar-gutter:stable; }
+              /* 極矮視窗的可操作性後備：不裁切設定項目。 */
+              @media (max-height:680px) { .imi-preview-controls > .grid { overflow-y:auto; } }
+            }
+            @media screen {
+              .eastern-border-layer { display:none !important; }
             }
             @media print {
               .imi-module-new-page { break-before: page !important; page-break-before: always !important; }
@@ -2230,7 +2253,7 @@ const savePhonetic = () => {
             </div>
     
   </div>
-  <div className="mt-5 pt-4 border-t-2 border-dashed border-slate-200 space-y-3">
+  <div className="imi-preview-actions mt-5 pt-4 border-t-2 border-dashed border-slate-200 space-y-3 bg-slate-100/50">
     <button type="button" onClick={()=>window.print()} className="w-full flex justify-center items-center gap-2 rounded-2xl bg-[#FF9B82] text-white font-black text-base py-4 shadow-[0_5px_0_0_#E2755D] hover:translate-y-0.5 transition-transform"><Download size={20}/>列印 / 下載 PDF</button>
     <div className="grid grid-cols-2 gap-2">
       <button type="button" onClick={()=>onPrev?.()} className="rounded-xl bg-white border border-slate-200 px-2 py-3 text-slate-600 font-bold text-sm hover:bg-slate-50">返回設定</button>
@@ -2249,7 +2272,7 @@ const savePhonetic = () => {
           ].filter(module=>hasContent[module.id]).map(module => (
             <button
               key={module.id}
-              onClick={() => setActiveModule(module.id)}
+              onClick={() => {setActiveModule(module.id);document.getElementById('imi-print-area')?.scrollTo({top:0,behavior:'instant'});}}
               className={`whitespace-nowrap px-6 py-3 rounded-2xl font-black text-lg transition-all duration-300 ${activeModule === module.id ? module.activeBg : module.inactiveBg}`}
             >
               {module.label}
@@ -2351,31 +2374,25 @@ const savePhonetic = () => {
                     <div style={{ padding: '0px' }}> 
                       <div className="content-inner-layer relative bg-white z-0 rounded-[32px] overflow-visible shadow-sm" style={{ border: '1px solid #E4E0EB', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact', minHeight: '0px' }}>
                         
-                      <div className={`purple-header p-5 md:p-6 text-white border-b-[6px] border-[#8A7EA5] ${activeModule!==firstVisibleModule?'hidden print:block':''}`} style={{ backgroundColor: ({purple: '#9A8CB0', green: '#86B093', blue: '#7A9CCC', yellow: '#D4AA6A'}[settings.themeColor] || '#9A8CB0'), borderColor: ({purple: '#8A7EA5', green: '#759D81', blue: '#6A8AB8', yellow: '#C49755'}[settings.themeColor] || '#8A7EA5'), WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-                          <div className="flex flex-wrap justify-between items-center gap-5">
-                            <div className="flex items-center gap-6">
+                      <div className={`purple-header p-3 md:p-4 text-white border-b-[3px] border-[#8A7EA5] ${activeModule!==firstVisibleModule?'hidden print:block':''}`} style={{ backgroundColor: ({purple: '#9A8CB0', green: '#86B093', blue: '#7A9CCC', yellow: '#D4AA6A'}[settings.themeColor] || '#9A8CB0'), borderColor: ({purple: '#8A7EA5', green: '#759D81', blue: '#6A8AB8', yellow: '#C49755'}[settings.themeColor] || '#8A7EA5'), WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                          <div className="flex flex-col gap-1.5">
+                            <div className="flex items-start gap-3">
                               {/* 🚀 修正括號錯誤：移除了導致編譯失敗的括號，讓變數完美嵌入 rgba 中 */}
-                              <div className="w-24 h-24 rounded-full bg-white flex items-center justify-center overflow-hidden shrink-0 border-4 border-[#F4F0FF]" style={{ boxShadow: `0 8px 16px rgba(0,0,0,0.15), inset 0 4px 8px rgba(0,0,0,0.05), inset 0 -4px 8px rgba(${ {purple: '154,140,176', green: '134,176,147', blue: '122,156,204', yellow: '212,170,106'}[settings.themeColor] || '154,140,176' }, 0.4)`, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                              <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center overflow-hidden shrink-0 border-2 border-[#F4F0FF]" style={{ boxShadow: '0 3px 9px rgba(0,0,0,0.1)', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
                                 {settings.logoUrl ? (
                                   <img src={settings.logoUrl} alt="Logo" className="w-[85%] h-[85%] object-contain drop-shadow-sm" />
                                 ) : (
                                   <img src="https://imi-pdf-studio-upgrade-20261101.mauvelady1123.chatgpt.site/imi-logo.png" alt="IMI 品牌標誌" className="w-[86%] h-[86%] object-contain" />
                                 )}
                                   </div>
-                          <h1 className="space-y-2 flex flex-wrap items-end font-black tracking-tighter text-white" style={{ fontSize: `${Number(layoutTitleSize) + 8}px`, lineHeight: '1.2', '--hz-size': `${Number(layoutTitleSize) + 8}px` }}>
+                          <h1 className="imi-lesson-title flex-1 min-w-0 font-black tracking-tight text-white" style={{ fontSize: `${Math.max(18,Math.min(Number(layoutTitleSize)+8,Math.round((Number(layoutTitleSize)+8)*Math.min(1,18/Math.max(18,Array.from(settings.themeTitle||'').length))))) }px`, lineHeight: '2.05', overflowWrap:'anywhere', '--hz-size': `${Math.max(18,Math.min(Number(layoutTitleSize)+8,Math.round((Number(layoutTitleSize)+8)*Math.min(1,18/Math.max(18,Array.from(settings.themeTitle||'').length))))) }px` }}>
                              <style>{`.purple-header .hz-font, .purple-header .punc-text, .purple-header .z-char, .purple-header .tone-side, .purple-header .tone-top, .purple-header .res-py { color: #FFFFFF !important; }`}</style>
                              <InlineRubyText className="text-white" text={settings.themeTitle || '課後複習講義'} settings={settings} vocabList={data.vocabList} coreTextChunks={data.coreTextChunks} coreGrammar={data.coreGrammar} grammarRules={data.grammarRules} sentencePinyin={data.themeTitlePinyin || ''} sentenceZhuyin={data.themeTitleZhuyin || ''} sentenceEditPayload={{ type: 'theme_title', id: 'title', text: settings.themeTitle || '課後複習講義', pinyin: data.themeTitlePinyin || '', zhuyin: data.themeTitleZhuyin || '' }} phoneticOverride={phoneticOverride} />
                            </h1>
                             </div>
-                            <div className="text-right flex flex-col items-end shrink-0 z-10 relative">
-                             <span className="bg-white/20 text-white px-4 py-1.5 rounded-xl font-black text-sm mb-2 tracking-widest border border-white/40 shadow-sm" style={{ WebkitPrintColorAdjust: 'exact' }}>{settings.textLevel}</span>
-                              <p className="text-2xl font-black opacity-95">{settings.className || '班級/學生'}</p>
-                              <p className="text-xl font-bold opacity-90">
-                                {settings.teacherName ? 
-                                  `${settings.teacherName} ${settings.charType === 'simplified' ? '老师' : '老師'}` : 
-                                  (settings.charType === 'simplified' ? '老师' : '老師')}
-                              </p>
-                              <p className="text-lg font-medium opacity-85">{settings.date}</p>
+                            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-white/95 text-[11px] leading-tight font-semibold">
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0"><span>{settings.textLevel}</span><span>·</span><span>{settings.className || '班級/學生'}</span></div>
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1"><span>{settings.teacherName ? `${settings.teacherName} ${settings.charType === 'simplified' ? '老师' : '老師'}` : (settings.charType === 'simplified' ? '老师' : '老師')}</span><span>·</span><span>{settings.date}</span></div>
                             </div>
                           </div>
                         </div>
@@ -2852,32 +2869,36 @@ const savePhonetic = () => {
           </div>
           
           {editingWord && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 print:hidden">
-              <div className="bg-white rounded-[28px] max-w-2xl w-full max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden shadow-[0_24px_48px_rgba(0,0,0,0.2)] border-2 border-[#FF9B82] animate-in zoom-in-95 duration-200">
-                <h4 className="text-xl font-black text-slate-700 px-6 py-4 border-b border-slate-100 shrink-0 flex items-center gap-3">
+            <div className="fixed inset-0 z-[120] overflow-y-auto overscroll-contain bg-slate-900/40 backdrop-blur-sm px-3 py-4 print:hidden" role="dialog" aria-modal="true" aria-label="校正標音">
+              <div className="bg-white rounded-[28px] max-w-3xl mx-auto w-full min-h-0 pb-28 shadow-[0_24px_48px_rgba(0,0,0,0.2)] border-2 border-[#FF9B82] animate-in zoom-in-95 duration-200">
+                <h4 className="text-xl font-black text-slate-700 px-5 py-3 border-b border-slate-100 flex items-center gap-3">
                   <Edit3 className="text-[#FF9B82]" size={32} strokeWidth={3}/>
                   校正標音 (整句 / 破音字編輯)
                 </h4>
-                <div className="flex-1 min-h-0 overflow-y-auto p-5 md:p-6 space-y-4 custom-scrollbar">
+                <div className="p-4 md:p-5 space-y-3">
                   <div className="rounded-2xl bg-[#F7F3FA] p-3 space-y-2">
                     <label className="block font-black text-slate-600">逐字校正（點選需要修改的字）</label>
-                    <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto">
+                    <div className="flex flex-wrap gap-1.5">
                       {Array.from(editingWord.text||'').filter(ch=>/[\u3400-\u9fff]/.test(ch)).map((ch,i)=>(
                         <button type="button" key={i} onClick={()=>setSelectedCharacter(i)} className={`min-w-9 h-9 rounded-lg border-2 font-black text-lg ${selectedCharacter===i?'border-[#9677AB] bg-[#E9DCF4] text-[#684A83]':'border-slate-200 bg-white text-slate-700'}`}>{ch}</button>
                       ))}
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {(pronunciationChoices[Array.from(editingWord.text||'').filter(ch=>/[\u3400-\u9fff]/.test(ch))[selectedCharacter]]||[localPhoneticsFor(Array.from(editingWord.text||'').filter(ch=>/[\u3400-\u9fff]/.test(ch))[selectedCharacter]||'').pinyin].filter(Boolean)).map(reading=>(
-                        <button key={reading} type="button" onClick={()=>updateSelectedReading(reading)} className="px-4 py-2 bg-white rounded-xl border-2 border-[#D8C7E5] font-bold text-[#684A83] hover:bg-[#E9DCF4]">{settings.phoneticType==='zhuyin'?pinyinToZhuyinLocal(reading):reading}</button>
-                      ))}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                      <div className="flex flex-wrap gap-2 items-center">
+                        {(pronunciationChoices[Array.from(editingWord.text||'').filter(ch=>/[\u3400-\u9fff]/.test(ch))[selectedCharacter]]||[localPhoneticsFor(Array.from(editingWord.text||'').filter(ch=>/[\u3400-\u9fff]/.test(ch))[selectedCharacter]||'').pinyin].filter(Boolean)).map(reading=>(
+                          <button key={reading} type="button" onClick={()=>updateSelectedReading(reading)} className="px-3 py-1.5 bg-white rounded-xl border-2 border-[#D8C7E5] font-bold text-[#684A83] hover:bg-[#E9DCF4]">{settings.phoneticType==='zhuyin'?pinyinToZhuyinLocal(reading):reading}</button>
+                        ))}
+                      </div>
+                      <label className="flex gap-2 items-center text-sm font-bold text-slate-700"><input type="checkbox" checked={syncSameWord} onChange={e=>setSyncSameWord(e.target.checked)} />套用本教材相同完整詞彙</label>
                     </div>
                     <p className="text-xs text-slate-500">一、不會依句子套用變調；人工校正的讀音優先。</p>
-                    <label className="flex gap-2 items-center text-sm font-bold text-slate-700"><input type="checkbox" checked={syncSameWord} onChange={e=>setSyncSameWord(e.target.checked)} />套用本教材相同完整詞彙（取消勾選則僅此處）</label>
                   </div>
-                 <div className="space-y-2">
+                 <details className="group rounded-2xl border-2 border-[#E8DCEC] bg-white p-3 open:bg-[#FCF9FD]">
+                  <summary className="flex cursor-pointer list-none items-center justify-between font-black text-[#684A83]">手動進階修改（中文／標音）<span className="text-sm group-open:rotate-180 transition-transform">▼</span></summary>
+                 <div className="space-y-2 mt-4">
                     <label className="block text-base font-bold text-slate-500 ml-1">中文文字 (可手動修改)</label>
                     <textarea 
-                      rows={Math.min(3,Math.max(1,Math.ceil((editingWord.text||'').length/26)))} className="w-full px-4 py-3 bg-[#f8fafc] border-2 border-slate-100 focus:border-[#FF9B82] rounded-2xl text-xl font-black text-slate-800 outline-none shadow-inner resize-y min-h-14 max-h-36 leading-relaxed transition-all"
+                      rows={Math.max(2,Math.ceil((editingWord.text||'').length/26))} style={{fieldSizing:'content'}} className="w-full px-4 py-3 bg-[#f8fafc] border-2 border-slate-100 focus:border-[#FF9B82] rounded-2xl text-xl font-black text-slate-800 outline-none shadow-inner resize-none overflow-hidden min-h-14 leading-relaxed transition-all"
                       value={editingWord.text || ''}
                       onChange={(e) => setEditingWord({...editingWord, text: e.target.value})}
                     />
@@ -2889,9 +2910,8 @@ const savePhonetic = () => {
                   {settings.phoneticType!=='zhuyin' && <div>
                       <label className="block text-base font-bold text-slate-500 mb-2 ml-1">拼音 (Pinyin)</label>
                       <textarea 
-                        autoFocus={settings.phoneticType !== 'zhuyin'}
                         disabled={settings.phoneticType === 'zhuyin'}
-                        rows={Math.min(3,Math.max(1,Math.ceil((editingWord.pinyin||'').length/32)))} className={`w-full px-4 py-3 border-2 border-slate-100 rounded-2xl text-lg font-bold outline-none shadow-inner resize-y min-h-14 max-h-32 leading-relaxed transition-all ${settings.phoneticType === 'zhuyin' ? 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-60' : 'bg-[#f8fafc] focus:border-[#FF9B82]'}`} 
+                        rows={Math.max(2,Math.ceil((editingWord.pinyin||'').length/30))} style={{fieldSizing:'content'}} className={`w-full px-4 py-3 border-2 border-slate-100 rounded-2xl text-lg font-bold outline-none shadow-inner resize-none overflow-hidden min-h-14 leading-relaxed transition-all ${settings.phoneticType === 'zhuyin' ? 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-60' : 'bg-[#f8fafc] focus:border-[#FF9B82]'}`} 
                         value={settings.phoneticType === 'zhuyin' ? '' : (editingWord.pinyin || '')} 
                         onChange={(e) => setEditingWord({...editingWord, pinyin: e.target.value})} 
                         placeholder={settings.phoneticType === 'zhuyin' ? "🔒 單一標音：注音模式" : "請以空格隔開"} 
@@ -2901,15 +2921,16 @@ const savePhonetic = () => {
                       <label className="block text-base font-bold text-slate-500 mb-2 ml-1">注音 (Zhuyin)</label>
                       <textarea 
                         disabled={settings.phoneticType === 'pinyin'}
-                        rows={Math.min(3,Math.max(1,Math.ceil((editingWord.zhuyin||'').length/32)))} className={`w-full px-4 py-3 border-2 border-slate-100 rounded-2xl text-lg font-bold outline-none shadow-inner resize-y min-h-14 max-h-32 leading-relaxed transition-all ${settings.phoneticType === 'pinyin' ? 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-60' : 'bg-[#f8fafc] focus:border-[#FF9B82]'}`} 
+                        rows={Math.max(2,Math.ceil((editingWord.zhuyin||'').length/30))} style={{fieldSizing:'content'}} className={`w-full px-4 py-3 border-2 border-slate-100 rounded-2xl text-lg font-bold outline-none shadow-inner resize-none overflow-hidden min-h-14 leading-relaxed transition-all ${settings.phoneticType === 'pinyin' ? 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-60' : 'bg-[#f8fafc] focus:border-[#FF9B82]'}`} 
                         value={settings.phoneticType === 'pinyin' ? '' : (editingWord.zhuyin || '')} 
                         onChange={(e) => setEditingWord({...editingWord, zhuyin: e.target.value})} 
                         placeholder={settings.phoneticType === 'pinyin' ? "🔒 單一標音：拼音模式" : "請以空格隔開"} 
                       />
                     </div>}
                   </div>
+                 </details>
                 </div>
-                  <div className="flex gap-3 px-5 py-4 bg-white border-t border-slate-100 shrink-0">
+                  <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-[130] w-[calc(100%-1.5rem)] max-w-3xl flex gap-3 px-4 py-3 bg-white border-2 border-[#FF9B82] rounded-2xl shadow-[0_12px_32px_rgba(0,0,0,0.2)]">
                     <button onClick={() => setEditingWord(null)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-lg shadow-[0_4px_0_0_#cbd5e1] active:translate-y-[4px] active:shadow-none transition-all">取消</button>
                     <button onClick={savePhonetic} className="flex-1 py-4 bg-[#FF9B82] text-white rounded-2xl font-black text-lg shadow-[0_4px_0_0_#E2755D] active:translate-y-[4px] active:shadow-none transition-all">確認儲存</button>
                   </div>
