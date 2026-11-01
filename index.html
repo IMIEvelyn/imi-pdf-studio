@@ -559,13 +559,11 @@
 
       return (
         <div className="min-h-screen bg-[#FFF6E9] font-sans text-slate-800">
-          <header className="bg-white/90 backdrop-blur-xl shadow-[0_4px_32px_rgba(0,0,0,0.04)] sticky top-0 z-10 rounded-b-[32px] mx-4 mb-6 mt-0 border border-white/50 print:hidden">
+          <header className="bg-white/95 backdrop-blur-xl shadow-[0_4px_32px_rgba(0,0,0,0.04)] sticky top-0 z-[60] rounded-b-[32px] mx-4 mb-6 mt-0 border border-white/50 print:hidden">
             <div className="max-w-6xl mx-auto px-6 py-6 flex flex-col items-center gap-5">
               <div className="flex items-center gap-5">
                 <div className="relative flex items-center justify-center w-16 h-16 rounded-full bg-white shadow-[0_6px_0_0_#e2e8f0,0_8px_16px_rgba(0,0,0,0.08),inset_0_-4px_6px_rgba(0,0,0,0.05),inset_0_4px_6px_rgba(255,255,255,1)] shrink-0 transition-transform hover:scale-105">
-                  <div className="flex items-center justify-center w-[44px] h-[44px] rounded-full bg-[#0a192f] shadow-[0_2px_4px_rgba(0,0,0,0.3),inset_0_2px_4px_rgba(255,255,255,0.15)]">
-                    <span className="text-[#FFD700] font-black text-[16px] tracking-tighter" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>IMI</span>
-                  </div>
+                  <img src="https://imi-pdf-studio-upgrade-20261101.mauvelady1123.chatgpt.site/imi-logo.png" alt="IMI 墨金色品牌標誌" className="w-[52px] h-[52px] object-contain" />
                 </div>
                 <div>
                   <h1 className="text-3xl font-black text-slate-700 tracking-wide drop-shadow-sm">IMI. 華語PDF教材坊</h1>
@@ -743,13 +741,14 @@
                     ? `${tab.color} text-white shadow-[inset_0_-4px_8px_rgba(0,0,0,0.2)] translate-y-[6px]` 
                     : `bg-white text-slate-500 shadow-[0_6px_0_0_#F0E5D8] hover:translate-y-1 hover:shadow-[0_4px_0_0_#F0E5D8]`
                   }`}>
-                  <Icon size={26} strokeWidth={2.5} />{tab.label} <span className="text-sm opacity-80">（{tab.id === 'core' ? ((data.coreTextChunks||[]).map(c=>c.text||'').join('').split(/[。！？!?\n]+/).filter(x=>x.trim()).length + ' 句') : tab.id === 'vocab' ? ((data.vocabList||[]).length+' 詞') : tab.id === 'dialogue' ? ((data.dialogues||[]).length+' 組') : tab.id === 'grammar_point' ? ((data.coreGrammar||[]).length+' 項') : ((data.grammarRules||[]).length+' 題')}）</span>
+                  <Icon size={26} strokeWidth={2.5} />{tab.label}
                 </button>
               );
             })}
           </div>
           
           <div className="bg-white p-10 rounded-[40px] shadow-[0_8px_0_0_#F0E5D8,0_16px_32px_rgba(0,0,0,0.04),inset_0_4px_8px_rgba(255,255,255,0.8),inset_0_-4px_8px_rgba(0,0,0,0.02)] border border-orange-50 min-h-[500px]">
+            <div className="flex justify-end mb-2" aria-label="目前模組數量"><span className="text-sm font-black text-slate-500 bg-slate-50 border border-slate-200 rounded-full px-4 py-2">{activeTab === 'core' ? `${(data.coreTextChunks||[]).map(c=>c.text||'').join('').split(/[。！？!?\n]+/).filter(x=>x.trim()).length} 句` : activeTab === 'vocab' ? `${(data.vocabList||[]).length} 詞` : activeTab === 'dialogue' ? `${(data.dialogues||[]).length} 組` : activeTab === 'grammar_point' ? `${(data.coreGrammar||[]).length} 項` : `${(data.grammarRules||[]).length} 題`}</span></div>
             {activeTab === 'core' && <CoreTextEditor data={data} setData={setData} autoLink={autoLink} />}
             {activeTab === 'vocab' && <VocabEditor data={data} setData={setData} autoLink={autoLink} />}
             {activeTab === 'dialogue' && <DialogueEditor data={data} setData={setData} />}
@@ -1191,6 +1190,7 @@
     function Step3Settings({ settings, setSettings, onNext, onPrev, isGenerating, customApiKey, setCustomApiKey }) {
       const fileInputRef = useRef(null);
       const [languageFocused, setLanguageFocused] = useState(false);
+      const [languageHighlight, setLanguageHighlight] = useState(0);
       const [customLanguages, setCustomLanguages] = useState(() => {
         try { const v=JSON.parse(localStorage.getItem('imi-custom-language-names')||'[]'); return Array.isArray(v)?v.filter(x=>typeof x==='string'):[]; } catch(e) { return []; }
       });
@@ -1312,8 +1312,16 @@
                 </div>
                 <div className="space-y-8"><h4 className="font-black text-2xl text-slate-700 flex items-center gap-3"><Download className="text-[#56D0A0]" size={32}/>翻譯設定</h4>
                 <div className="space-y-4"><label className="text-base font-black text-slate-500 ml-1">目標語言</label>
-                    <input type="text" list="imi-language-options" className="w-full p-5 bg-[#f8fafc] border-2 border-slate-100 rounded-2xl outline-none focus:border-[#56D0A0] font-bold text-xl text-slate-700 shadow-inner" value={settings.translationLanguage} onFocus={() => setLanguageFocused(true)} onBlur={(e) => {setLanguageFocused(false); rememberLanguage(e.target.value);}} onChange={(e) => updateSetting('translationLanguage', e.target.value)} placeholder="選擇或輸入語言，例如：泰文" aria-label="目標語言，可選擇或手動輸入" />
-                    <datalist id="imi-language-options">{allLanguages.map(name => <option key={name} value={name} />)}</datalist>
+                    <div className="relative">
+                      <div className="flex items-center rounded-2xl border-2 border-slate-100 bg-[#f8fafc] shadow-inner focus-within:border-[#56D0A0]">
+                        <input type="text" role="combobox" aria-expanded={languageFocused} aria-controls="imi-language-options" aria-autocomplete="list" className="min-w-0 flex-1 p-5 bg-transparent outline-none font-bold text-xl text-slate-700" value={settings.translationLanguage} onFocus={() => {setLanguageFocused(true);setLanguageHighlight(0);}} onBlur={(e) => {setLanguageFocused(false); rememberLanguage(e.target.value);}} onKeyDown={(e)=>{const choices=allLanguages.filter(name=>!settings.translationLanguage||name.toLowerCase().includes(settings.translationLanguage.toLowerCase()));if(e.key==='Escape')setLanguageFocused(false);if(e.key==='ArrowDown'){e.preventDefault();setLanguageHighlight(i=>Math.min(choices.length-1,i+1));}if(e.key==='ArrowUp'){e.preventDefault();setLanguageHighlight(i=>Math.max(0,i-1));}if(e.key==='Enter'&&languageFocused&&choices[languageHighlight]){e.preventDefault();updateSetting('translationLanguage',choices[languageHighlight]);setLanguageFocused(false);}}} onChange={(e) => {updateSetting('translationLanguage', e.target.value);setLanguageFocused(true);setLanguageHighlight(0);}} placeholder="選擇或輸入語言，例如：泰文" aria-label="目標語言，可選擇或手動輸入" />
+                        <button type="button" aria-label="展開語言清單" onMouseDown={e=>e.preventDefault()} onClick={()=>setLanguageFocused(v=>!v)} className="px-4 text-slate-500 hover:text-[#34A879] text-xl">⌄</button>
+                      </div>
+                      {languageFocused && <div id="imi-language-options" role="listbox" className="absolute z-40 top-full left-0 right-0 mt-2 max-h-64 overflow-y-auto rounded-2xl border-2 border-[#56D0A0]/60 bg-white p-2 shadow-xl custom-scrollbar">
+                        {allLanguages.filter(name=>!settings.translationLanguage||name.toLowerCase().includes(settings.translationLanguage.toLowerCase())).map((name,i)=><button type="button" role="option" aria-selected={i===languageHighlight} key={name} onMouseDown={e=>e.preventDefault()} onClick={()=>{updateSetting('translationLanguage',name);setLanguageFocused(false);}} className={`w-full text-left rounded-xl px-4 py-3 font-bold transition-colors ${i===languageHighlight?'bg-[#EAFBF4] text-[#1B6B47]':'text-slate-700 hover:bg-[#EAFBF4]'}`}>{name}</button>)}
+                        {!allLanguages.some(name=>name.toLowerCase().includes((settings.translationLanguage||'').toLowerCase()))&&<div className="px-4 py-3 text-sm font-bold text-[#1B6B47]">按 Enter 或點選其他位置，使用「{settings.translationLanguage}」</div>}
+                      </div>}
+                    </div>
                     <p className="text-sm font-medium text-slate-500">可直接輸入新語言；輸入或選擇時不會呼叫 API。</p>
                   </div>
                   <div className="space-y-3 pt-4 border-t-2 border-dashed border-slate-100">
@@ -1373,6 +1381,7 @@ function Step4Preview({ onReset, data, settings, onPrev, setData, layoutTitleSiz
     dialogue:(data.dialogues||[]).some(d=>(d.lines||[]).some(l=>(l.text||'').trim())),
     grammarDiagnose:(data.grammarRules||[]).some(r=>(r.mistake||'').trim()||(r.correction||'').trim())
   };
+  const firstVisibleModule = Object.keys(hasContent).find(id=>hasContent[id]);
   React.useEffect(()=>{
     if(!hasContent[activeModule]){
       const first=Object.keys(hasContent).find(k=>hasContent[k]);
@@ -2115,13 +2124,17 @@ const savePhonetic = () => {
             }
             /* 左側老師控制區、右側教材預覽：僅調整螢幕位置，列印樣式不變。 */
             @media screen and (min-width: 1180px) {
-              .imi-preview-workspace { display:grid; grid-template-columns: 300px minmax(0,1fr); align-items:start; gap:16px; }
+              .imi-preview-workspace { display:grid; grid-template-columns: 300px minmax(0,1fr); grid-template-rows:auto minmax(0,1fr); align-items:start; gap:16px; height:calc(100dvh - 180px); min-height:540px; overflow:hidden; }
               .imi-preview-workspace > style { display:none; }
-              .imi-preview-controls { grid-column:1; grid-row:1 / span 3; position:sticky !important; top:16px; width:100% !important; max-height:calc(100vh - 32px); overflow-y:auto; margin:0 !important; z-index:25; }
+              .imi-preview-controls { grid-column:1; grid-row:1 / span 2; position:relative !important; top:auto; width:100% !important; max-height:100%; overflow-y:auto; margin:0 !important; z-index:2; align-self:stretch; }
               .imi-preview-controls > .grid { grid-template-columns:minmax(0,1fr); }
               .imi-preview-tabs { grid-column:2; grid-row:1; width:100% !important; margin:0 !important; }
-              #imi-print-area { grid-column:2; grid-row:2; max-width:100%; }
-              .imi-preview-footer { grid-column:2; grid-row:3; justify-self:center; }
+              #imi-print-area { grid-column:2; grid-row:2; max-width:100%; height:100%; min-height:0; overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain; }
+            }
+            @media print {
+              .imi-module-new-page { break-before: page !important; page-break-before: always !important; }
+              .imi-preview-workspace { display:block !important; height:auto !important; overflow:visible !important; }
+              #imi-print-area { height:auto !important; overflow:visible !important; }
             }
           `}</style>
 {/* === 所見即所得：智慧排版指揮中心 (美感升級 2x2 網格版) === */}
@@ -2216,6 +2229,13 @@ const savePhonetic = () => {
               )}
             </div>
     
+  </div>
+  <div className="mt-5 pt-4 border-t-2 border-dashed border-slate-200 space-y-3">
+    <button type="button" onClick={()=>window.print()} className="w-full flex justify-center items-center gap-2 rounded-2xl bg-[#FF9B82] text-white font-black text-base py-4 shadow-[0_5px_0_0_#E2755D] hover:translate-y-0.5 transition-transform"><Download size={20}/>列印 / 下載 PDF</button>
+    <div className="grid grid-cols-2 gap-2">
+      <button type="button" onClick={()=>onPrev?.()} className="rounded-xl bg-white border border-slate-200 px-2 py-3 text-slate-600 font-bold text-sm hover:bg-slate-50">返回設定</button>
+      <button type="button" onClick={handleReturnToHome} className="rounded-xl bg-white border border-slate-200 px-2 py-3 text-slate-600 font-bold text-sm hover:bg-slate-50">🏠 返回首頁</button>
+    </div>
   </div>
 </div>
         {/* 🌟 [新增] 方案 B：螢幕專用模組導覽列 (列印時隱藏) */}
@@ -2331,7 +2351,7 @@ const savePhonetic = () => {
                     <div style={{ padding: '0px' }}> 
                       <div className="content-inner-layer relative bg-white z-0 rounded-[32px] overflow-visible shadow-sm" style={{ border: '1px solid #E4E0EB', WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact', minHeight: '0px' }}>
                         
-                      <div className="purple-header p-5 md:p-6 text-white border-b-[6px] border-[#8A7EA5]" style={{ backgroundColor: ({purple: '#9A8CB0', green: '#86B093', blue: '#7A9CCC', yellow: '#D4AA6A'}[settings.themeColor] || '#9A8CB0'), borderColor: ({purple: '#8A7EA5', green: '#759D81', blue: '#6A8AB8', yellow: '#C49755'}[settings.themeColor] || '#8A7EA5'), WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
+                      <div className={`purple-header p-5 md:p-6 text-white border-b-[6px] border-[#8A7EA5] ${activeModule!==firstVisibleModule?'hidden print:block':''}`} style={{ backgroundColor: ({purple: '#9A8CB0', green: '#86B093', blue: '#7A9CCC', yellow: '#D4AA6A'}[settings.themeColor] || '#9A8CB0'), borderColor: ({purple: '#8A7EA5', green: '#759D81', blue: '#6A8AB8', yellow: '#C49755'}[settings.themeColor] || '#8A7EA5'), WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
                           <div className="flex flex-wrap justify-between items-center gap-5">
                             <div className="flex items-center gap-6">
                               {/* 🚀 修正括號錯誤：移除了導致編譯失敗的括號，讓變數完美嵌入 rgba 中 */}
@@ -2339,9 +2359,7 @@ const savePhonetic = () => {
                                 {settings.logoUrl ? (
                                   <img src={settings.logoUrl} alt="Logo" className="w-[85%] h-[85%] object-contain drop-shadow-sm" />
                                 ) : (
-                                  <div className="flex items-center justify-center w-full h-full bg-[#0a192f]" style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}>
-                                     <span className="text-[#FFD700] font-black text-3xl tracking-tighter" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.5)' }}>IMI</span>
-                                  </div>
+                                  <img src="https://imi-pdf-studio-upgrade-20261101.mauvelady1123.chatgpt.site/imi-logo.png" alt="IMI 品牌標誌" className="w-[86%] h-[86%] object-contain" />
                                 )}
                                   </div>
                           <h1 className="space-y-2 flex flex-wrap items-end font-black tracking-tighter text-white" style={{ fontSize: `${Number(layoutTitleSize) + 8}px`, lineHeight: '1.2', '--hz-size': `${Number(layoutTitleSize) + 8}px` }}>
@@ -2474,9 +2492,9 @@ const savePhonetic = () => {
   </div>
 )}
     </section>
-                          {hasContent.coreText && hasContent.vocab && <ModuleDivider />}
+                          {/* 模組換頁由列印規則負責；不插入橫向分隔線。 */}
 
-                         <section className={`${hasContent.vocab ? (activeModule === 'vocab' ? 'block' : 'hidden') : 'hidden'} ${hasContent.vocab ? 'print:block' : 'print:hidden'}`}>
+                         <section className={`${hasContent.vocab ? (activeModule === 'vocab' ? 'block' : 'hidden') : 'hidden'} ${hasContent.vocab ? 'print:block' : 'print:hidden'} ${firstVisibleModule!=='vocab'?'imi-module-new-page':''}`}>
                        <SectionHeader title={getTranslatedModuleTitle("📝 核心生詞", settings.translationLanguage)} color="#38A385" border="#48C0A3" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize}>
   <div className="flex items-center justify-end ml-auto gap-4 font-bold text-slate-500 tracking-wider whitespace-nowrap mb-1 w-full" style={{ fontSize: `${layoutLegendSize}px` }}>
     <span className="flex items-center gap-1.5"><span className="rounded-full shrink-0 shadow-sm" style={{ width: `${layoutLegendSize}px`, height: `${layoutLegendSize}px`, backgroundColor: '#FFCD57', WebkitPrintColorAdjust: 'exact' }}></span>{kwStr}</span>
@@ -2526,10 +2544,10 @@ const savePhonetic = () => {
                             </div>
                           </section>
 
-                          {hasContent.coreGrammar && (hasContent.coreText || hasContent.vocab) && <ModuleDivider />}
+                          {/* 空模組不佔頁；下個有效模組自行換頁。 */}
 
                           {(data.coreGrammar || []).length > 0 && (
-                         <section className={`${hasContent.coreGrammar ? (activeModule === 'coreGrammar' ? 'block' : 'hidden') : 'hidden'} ${hasContent.coreGrammar ? 'print:block' : 'print:hidden'}`}>
+                         <section className={`${hasContent.coreGrammar ? (activeModule === 'coreGrammar' ? 'block' : 'hidden') : 'hidden'} ${hasContent.coreGrammar ? 'print:block' : 'print:hidden'} ${firstVisibleModule!=='coreGrammar'?'imi-module-new-page':''}`}>
                               <div className="flex flex-wrap items-end justify-between gap-4 w-full border-b-[3px] pb-2 mb-8" style={{ borderColor: '#FFEE99', WebkitPrintColorAdjust: 'exact' }}>
             <div className="shrink-0">
               <SectionHeader title={getTranslatedModuleTitle("📙 核心語法", settings.translationLanguage)} color="#D4A017" border="none" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize} />
@@ -2645,10 +2663,10 @@ const savePhonetic = () => {
                             </section>
                           )}
 
-                          {hasContent.dialogue && (hasContent.coreText || hasContent.vocab || hasContent.coreGrammar) && <ModuleDivider />}
+                          {/* 情境對話從新列印頁面開始。 */}
 
                           {(data.dialogues || []).length > 0 && (
-                            <section className={`${hasContent.dialogue ? (activeModule === 'dialogue' ? 'block' : 'hidden') : 'hidden'} ${hasContent.dialogue ? 'print:block' : 'print:hidden'}`}>
+                            <section className={`${hasContent.dialogue ? (activeModule === 'dialogue' ? 'block' : 'hidden') : 'hidden'} ${hasContent.dialogue ? 'print:block' : 'print:hidden'} ${firstVisibleModule!=='dialogue'?'imi-module-new-page':''}`}>
                              <div className="flex flex-wrap items-end justify-between gap-4 w-full border-b-[3px] pb-2 mb-8" style={{ borderColor: '#7A7387', WebkitPrintColorAdjust: 'exact' }}>
             <div className="shrink-0">
               <SectionHeader title={getTranslatedModuleTitle("💬 情境對話", settings.translationLanguage)} color="#615A6B" border="none" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize} />
@@ -2712,10 +2730,10 @@ const savePhonetic = () => {
                             </section>
                           )}
 
-{hasContent.grammarDiagnose && (hasContent.coreText || hasContent.vocab || hasContent.coreGrammar || hasContent.dialogue) && <ModuleDivider />}
+{/* 不輸出分隔線；語法診斷室獨立起頁。 */}
 
 {((data.grammarRules || []).length > 0) && (
-  <section className={`${hasContent.grammarDiagnose ? (activeModule === 'grammarDiagnose' ? 'block' : 'hidden') : 'hidden'} ${hasContent.grammarDiagnose ? 'print:block' : 'print:hidden'}`}>
+  <section className={`${hasContent.grammarDiagnose ? (activeModule === 'grammarDiagnose' ? 'block' : 'hidden') : 'hidden'} ${hasContent.grammarDiagnose ? 'print:block' : 'print:hidden'} ${firstVisibleModule!=='grammarDiagnose'?'imi-module-new-page':''}`}>
    <div className="flex flex-wrap items-end justify-between gap-4 w-full border-b-[3px] pb-2 mb-8" style={{ borderColor: '#F07167', WebkitPrintColorAdjust: 'exact' }}>
             <div className="shrink-0">
               <SectionHeader title={getTranslatedModuleTitle("🛠️ 語法診斷室", settings.translationLanguage)} color="#D95A50" border="none" layoutSpacing={layoutSpacing} layoutTitleSize={layoutTitleSize} />
@@ -2832,36 +2850,20 @@ const savePhonetic = () => {
               </tfoot>
             </table>
           </div>
-       <div className="imi-preview-footer fixed bottom-8 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-2xl p-4 rounded-full shadow-[0_16px_32px_rgba(0,0,0,0.1),inset_0_4px_8px_rgba(255,255,255,1)] border border-slate-200 flex items-center gap-6 z-20 print:hidden relative">
-    <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (onPrev) onPrev(); }} className="px-10 py-5 text-slate-600 font-black text-xl hover:bg-[#FFF6E9] rounded-[32px] transition-colors relative z-50 cursor-pointer">返回設定</button>
-    <button onClick={() => window.print()} className="px-12 py-5 bg-[#FF9B82] text-white rounded-[32px] font-black text-2xl shadow-[0_8px_0_0_#E2755D] hover:translate-y-1 hover:shadow-[0_4px_0_0_#E2755D] active:translate-y-[8px] active:shadow-none transition-all flex items-center gap-3"><Download size={28} strokeWidth={3}/>列印 / 下載 PDF</button>
-
-    {/* 灰色線：維持原狀，緊跟在列印按鈕右側 */}
-    <div className="w-px h-12 bg-slate-200"></div>
-
-    {/* 返回首頁：加入 ml-auto，吸收底座內剩餘的空白空間，將自己推到最右側 */}
-    <button 
-        type="button" 
-        onClick={handleReturnToHome} 
-        className="ml-auto px-8 py-5 border-2 border-slate-300 text-slate-500 rounded-[32px] font-bold text-xl hover:bg-slate-50 hover:text-slate-700 hover:border-slate-400 transition-all active:scale-95 flex items-center gap-2"
-    >
-        🏠 返回首頁
-    </button>
-</div>
           
           {editingWord && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 print:hidden">
-              <div className="bg-white rounded-[40px] p-10 max-w-2xl w-full shadow-[0_24px_48px_rgba(0,0,0,0.2)] border-2 border-[#FF9B82] animate-in zoom-in-95 duration-200">
-                <h4 className="text-2xl font-black text-slate-700 mb-6 flex items-center gap-3">
+              <div className="bg-white rounded-[28px] max-w-2xl w-full max-h-[calc(100dvh-2rem)] flex flex-col overflow-hidden shadow-[0_24px_48px_rgba(0,0,0,0.2)] border-2 border-[#FF9B82] animate-in zoom-in-95 duration-200">
+                <h4 className="text-xl font-black text-slate-700 px-6 py-4 border-b border-slate-100 shrink-0 flex items-center gap-3">
                   <Edit3 className="text-[#FF9B82]" size={32} strokeWidth={3}/>
                   校正標音 (整句 / 破音字編輯)
                 </h4>
-                <div className="space-y-6">
-                  <div className="rounded-2xl bg-[#F7F3FA] p-4 space-y-3">
+                <div className="flex-1 min-h-0 overflow-y-auto p-5 md:p-6 space-y-4 custom-scrollbar">
+                  <div className="rounded-2xl bg-[#F7F3FA] p-3 space-y-2">
                     <label className="block font-black text-slate-600">逐字校正（點選需要修改的字）</label>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto">
                       {Array.from(editingWord.text||'').filter(ch=>/[\u3400-\u9fff]/.test(ch)).map((ch,i)=>(
-                        <button type="button" key={i} onClick={()=>setSelectedCharacter(i)} className={`min-w-12 h-12 rounded-xl border-2 font-black text-2xl ${selectedCharacter===i?'border-[#9677AB] bg-[#E9DCF4] text-[#684A83]':'border-slate-200 bg-white text-slate-700'}`}>{ch}</button>
+                        <button type="button" key={i} onClick={()=>setSelectedCharacter(i)} className={`min-w-9 h-9 rounded-lg border-2 font-black text-lg ${selectedCharacter===i?'border-[#9677AB] bg-[#E9DCF4] text-[#684A83]':'border-slate-200 bg-white text-slate-700'}`}>{ch}</button>
                       ))}
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -2875,7 +2877,7 @@ const savePhonetic = () => {
                  <div className="space-y-2">
                     <label className="block text-base font-bold text-slate-500 ml-1">中文文字 (可手動修改)</label>
                     <textarea 
-                      className="w-full px-5 py-4 bg-[#f8fafc] border-2 border-slate-100 focus:border-[#FF9B82] rounded-2xl text-2xl font-black text-slate-800 outline-none shadow-inner resize-none h-28 leading-relaxed transition-all"
+                      rows={Math.min(3,Math.max(1,Math.ceil((editingWord.text||'').length/26)))} className="w-full px-4 py-3 bg-[#f8fafc] border-2 border-slate-100 focus:border-[#FF9B82] rounded-2xl text-xl font-black text-slate-800 outline-none shadow-inner resize-y min-h-14 max-h-36 leading-relaxed transition-all"
                       value={editingWord.text || ''}
                       onChange={(e) => setEditingWord({...editingWord, text: e.target.value})}
                     />
@@ -2883,34 +2885,34 @@ const savePhonetic = () => {
                       ⚠️ 提醒：修改中文不會連動更新標音及翻譯，請手動修改此兩個欄位。
                     </p>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
+                  <div className={`grid gap-3 ${settings.phoneticType==='zhuyin_pinyin'?'grid-cols-1 md:grid-cols-2':'grid-cols-1'}`}>
+                  {settings.phoneticType!=='zhuyin' && <div>
                       <label className="block text-base font-bold text-slate-500 mb-2 ml-1">拼音 (Pinyin)</label>
                       <textarea 
                         autoFocus={settings.phoneticType !== 'zhuyin'}
                         disabled={settings.phoneticType === 'zhuyin'}
-                        className={`w-full px-5 py-4 border-2 border-slate-100 rounded-2xl text-xl font-bold outline-none shadow-inner resize-none h-40 leading-relaxed transition-all ${settings.phoneticType === 'zhuyin' ? 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-60' : 'bg-[#f8fafc] focus:border-[#FF9B82]'}`} 
+                        rows={Math.min(3,Math.max(1,Math.ceil((editingWord.pinyin||'').length/32)))} className={`w-full px-4 py-3 border-2 border-slate-100 rounded-2xl text-lg font-bold outline-none shadow-inner resize-y min-h-14 max-h-32 leading-relaxed transition-all ${settings.phoneticType === 'zhuyin' ? 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-60' : 'bg-[#f8fafc] focus:border-[#FF9B82]'}`} 
                         value={settings.phoneticType === 'zhuyin' ? '' : (editingWord.pinyin || '')} 
                         onChange={(e) => setEditingWord({...editingWord, pinyin: e.target.value})} 
                         placeholder={settings.phoneticType === 'zhuyin' ? "🔒 單一標音：注音模式" : "請以空格隔開"} 
                       />
-                    </div>
-                    <div>
+                    </div>}
+                    {settings.phoneticType!=='pinyin' && <div>
                       <label className="block text-base font-bold text-slate-500 mb-2 ml-1">注音 (Zhuyin)</label>
                       <textarea 
                         disabled={settings.phoneticType === 'pinyin'}
-                        className={`w-full px-5 py-4 border-2 border-slate-100 rounded-2xl text-xl font-bold outline-none shadow-inner resize-none h-40 leading-relaxed transition-all ${settings.phoneticType === 'pinyin' ? 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-60' : 'bg-[#f8fafc] focus:border-[#FF9B82]'}`} 
+                        rows={Math.min(3,Math.max(1,Math.ceil((editingWord.zhuyin||'').length/32)))} className={`w-full px-4 py-3 border-2 border-slate-100 rounded-2xl text-lg font-bold outline-none shadow-inner resize-y min-h-14 max-h-32 leading-relaxed transition-all ${settings.phoneticType === 'pinyin' ? 'bg-slate-100 text-slate-400 cursor-not-allowed opacity-60' : 'bg-[#f8fafc] focus:border-[#FF9B82]'}`} 
                         value={settings.phoneticType === 'pinyin' ? '' : (editingWord.zhuyin || '')} 
                         onChange={(e) => setEditingWord({...editingWord, zhuyin: e.target.value})} 
                         placeholder={settings.phoneticType === 'pinyin' ? "🔒 單一標音：拼音模式" : "請以空格隔開"} 
                       />
-                    </div>
+                    </div>}
                   </div>
-                  <div className="flex gap-4 pt-4">
+                </div>
+                  <div className="flex gap-3 px-5 py-4 bg-white border-t border-slate-100 shrink-0">
                     <button onClick={() => setEditingWord(null)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-lg shadow-[0_4px_0_0_#cbd5e1] active:translate-y-[4px] active:shadow-none transition-all">取消</button>
                     <button onClick={savePhonetic} className="flex-1 py-4 bg-[#FF9B82] text-white rounded-2xl font-black text-lg shadow-[0_4px_0_0_#E2755D] active:translate-y-[4px] active:shadow-none transition-all">確認儲存</button>
                   </div>
-                </div>
               </div>
             </div>
           )}
