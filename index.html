@@ -385,9 +385,9 @@
                      if (currentRule) result.grammarRules.push(currentRule);
                      currentRule = { id: generateNumId(result.grammarRules.length), theme: l.replace(/^【辨析主[題题]】：/, '').trim(), mistake: '', correction: '', explanation: '' };
                  } else if (l.includes('（x）') || l.includes('(x)')) {
-                     if (currentRule) currentRule.mistake = l.replace(/（x）|\(x\)/i, '').trim();
+                     if (currentRule) currentRule.mistake = l.replace(/^\s*(?:\[錯誤例句\]|\[错误例句\])\s*[:：]?\s*/i, '').replace(/（x）|\(x\)/i, '').trim();
                  } else if (l.includes('（o）') || l.includes('(o)')) {
-                     if (currentRule) currentRule.correction = l.replace(/（o）|\(o\)/i, '').trim();
+                     if (currentRule) currentRule.correction = l.replace(/^\s*(?:\[正確例句\]|\[正确例句\])\s*[:：]?\s*/i, '').replace(/（o）|\(o\)/i, '').trim();
                  } else if (l.match(/^\* 情境[說说]明：/)) {
                      if (currentRule) currentRule.explanation = l.replace(/^\* 情境[說说]明：/, '').trim();
                  }
@@ -740,7 +740,7 @@
                     ? `${tab.color} text-white shadow-[inset_0_-4px_8px_rgba(0,0,0,0.2)] translate-y-[6px]` 
                     : `bg-white text-slate-500 shadow-[0_6px_0_0_#F0E5D8] hover:translate-y-1 hover:shadow-[0_4px_0_0_#F0E5D8]`
                   }`}>
-                  <Icon size={26} strokeWidth={2.5} />{tab.label}
+                  <Icon size={26} strokeWidth={2.5} />{tab.label} <span className="text-sm opacity-80">（{tab.id === 'core' ? ((data.coreTextChunks||[]).map(c=>c.text||'').join('').split(/[。！？!?\n]+/).filter(x=>x.trim()).length + ' 句') : tab.id === 'vocab' ? ((data.vocabList||[]).length+' 詞') : tab.id === 'dialogue' ? ((data.dialogues||[]).length+' 組') : tab.id === 'grammar_point' ? ((data.coreGrammar||[]).length+' 項') : ((data.grammarRules||[]).length+' 題')}）</span>
                 </button>
               );
             })}
@@ -1187,18 +1187,18 @@
 
     function Step3Settings({ settings, setSettings, onNext, onPrev, isGenerating, customApiKey, setCustomApiKey }) {
       const fileInputRef = useRef(null);
-      const [customLanguageInput, setCustomLanguageInput] = useState('');
+      const [languageFocused, setLanguageFocused] = useState(false);
       const [customLanguages, setCustomLanguages] = useState(() => {
         try { const v=JSON.parse(localStorage.getItem('imi-custom-language-names')||'[]'); return Array.isArray(v)?v.filter(x=>typeof x==='string'):[]; } catch(e) { return []; }
       });
-      const addCustomLanguage = () => {
-        const name = customLanguageInput.trim();
-        if(!name) return;
-        const next = Array.from(new Set([...customLanguages,name]));
+      const builtInLanguages = ['英文 (English)','韓文 (한국어)','日文 (日本語)','越南文 (Tiếng Việt)','法文 (Français)','義大利語 (Italiano)','捷克語 (Čeština)','匈牙利語 (Magyar)'];
+      const allLanguages = [...builtInLanguages, ...customLanguages.filter(n=>!builtInLanguages.includes(n))];
+      const rememberLanguage = (raw) => {
+        const name = (raw || '').trim();
+        if (!name || allLanguages.includes(name)) return;
+        const next = [...customLanguages, name];
         setCustomLanguages(next);
-        try { localStorage.setItem('imi-custom-language-names',JSON.stringify(next)); } catch(e) { console.warn('語言清單無法儲存',e); }
-        setSettings(prev => ({...prev, translationLanguage:name}));
-        setCustomLanguageInput('');
+        try { localStorage.setItem('imi-custom-language-names', JSON.stringify(next)); } catch(e) { console.warn('語言清單無法儲存',e); }
       };
       const updateSetting = (key, value) => setSettings(prev => ({ ...prev, [key]: value }));
       const updateTarget = (key) => setSettings(prev => ({ ...prev, translateTargets: { ...prev.translateTargets, [key]: !prev.translateTargets[key] } }));
@@ -1309,21 +1309,10 @@
                 </div>
                 <div className="space-y-8"><h4 className="font-black text-2xl text-slate-700 flex items-center gap-3"><Download className="text-[#56D0A0]" size={32}/>翻譯設定</h4>
                 <div className="space-y-4"><label className="text-base font-black text-slate-500 ml-1">目標語言</label>
-                    <select className="w-full p-5 bg-[#f8fafc] border-2 border-slate-100 rounded-2xl outline-none focus:border-[#56D0A0] font-bold text-xl text-slate-700 shadow-inner" value={settings.translationLanguage} onChange={(e) => updateSetting('translationLanguage', e.target.value)}>
-                      <option value="英文 (English)">英文 (English)</option>
-                      <option value="韓文 (한국어)">韓文 (한국어)</option>
-                      <option value="日文 (日本語)">日文 (日本語)</option>
-                      <option value="越南文 (Tiếng Việt)">越南文 (Tiếng Việt)</option>
-                      <option value="法文 (Français)">法文 (Français)</option>
-                      <option value="義大利語 (Italiano)">義大利語 (Italiano)</option>
-                     <option value="捷克語 (Čeština)">捷克語 (Čeština)</option>
-                      <option value="匈牙利語 (Magyar)">匈牙利語 (Magyar)</option>
-                      {customLanguages.map(name=><option key={name} value={name}>{name}</option>)}
-                    </select>
-                    <div className="flex gap-3">
-                      <input type="text" value={customLanguageInput} onChange={e=>setCustomLanguageInput(e.target.value)} placeholder="新增語言，例如：泰文、印尼文、菲律賓文" className="min-w-0 flex-1 rounded-xl border-2 border-slate-100 bg-white px-4 py-3 text-base" />
-                      <button type="button" onClick={addCustomLanguage} className="rounded-xl bg-[#56D0A0] px-5 py-3 font-black text-white">新增</button>
-                    </div>
+                    <input type="text" list="imi-language-options" className="w-full p-5 bg-[#f8fafc] border-2 border-slate-100 rounded-2xl outline-none focus:border-[#56D0A0] font-bold text-xl text-slate-700 shadow-inner" value={settings.translationLanguage} onFocus={() => setLanguageFocused(true)} onBlur={(e) => {setLanguageFocused(false); rememberLanguage(e.target.value);}} onChange={(e) => updateSetting('translationLanguage', e.target.value)} placeholder="選擇或輸入語言，例如：泰文" aria-label="目標語言，可選擇或手動輸入" />
+                    <datalist id="imi-language-options">{allLanguages.map(name => <option key={name} value={name} />)}</datalist>
+                    <p className="text-sm font-medium text-slate-500">可直接輸入新語言；輸入或選擇時不會呼叫 API。</p>
+                  </div>
                   </div>
                   <div className="space-y-3 pt-4 border-t-2 border-dashed border-slate-100">
                     <label className="text-base font-black text-slate-500 ml-1">教材字體來源</label>
